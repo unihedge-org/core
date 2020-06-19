@@ -79,13 +79,13 @@ contract Market {
     }
 
     //Allow funds to be spend for wager placement
-    function approveWager(address spender, uint amount, uint frameKey, uint priceMin, uint priceMax) public returns (uint){
+    function approveWager(uint frameKey,uint amount, uint priceMin, uint priceMax) public returns (uint){
         //Check if frame is opened
         require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
         //Create wager
-        wagers[getWagersCount()] = Wager(spender, amount, priceMin, priceMax, frameKey, SWager.PENDING_APPROVAL);
+        wagers[getWagersCount()] = Wager(msg.sender, amount, priceMin, priceMax, frameKey, SWager.PENDING_APPROVAL);
         //Process approval
-        sToken.approve(spender, amount);
+        sToken.approve(address(this), amount);
         return getWagersCount();
     }
 
@@ -94,7 +94,7 @@ contract Market {
         //Check wager state
         require(wagers[wagerKey].state==SWager.PENDING_APPROVAL,"WAGER NOT PENDING");
         //Transfer tokens
-
+        //sToken.transferFrom
 
 
     }

@@ -1,5 +1,5 @@
 const Web3 = require('web3');
-const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:7545'));
+const web3 = new Web3(new Web3.providers.WebsocketProvider('http://localhost:7545'));
 
 const colors = require('colors');
 const path = require('path');
@@ -57,6 +57,16 @@ web3.eth.getAccounts().then(async accounts => {
         frames.push(await markets[0].methods.frames(frameKey).call());
         console.log("Frame with start block: "+frameKey);
     }
+
+    //Track token approval event
+    contracts["DAIToken"].once("Approval",{fromBlock:0},(error, event)=>{
+        let t=0;
+        console.log(error)
+    })
+
+    //Approve token spend
+    let wager=markets[0].methods.approveWager(465,100,300,500).send({from:accounts[0]})
+
 
 })
 
