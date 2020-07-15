@@ -14,15 +14,13 @@ contract MarketFactory {
         uniswapFactory = IUniswapV2Factory(_uniswapFactory);
     }
 
-    function addMarket(address _sToken, address _uniswapPair, uint _period, uint _settleInterval, uint _blockStart) external {
-        require(address(markets[_uniswapPair].uniswapPair) == address(0), "MARKET ALREADY EXISTS ");
-        markets[_uniswapPair] = new Market(_sToken, _uniswapPair, _period, _settleInterval, _blockStart);
-        marketsKeys.push(_uniswapPair);
+    function addMarket(address _uniswapPair, uint _period, uint _settleInterval, uint _blockStart, uint _fee) external {
+        Market market= new Market(_uniswapPair, _period, _settleInterval, _blockStart, _fee);
+        markets[address(market)]=market;
+        marketsKeys.push(address(market));
     }
 
     function getMarketsCount() public view returns (uint){
         return marketsKeys.length;
     }
-
-
 }
