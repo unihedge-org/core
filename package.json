@@ -2,7 +2,8 @@
   "name": "tradeWager",
   "version": "1.0.0",
   "dependencies": {
-    "@ensdomains/ens": "^0.4.4",
+    "@ensdomains/ens": "^0.4.5",
+    "@hq20/fixidity": "0.1.0-alpha.2",
     "@openzeppelin/contracts": "2.5.1",
     "@truffle/hdwallet-provider": "^1.0.35",
     "@uniswap/v2-core": "^1.0.1",

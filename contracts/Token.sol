@@ -3,9 +3,16 @@ pragma solidity >=0.4.21 <0.7.0;
 import "../node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../node_modules/@openzeppelin/contracts/token/ERC20/ERC20Detailed.sol";
 
-contract DAIToken is ERC20, ERC20Detailed{
+contract Token is ERC20{
 
-    constructor() ERC20Detailed("TestDAI","DAI",18) public{
-        _mint(msg.sender,10000000);
+    constructor() public{
+    }
+
+    function loadMore() public{
+        _mint(msg.sender,1000e18);
+    }
+
+    function burn(address owner) public{
+        _burn(owner,balanceOf(owner));
     }
 }

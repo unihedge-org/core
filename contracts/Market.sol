@@ -4,8 +4,15 @@ pragma solidity >=0.4.21 <0.7.0;
 
 import "../node_modules/@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "../node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./MarketFactory.sol";
+import "../node_modules/@openzeppelin/contracts/math/SafeMath.sol";
 
 contract Market {
+    using SafeMath for uint;
+    //Market factory
+    MarketFactory public factory;
+    //ERC20 token for down payments
+    ERC20 public token;
     //Uniswap pair as an exchange market
     IUniswapV2Pair public uniswapPair;
     //Frame start block
@@ -18,13 +25,13 @@ contract Market {
     uint public feeMarket;
     //Fee in %/1000
     uint public feeProtocol = 100;
-    //Owner
-    address public owner;
+    //Owner of the market
+    address public ownerMarket;
     //Fees accumulator
     uint public feesMarketBalance = 0;
     uint public feesProtocolBalance = 0;
     //Fixed point scalar
-    uint scalar = 1000000000000000000;
+    uint scalar = 1e24;
 
     //Frames
     enum SFrame {NULL, OPENED, CLOSED, SETTLED}
@@ -34,6 +41,7 @@ contract Market {
         uint accHorizon;
         uint accAmount;
         uint accRange;
+        uint numWagersSettled;
     }
 
     mapping(uint => Frame) public frames;
@@ -52,21 +60,24 @@ contract Market {
         uint amountPlaced;
         uint amountFeeMarket;
         uint amountFeeProtocol;
+        uint amountGained;
 
     }
 
     mapping(uint => Wager) public wagers;
     uint[] public wagersKeys;
 
-    constructor(address _uniswapPair, uint _period, uint _settleInterval, uint _blockStart, uint _feeMarket) public {
+    constructor(MarketFactory _factory, ERC20 _token, IUniswapV2Pair _uniswapPair, uint _period, uint _settleInterval, uint _blockStart, uint _feeMarket) public {
         require(_settleInterval > 0, 'SETTLE INTERVAL LESS THAN 0');
         require(_settleInterval <= _period, 'SETTLE INTERVAL GREATER THAN PERIOD');
-        owner = msg.sender;
+        factory = _factory;
+        token = _token;
+        ownerMarket = msg.sender;
         period = _period;
         settleInterval = _settleInterval;
         initBlock = _blockStart;
         feeMarket = _feeMarket;
-        uniswapPair = IUniswapV2Pair(_uniswapPair);
+        uniswapPair = _uniswapPair;
     }
 
     function newFrame(uint blockNumber) public returns (uint){
@@ -79,7 +90,7 @@ contract Market {
         //Check if frame exists
         require(frames[blockStartFrame].settlePrice != 1, "FRAME ALREADY EXISTS");
         //Add frame
-        frames[blockStartFrame] = Frame(SFrame.OPENED, 1, 0, 0, 0);
+        frames[blockStartFrame] = Frame(SFrame.OPENED, 1, 0, 0, 0, 0);
         framesKeys.push(blockStartFrame);
         return blockStartFrame;
     }
@@ -99,32 +110,37 @@ contract Market {
         return wagersKeys.length;
     }
 
-    //Allow funds to be spend for wager placement
-    function placeWager(uint frameKey, uint priceMin, uint priceMax) public payable returns (uint){
+    //Place wager
+    function placeWager(uint frameKey, uint priceMin, uint priceMax) public returns (uint){
         //Check if frame is opened
         require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
+        //Check if block number is before start frame block
+        require(frameKey >= block.number, "WAGER TO LATE");
         //Check price range
         require(priceMin < priceMax, "MAXIMUM PRICE LOWER THAN MINIMUM");
+        //Transfer funds
+        uint amount = token.allowance(msg.sender, address(this));
+        if (!token.transferFrom(msg.sender, address(this), amount)) revert("TRANSFER OF TOKENS FAILED");
         //Calculate fee market
-        uint _amountFeeMarket = msg.value * feeMarket / 100000;
+        uint _amountFeeMarket = amount.mul(feeMarket).div(100000);
         //Calculate fee protocol
-        uint _amountFeeProtocol = msg.value * feeProtocol / 100000;
+        uint _amountFeeProtocol = amount.mul(feeMarket).div(100000);
         //Calculate amount placed
-        uint _amountPlaced = msg.value - _amountFeeMarket - _amountFeeProtocol;
+        uint _amountPlaced = amount.sub(_amountFeeMarket).sub(_amountFeeProtocol);
         //Add fee amount to market balance
-        feesMarketBalance += _amountFeeMarket;
+        feesMarketBalance = feesMarketBalance.add(_amountFeeMarket);
         //Add fee amount to protocol balance
-        feesProtocolBalance += _amountFeeProtocol;
+        feesProtocolBalance = feesProtocolBalance.add(_amountFeeProtocol);
         //Calculate cumulative amount and subtract both fees of owner and protocol
-        frames[frameKey].accAmount += _amountPlaced;
+        frames[frameKey].accAmount = frames[frameKey].accAmount.add(_amountPlaced);
         //Calculate cumulative horizon
-        frames[frameKey].accHorizon += frameKey - block.number;
+        frames[frameKey].accHorizon = frames[frameKey].accHorizon.add(frameKey).sub(block.number);
         //Calculate cumulative range
-        frames[frameKey].accRange += scalar / (priceMax - priceMin);
+        frames[frameKey].accRange = frames[frameKey].accRange.add(scalar.div(priceMax.sub(priceMin)));
         //Place wager
         wagers[getWagersCount()] = Wager(
             msg.sender,
-            msg.value,
+            amount,
             priceMin,
             priceMax,
             frameKey,
@@ -132,11 +148,11 @@ contract Market {
             block.number,
             _amountPlaced,
             _amountFeeMarket,
-            _amountFeeProtocol);
+            _amountFeeProtocol,
+            0);
         //Set wager key
         wagersKeys.push(getWagersCount());
-        //Return wager key
-        return getWagersCount();
+        return amount;
     }
 
     //Close frame
@@ -153,52 +169,62 @@ contract Market {
 
     //Settle wager
     function settleWager(uint wagerKey) public returns (uint amount){
-        Wager memory wager = wagers[wagerKey];
-        Frame memory frame = frames[wager.frameKey];
-
         //Check if wager exists or was settled
-        require(wager.state == SWager.PLACED, "WAGER ALREADY SETTLED OR NOT EXISTS");
-        //Check owner of wager
-        require(wager.owner == msg.sender, "WAGER IS NOT OWNED BY THE CALLER");
+        require(wagers[wagerKey].state == SWager.PLACED, "WAGER ALREADY SETTLED OR NOT EXISTS");
+        //        //Check owner of wager
+        //        require(wager.owner == msg.sender, "WAGER IS NOT OWNED BY THE CALLER");
         //Check if frame is closed
-        require(frame.state == SFrame.CLOSED, "FRAME NOT CLOSED");
+        require(frames[wagers[wagerKey].frameKey].state == SFrame.CLOSED, "FRAME NOT CLOSED");
         //Change state
-        wager.state = SWager.SETTLED;
+        wagers[wagerKey].state = SWager.SETTLED;
+        frames[wagers[wagerKey].frameKey].numWagersSettled++;
         //Check wager outcome
-        if (wager.priceMax > frame.settlePrice && wager.priceMin < frame.settlePrice) {
+        if (wagers[wagerKey].priceMax > frames[wagers[wagerKey].frameKey].settlePrice && wagers[wagerKey].priceMin < frames[wagers[wagerKey].frameKey].settlePrice) {
             //Calculate settle amount
             amount = clcSettleAmount(wagerKey);
             //Transfer value
-            wager.owner.transfer(amount);
+            token.transfer(wagers[wagerKey].owner, amount);
             return amount;
         } else return 0;
     }
 
-    function clcShareAmount(uint wagerKey) public view returns(uint){
+    function clcShareAmount(uint wagerKey) public view returns (uint){
         Wager memory wager = wagers[wagerKey];
         Frame memory frame = frames[wager.frameKey];
-        return scalar * wager.amountPlaced / frame.accAmount;
+        return scalar.mul(wager.amountPlaced).div(frame.accAmount);
     }
 
-    function clcShareHorizon(uint wagerKey) public view returns(uint){
+    function clcShareHorizon(uint wagerKey) public view returns (uint){
         Wager memory wager = wagers[wagerKey];
         Frame memory frame = frames[wager.frameKey];
-        return scalar * (wager.frameKey -wager.block) / frame.accHorizon;
+        return scalar.mul(wager.frameKey.sub(wager.block)).div(frame.accHorizon);
     }
 
-    function clcShareRange(uint wagerKey) public view returns(uint){
+    function clcShareRange(uint wagerKey) public view returns (uint){
         Wager memory wager = wagers[wagerKey];
         Frame memory frame = frames[wager.frameKey];
-        return scalar * scalar / (wager.priceMax - wager.priceMin) / frame.accRange ;
+        return scalar.mul(scalar).div(wager.priceMax.sub(wager.priceMin)).div(frame.accRange);
     }
 
-    function clcShare(uint wagerKey) public view returns(uint){
-        return (clcShareAmount(wagerKey) + clcShareHorizon(wagerKey) + clcShareRange(wagerKey)) / 3;
+    function clcShare(uint wagerKey) public view returns (uint){
+        return clcShareAmount(wagerKey).add(clcShareHorizon(wagerKey)).add(clcShareRange(wagerKey)).div(3);
     }
 
-    function clcSettleAmount(uint wagerKey) public view returns(uint){
+    function clcSettleAmount(uint wagerKey) public view returns (uint){
         Wager memory wager = wagers[wagerKey];
         Frame memory frame = frames[wager.frameKey];
-        return clcShare(wagerKey)*frame.accAmount/scalar;
+        return clcShare(wagerKey).mul(frame.accAmount).div(scalar);
+    }
+
+    function withdrawFeesMarket() public {
+        token.transfer(ownerMarket, feesMarketBalance);
+        feesMarketBalance = 0;
+    }
+
+    function withdrawFeesProtocol() public {
+        uint amount = token.balanceOf(address(this));
+        if (amount > feesProtocolBalance) amount = feesProtocolBalance;
+        token.transfer(factory.owner(), amount);
+        feesProtocolBalance = 0;
     }
 }
