@@ -18,8 +18,8 @@ contract MarketFactory {
         uniswapFactory = IUniswapV2Factory(_uniswapFactory);
     }
 
-    function addMarket(address _token, address _uniswapPair, uint _period, uint _settleInterval, uint _blockStart, uint _fee) external {
-        Market market = new Market(this, ERC20(_token), IUniswapV2Pair(_uniswapPair), _period, _settleInterval, _blockStart, _fee);
+    function addMarket(address _token, address _uniswapPair, uint _period, uint _blockStart, uint _fee) external {
+        Market market = new Market(this, ERC20(_token), IUniswapV2Pair(_uniswapPair), _period, _blockStart, _fee);
         markets[address(market)] = market;
         marketsKeys.push(address(market));
     }

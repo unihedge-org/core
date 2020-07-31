@@ -46,7 +46,7 @@ module.exports = {
      host: "127.0.0.1",     // Localhost (default: none)
      port: 7545,            // Standard Ethereum port (default: none)
      network_id: "*",       // Any network (default: none)
-    }
+    },
 
     // Another network with more advanced options...
     // advanced: {
@@ -60,11 +60,11 @@ module.exports = {
 
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
-    // rinkeby: {
-    //   provider: () => new HDWalletProvider(mnemonic, `http://localhost:8545`),
-    //   network_id: 4,
-    //   gas: 4612388
-    // }
+    rinkeby: {
+      provider: () => new HDWalletProvider(mnemonic, `http://localhost:8545`),
+      network_id: 4,
+      gas: 4612388
+    }
 
     // Useful for private networks
     // private: {

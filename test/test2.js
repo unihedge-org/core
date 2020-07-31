@@ -11,6 +11,8 @@ let scalar = 1e24;
 let tx;
 
 web3.eth.getAccounts().then(async accounts => {
+    // Mine blocks to close frame
+    await mineBlocks(60, accounts);
     //Load ERC20 token contract
     let addressToken = require("../test/contracts.json")["Token"];
     let contractERC20 = await new web3.eth.Contract(require("../build/contracts/Token.json").abi, addressToken, {gas: 2500000});
@@ -67,9 +69,9 @@ web3.eth.getAccounts().then(async accounts => {
     for (let i = 0; i < n; i++) {
         //Safety set first to 0
         let tx = await contractERC20.methods.approve(markets[0]._address, 0).send({from: accounts[i]});
-        tx = await contractERC20.methods.approve(markets[0]._address, web3.utils.toBN(100e18)).send({from: accounts[i]});
+        tx = await contractERC20.methods.approve(markets[0]._address, web3.utils.toBN(50e18)).send({from: accounts[i]});
         //Check allowance
-        console.log("Allow to spend :" + await contractERC20.methods.allowance(accounts[i], markets[0]._address).call());
+      //  console.log("Allow to spend :" + await contractERC20.methods.allowance(accounts[i], markets[0]._address).call());
     }
 
     //Place wagers
@@ -89,29 +91,52 @@ web3.eth.getAccounts().then(async accounts => {
     }
 
     //Check balance of tokens on contract
-    let balance = parseFloat(await contractERC20.methods.balanceOf(markets[0]._address).call());
-    console.log(colors.yellow("Balance market: " + balance));
+    // let balance = parseFloat(await contractERC20.methods.balanceOf(markets[0]._address).call());
+    // console.log(colors.yellow("Balance market: " + balance));
 
     // Mine blocks to close frame
-    await mineBlocks(frameNextKey-parseInt(await web3.eth.getBlockNumber())+period, accounts);
+    await mineBlocks(frameNextKey-parseInt(await web3.eth.getBlockNumber())+period/2, accounts);
 
-    //Close frame
-    tx = await markets[0].methods.closeFrame(frameNextKey).send({from: accounts[0]});
+    //Approve market contract to spend tokens
+    for (let i = 0; i < n; i++) {
+        //Safety set first to 0
+        let tx = await contractERC20.methods.approve(markets[0]._address, 0).send({from: accounts[i]});
+        tx = await contractERC20.methods.approve(markets[0]._address, web3.utils.toBN(50e18)).send({from: accounts[i]});
+        //Check allowance
+       // console.log("Allow to spend :" + await contractERC20.methods.allowance(accounts[i], markets[0]._address).call());
+    }
 
-    //Check frame status
-    let frame = await markets[0].methods.frames(frameNextKey).call();
-    if (frame.state === "2") {
-        console.log("Frame " + frameNextKey + " in state CLOSED");
-    } else {
-        console.log(colors.red("Frame " + frameNextKey + " in wrong state " + frame.state));
+    //Place wagers
+    frameNextKey = (parseInt(frameNextKey)+period).toString();
+    tx = await markets[0].methods.placeWager(frameNextKey, 75, 125).send({from: accounts[0]});
+    // console.log(tx);
+    tx = await markets[0].methods.placeWager(frameNextKey, 50, 150).send({from: accounts[1]});
+    // console.log(tx);
+    tx = await markets[0].methods.placeWager(frameNextKey, 25, 175).send({from: accounts[2]});
+    // console.log(tx);
+
+    wagers = await getWagersKeys(markets[0], frameNextKey);
+    for (let wager of wagers) {
+        let w = await markets[0].methods.wagers(wager).call();
+        console.log("Wager horizon: " + (w.frameKey - w.block) + " placed at: " + w.block + " for frame:"+w.frameKey+" with amountPlaced: " + w.amountPlaced);
     }
 
 
-    //Settle wager
-    let wagersKeys = await getWagersKeys(markets[0], frameNextKey);
+    // //Check frame status
+    // let frame = await markets[0].methods.frames(frameNextKey).call();
+    // if (frame.state === "2") {
+    //     console.log("Frame " + frameNextKey + " in state CLOSED");
+    // } else {
+    //     console.log(colors.red("Frame " + frameNextKey + " in wrong state " + frame.state));
+    // }
+
+
+    //Settle all wagers
+    let wagersKeys = await getWagersKeys(markets[0], (parseInt(frameNextKey)-period).toString());
     let i = 0;
     for (const key of wagersKeys) {
         //Check shares
+        let w=await markets[0].methods.wagers(key).call();
         let shareAmount = await markets[0].methods.clcShareAmount(key).call();
         console.log("Wager " + key + " share amount = " + parseFloat(shareAmount) / scalar);
         let shareHorizon = await markets[0].methods.clcShareHorizon(key).call();
@@ -123,13 +148,14 @@ web3.eth.getAccounts().then(async accounts => {
         console.log("Wager " + key + " total share = " + parseFloat(share) / scalar);
         //Total amount
         let payoutAmount = await markets[0].methods.clcSettleAmount(key).call();
-        console.log("Wager " + key + " payout = " + web3.utils.toBN(payoutAmount).toString());
+        console.log("Wager " + key + " frame: "+w.frameKey+" payout = " + web3.utils.toBN(payoutAmount).toString());
         //Settle wager
         //Get amount of tokens before
         let wager = await markets[0].methods.wagers(key).call();
         let b1 = web3.utils.toBN(await contractERC20.methods.balanceOf(markets[0]._address).call());
         console.log(colors.yellow("Balance of market is: " + b1));
         tx = await markets[0].methods.settleWager(key).send({from: accounts[i]});
+        console.log(tx.transactionHash);
         let b2 = web3.utils.toBN(await contractERC20.methods.balanceOf(markets[0]._address).call());
         console.log(colors.yellow("Balance of market is: " + b2.toString()));
         console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));

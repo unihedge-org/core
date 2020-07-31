@@ -7,14 +7,14 @@ let contracts = {};
 
 module.exports = async function (deployer) {
     //Deploy MarketFactory
-    await deployer.deploy(MarketFactory, addrUniswapFactory);
-    //Deploy Token
-    await deployer.deploy(Token);
-
-    //Write to file contract addresses
-    contracts["MarketFactory"] = MarketFactory.address;
-    contracts["Token"] = Token.address;
-    fs.writeFile("./test/contracts.json", JSON.stringify(contracts), () => {
-    });
+    // await deployer.deploy(MarketFactory, addrUniswapFactory);
+    // //Deploy Token
+    // await deployer.deploy(Token);
+    //
+    // //Write to file contract addresses
+    // contracts["MarketFactory"] = MarketFactory.address;
+    // contracts["Token"] = Token.address;
+    // fs.writeFile("./test/contracts.json", JSON.stringify(contracts), () => {
+    // });
 
 };

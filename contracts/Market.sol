@@ -19,8 +19,6 @@ contract Market {
     uint public initBlock;
     //Frames period in number of blocks
     uint public period;
-    //Frame settlement interval in number of blocks
-    uint public settleInterval;
     //Fee in %/1000
     uint public feeMarket;
     //Fee in %/1000
@@ -34,7 +32,7 @@ contract Market {
     uint scalar = 1e24;
 
     //Frames
-    enum SFrame {NULL, OPENED, CLOSED, SETTLED}
+    enum SFrame {NULL, OPENED, CLOSED, INVALID}
     struct Frame {
         SFrame state;
         uint settlePrice;
@@ -42,6 +40,8 @@ contract Market {
         uint accAmount;
         uint accRange;
         uint numWagersSettled;
+        uint priceCumulative;
+        uint priceCumulativeBlockNumber;
     }
 
     mapping(uint => Frame) public frames;
@@ -67,30 +67,27 @@ contract Market {
     mapping(uint => Wager) public wagers;
     uint[] public wagersKeys;
 
-    constructor(MarketFactory _factory, ERC20 _token, IUniswapV2Pair _uniswapPair, uint _period, uint _settleInterval, uint _blockStart, uint _feeMarket) public {
-        require(_settleInterval > 0, 'SETTLE INTERVAL LESS THAN 0');
-        require(_settleInterval <= _period, 'SETTLE INTERVAL GREATER THAN PERIOD');
+    constructor(MarketFactory _factory, ERC20 _token, IUniswapV2Pair _uniswapPair, uint _period, uint _blockStart, uint _feeMarket) public {
         factory = _factory;
         token = _token;
         ownerMarket = msg.sender;
         period = _period;
-        settleInterval = _settleInterval;
         initBlock = _blockStart;
         feeMarket = _feeMarket;
         uniswapPair = _uniswapPair;
     }
 
-    function newFrame(uint blockNumber) public returns (uint){
+    function getOrCreateFrame(uint blockNumber) public returns (uint){
         //Get start block of a frame
         uint blockStartFrame = clcFrameBlockStart(blockNumber);
-        //Check if frame startBlock number is before initial frame
-        require(blockStartFrame >= initBlock, "FRAME TO EARLY MARKET NOT OPENED");
-        //Check if frame startBlock number is before current block number
-        require(blockStartFrame > block.number, "FRAME TO EARLY");
         //Check if frame exists
-        require(frames[blockStartFrame].settlePrice != 1, "FRAME ALREADY EXISTS");
+        if (frames[blockStartFrame].state != SFrame.NULL) return blockStartFrame;
+        //Check if frame startBlock number is before initial frame
+        if (blockStartFrame <= initBlock) return 0;
+        //Check if frame startBlock number is before current block number
+        if (blockStartFrame <= block.number) return 0;
         //Add frame
-        frames[blockStartFrame] = Frame(SFrame.OPENED, 1, 0, 0, 0, 0);
+        frames[blockStartFrame] = Frame(SFrame.OPENED, 1, 0, 0, 0, 0, 0, 0);
         framesKeys.push(blockStartFrame);
         return blockStartFrame;
     }
@@ -111,12 +108,10 @@ contract Market {
     }
 
     //Place wager
-    function placeWager(uint frameKey, uint priceMin, uint priceMax) public returns (uint){
-        //Check if frame is opened
-        require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
-        //Check if block number is before start frame block
-        require(frameKey >= block.number, "WAGER TO LATE");
-        //Check price range
+    function placeWager(uint blockNumber, uint priceMin, uint priceMax) public returns (uint){
+        //Clc associated frame key from block number
+        uint frameKey = getOrCreateFrame(blockNumber);
+        require(frameKey != 0, "CAN'T PLACE WAGER BLOCK NUMBER ERROR");
         require(priceMin < priceMax, "MAXIMUM PRICE LOWER THAN MINIMUM");
         //Transfer funds
         uint amount = token.allowance(msg.sender, address(this));
@@ -152,29 +147,49 @@ contract Market {
             0);
         //Set wager key
         wagersKeys.push(getWagersCount());
+        //Set price for frame
+        setFramePrice(frameKey);
         return amount;
     }
 
+    //Set frame price
+    function setFramePrice(uint frameKey) public {
+        //Correct price if better timing
+        if (block.number > frames[frameKey].priceCumulativeBlockNumber && block.number <= frameKey) {
+            frames[frameKey].priceCumulativeBlockNumber = block.number;
+            //Price from uniswapPair
+            //            frames[frameKey].price = uniswapPair.price0CumulativeLast();
+            frames[frameKey].priceCumulative = 100;
+            frames[frameKey].priceCumulativeBlockNumber = block.number;
+        }
+    }
+
     //Close frame
-    function closeFrame(uint frameKey) public {
+    function closeFrame(uint frameKey) public returns (SFrame){
         //Check if frame is opened
-        require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
-        //Check if frame timing is correct
-        require(frameKey + this.period() < block.number, "FRAME NOT ENDED");
-        //Set settling price
-        frames[frameKey].settlePrice = 100;
-        //Close frame
-        frames[frameKey].state = SFrame.CLOSED;
+        if (frames[frameKey].state == SFrame.OPENED) {
+            //Check if frame timing is correct
+            if (frameKey + this.period() <= block.number) {
+                //Check if frame have valid prices
+                if (frames[frameKey].priceCumulative >= 0 && frames[frameKey + period].priceCumulative >= 0) {
+                    frames[frameKey].state = SFrame.CLOSED;
+                    frames[frameKey].settlePrice = frames[frameKey + period].priceCumulative.sub(frames[frameKey].priceCumulative)
+                    .div(frames[frameKey + period].priceCumulativeBlockNumber.sub(frames[frameKey].priceCumulativeBlockNumber));
+                } else {
+                    frames[frameKey].state = SFrame.INVALID;
+                }
+            }
+        }
+        return frames[frameKey].state;
     }
 
     //Settle wager
     function settleWager(uint wagerKey) public returns (uint amount){
         //Check if wager exists or was settled
         require(wagers[wagerKey].state == SWager.PLACED, "WAGER ALREADY SETTLED OR NOT EXISTS");
-        //        //Check owner of wager
-        //        require(wager.owner == msg.sender, "WAGER IS NOT OWNED BY THE CALLER");
-        //Check if frame is closed
-        require(frames[wagers[wagerKey].frameKey].state == SFrame.CLOSED, "FRAME NOT CLOSED");
+        SFrame state = closeFrame(wagers[wagerKey].frameKey);
+        require(state == SFrame.CLOSED, "FRAME NOT CLOSED");
+        require(state != SFrame.INVALID, "FRAME INVALID");
         //Change state
         wagers[wagerKey].state = SWager.SETTLED;
         frames[wagers[wagerKey].frameKey].numWagersSettled++;
