@@ -6,7 +6,7 @@ const fs = require('fs');
 let contracts = {};
 
 module.exports = async function (deployer) {
-    //Deploy MarketFactory
+    // Deploy MarketFactory
     // await deployer.deploy(MarketFactory, addrUniswapFactory);
     // //Deploy Token
     // await deployer.deploy(Token);
