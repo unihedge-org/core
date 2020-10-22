@@ -34,6 +34,7 @@ contract Market {
     //Frames
     enum SFrame {NULL, OPENED, CLOSED, INVALID}
     struct Frame {
+        uint frameKey;
         SFrame state;
         uint settlePrice;
         uint accHorizon;
@@ -44,12 +45,16 @@ contract Market {
         uint priceCumulativeBlockNumber;
     }
 
+    //Frame event state changed
+    event FrameChanged(uint frameKey);
+
     mapping(uint => Frame) public frames;
     uint[] public framesKeys;
 
     //Wagers
     enum SWager {NULL, PLACED, SETTLED}
     struct Wager {
+        uint wagerKey;
         address payable owner;
         uint amountTotal;
         uint priceMin;
@@ -61,8 +66,10 @@ contract Market {
         uint amountFeeMarket;
         uint amountFeeProtocol;
         uint amountGained;
-
     }
+
+    //Wager state changed
+    event WagerChanged(uint index);
 
     mapping(uint => Wager) public wagers;
     uint[] public wagersKeys;
@@ -87,8 +94,9 @@ contract Market {
         //Check if frame startBlock number is before current block number
         if (blockStartFrame <= block.number) return 0;
         //Add frame
-        frames[blockStartFrame] = Frame(SFrame.OPENED, 1, 0, 0, 0, 0, 0, 0);
+        frames[blockStartFrame] = Frame(blockStartFrame, SFrame.OPENED, 1, 0, 0, 0, 0, 0, 0);
         framesKeys.push(blockStartFrame);
+        emit FrameChanged(blockStartFrame);
         return blockStartFrame;
     }
 
@@ -134,6 +142,7 @@ contract Market {
         frames[frameKey].accRange = frames[frameKey].accRange.add(scalar.div(priceMax.sub(priceMin)));
         //Place wager
         wagers[getWagersCount()] = Wager(
+            getWagersCount(),
             msg.sender,
             amount,
             priceMin,
@@ -149,6 +158,9 @@ contract Market {
         wagersKeys.push(getWagersCount());
         //Set price for frame
         setFramePrice(frameKey);
+
+        //Emit wager event
+        emit WagerChanged(getWagersCount());
         return amount;
     }
 
@@ -158,9 +170,9 @@ contract Market {
         if (block.number > frames[frameKey].priceCumulativeBlockNumber && block.number <= frameKey) {
             frames[frameKey].priceCumulativeBlockNumber = block.number;
             //Price from uniswapPair
-            //            frames[frameKey].price = uniswapPair.price0CumulativeLast();
-            frames[frameKey].priceCumulative = 100;
+            frames[frameKey].priceCumulative = uniswapPair.price0CumulativeLast();
             frames[frameKey].priceCumulativeBlockNumber = block.number;
+            emit FrameChanged(frameKey);
         }
     }
 
@@ -178,6 +190,7 @@ contract Market {
                 } else {
                     frames[frameKey].state = SFrame.INVALID;
                 }
+                emit FrameChanged(frameKey);
             }
         }
         return frames[frameKey].state;
@@ -193,6 +206,7 @@ contract Market {
         //Change state
         wagers[wagerKey].state = SWager.SETTLED;
         frames[wagers[wagerKey].frameKey].numWagersSettled++;
+        emit WagerChanged(wagerKey);
         //Check wager outcome
         if (wagers[wagerKey].priceMax > frames[wagers[wagerKey].frameKey].settlePrice && wagers[wagerKey].priceMin < frames[wagers[wagerKey].frameKey].settlePrice) {
             //Calculate settle amount

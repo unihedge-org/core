@@ -1,5 +1,6 @@
 const Web3 = require('web3');
 const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:7545'));
+web3.eth.handleRevert=true;
 
 const colors = require('colors');
 
@@ -44,7 +45,7 @@ web3.eth.getAccounts().then(async accounts => {
     let settlePeriod = 2;
     if (markets.length <= 0) {
         try {
-            await contractMarketFactory.methods.addMarket(addressToken, addressUniswapV2Pair, period, settlePeriod, 0, 100)
+            await contractMarketFactory.methods.addMarket(addressToken, addressUniswapV2Pair, period, 0, 100)
                 .send({from: accounts[0]});
         } catch (e) {
             console.log(colors.red("Error Market: " + e.message));
@@ -66,26 +67,37 @@ web3.eth.getAccounts().then(async accounts => {
     //Approve market contract to spend tokens
     for (let i = 0; i < n; i++) {
         //Safety set first to 0
-        let tx = await contractERC20.methods.approve(markets[0]._address, 0).send({from: accounts[i]});
-        tx = await contractERC20.methods.approve(markets[0]._address, web3.utils.toBN(100e18)).send({from: accounts[i]});
-        //Check allowance
-        console.log("Allow to spend :" + await contractERC20.methods.allowance(accounts[i], markets[0]._address).call());
+        try {
+            let tx = await contractERC20.methods.approve(markets[0]._address, 0).send({from: accounts[i]});
+            tx = await contractERC20.methods.approve(markets[0]._address, web3.utils.toBN(100e18)).send({from: accounts[i]});
+            //Check allowance
+            console.log("Allow to spend :" + await contractERC20.methods.allowance(accounts[i], markets[0]._address).call());
+        }catch (e) {
+            console.log(e.reason.red);
+        }
+
     }
 
     //Place wagers
-    let block = await web3.eth.getBlockNumber();
-    let frameNextKey = await markets[0].methods.clcFrameBlockStart(block+period+5).call();
-    tx = await markets[0].methods.placeWager(frameNextKey, 75, 125).send({from: accounts[0]});
-    // console.log(tx);
-    tx = await markets[0].methods.placeWager(frameNextKey, 50, 150).send({from: accounts[1]});
-    // console.log(tx);
-    tx = await markets[0].methods.placeWager(frameNextKey, 25, 175).send({from: accounts[2]});
-    // console.log(tx);
+    try {
+        let block = await web3.eth.getBlockNumber();
+        let frameNextKey = await markets[0].methods.clcFrameBlockStart(block+period+5).call();
+        tx = await markets[0].methods.placeWager(frameNextKey, 75, 125).send({from: accounts[0]});
+         console.log(tx);
+        tx = await markets[0].methods.placeWager(frameNextKey, 50, 150).send({from: accounts[1]});
+        // console.log(tx);
+        tx = await markets[0].methods.placeWager(frameNextKey, 25, 175).send({from: accounts[2]});
+        // console.log(tx);
+
+
 
     let wagers = await getWagersKeys(markets[0], frameNextKey);
     for (let wager of wagers) {
         let w = await markets[0].methods.wagers(wager).call();
         console.log("Wager horizon: " + (w.frameKey - w.block) + " placed at: " + w.block + " for frame:"+w.frameKey+" with amountPlaced: " + w.amountPlaced);
+    }
+    }catch (e) {
+        console.log(e);
     }
 
     //Check balance of tokens on contract
