@@ -64,6 +64,12 @@ module.exports = {
       provider: () => new HDWalletProvider(mnemonic, `https://rinkeby.infura.io/v3/5b5e5c71a5ed48a1bd63956d8e6ccb5e`),
       network_id: 4,
       gas: 4612388
+    },
+
+    goerli: {
+      provider: () => new HDWalletProvider(mnemonic, `https://goerli.infura.io/v3/5b5e5c71a5ed48a1bd63956d8e6ccb5e`),    // Localhost (default: none)
+      network_id:5,
+      gas: 4612388
     }
 
     // Useful for private networks

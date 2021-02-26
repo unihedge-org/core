@@ -5,9 +5,12 @@
     "@ensdomains/ens": "^0.4.5",
     "@hq20/fixidity": "0.1.0-alpha.2",
     "@openzeppelin/contracts": "2.5.1",
-    "@truffle/hdwallet-provider": "^1.0.35",
+    "@truffle/hdwallet-provider": "^1.2.0",
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "axios": "^0.21.0",
+    "bignumber.js": "^9.0.1",
+    "canonical-weth": "^1.4.0",
     "colors": "^1.4.0",
     "web3": "^1.2.9"
   }
