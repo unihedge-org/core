@@ -10,7 +10,6 @@ const {
 } = require('@openzeppelin/test-helpers');
 
 const { assert } = require('chai');
-
 const colors = require('colors');
 
 //Contacts
@@ -82,7 +81,6 @@ contract("HorizonTest", async accounts => {
         console.log(("Block number: "+b2+" timestamp: " + t2.timestamp).bgGreen);
         console.log(web3.utils.hexToNumber(await this.market.clcFrameTimestamp(t2.timestamp)));
         //--------------------------------------------------------------
-        //Buy fake DAI so the price changes
         await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], 1616408752*3600*240, {from: accounts[0], value: new BN('1e18')});
         await this.market.updateFramePrices({from: accounts[0]});
     }
