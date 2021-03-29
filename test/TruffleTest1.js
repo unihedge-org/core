@@ -1,5 +1,7 @@
-const Web3 = require('web3');
-const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
+//truffle test ./test/TruffleTest1.js
+
+//const Web3 = require('web3');
+//const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
 const functions = require("./functions.js");
 
 const {
@@ -30,10 +32,17 @@ let addressUniswapV2Router02 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
 
 const startTimestamp = Date.now() / 1000 | 0;
 console.log(startTimestamp);
-
-n=3;
-
 var FrameNextKey;
+
+const scalar = 1e24;
+const n=3;
+
+const initTimestamp = startTimestamp;
+const period = 86400;
+const settlementInterval = 43200;
+const minHorizon=0;
+const maxHorizon=30;
+const marketFee = 15;
 
 contract("HorizonTest", async accounts => {
     it('Should load contracts from deployed addresses', async function() {
@@ -49,103 +58,110 @@ contract("HorizonTest", async accounts => {
         }
     });
     it('Should add a new market', async function() {
-        await this.MarketFactory.addMarket(this.DAIcoin.address, addressUniswapV2Pair, 86400, 1616635434, 43200, 0, 30, 0, {from: accounts[0]});
+        await this.MarketFactory.addMarket(this.DAIcoin.address, addressUniswapV2Pair, period, 1617007676, settlementInterval, minHorizon, maxHorizon, marketFee, {from: accounts[0]});
     });
     it('Should approve market to spend tokens', async function() {
         var marketKey = await this.MarketFactory.marketsKeys(0);
         var address = await this.MarketFactory.markets(marketKey);
         this.market = await contractMarket.at(address);
-
         for (let i = 0; i < 3; i++) {
            let tx = await this.DAIcoin.approve(this.market.address, new BN('100e18'), {from: accounts[i]});
-       }
+        }
     });
     it('Each account should place a wager', async function() {
         FrameNextKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+90000);
-        console.log(FrameNextKey);
+        //console.log(FrameNextKey);
          for (let i = 0; i < n; i++) {
             let tx = await this.market.placeWager(FrameNextKey, 75 - i * 25, 125 + i * 25, {from: accounts[i]});
          }
     });
-    it('Mine and report prices', async function() {
+    it('Skip time and report prices', async function() {
     for(let i=0;i<52;i++){
-        let blockNum = await web3.eth.getBlockNumber();
+        /*let blockNum = await web3.eth.getBlockNumber();
         let blockInfo = await web3.eth.getBlock(blockNum);
-        console.log(("Block number: "+blockNum+" timestamp: "+blockInfo.timestamp).bgBlue);
+        console.log(("Block number: "+blockNum+" timestamp: "+blockInfo.timestamp).bgBlue);*/
         //--------------------------------------------------------------
-        await functions.advanceTimeAndBlock(1800*i);
+        await functions.advanceTimeAndBlock(1800*i); //Advance by 0,5h each run (1800sec)
         //--------------------------------------------------------------
-        let b2 = await web3.eth.getBlockNumber();
+        /*let b2 = await web3.eth.getBlockNumber();
         let t2 = await web3.eth.getBlock(b2);
         console.log(("Mining: SKIP TIME: " + (t2.timestamp - blockInfo.timestamp) / 3600 + " hours").bgMagenta);
-        console.log(("Block number: "+b2+" timestamp: " + t2.timestamp).bgGreen);
-        console.log(web3.utils.hexToNumber(await this.market.clcFrameTimestamp(t2.timestamp)));
+        console.log(("Block number: "+b2+" timestamp: " + t2.timestamp).bgGreen);*/
+        //console.log(web3.utils.hexToNumber(await this.market.clcFrameTimestamp(t2.timestamp)));
         //--------------------------------------------------------------
-        await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], 1616408752*3600*240, {from: accounts[0], value: new BN('1e18')});
+        await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], initTimestamp*3600*240, {from: accounts[0], value: new BN('1e18')});
         await this.market.updateFramePrices({from: accounts[0]});
     }
     });
-    it('Close frame and check frame status', async function() {
-        //Close frame
+    it('Close frame', async function() {
         let f = await this.market.closeFrame(FrameNextKey, {from: accounts[0]});
-
-        //Check frame status
+    });
+    it('Check if frame status is CLOSED', async function() {
         let frame = await this.market.frames(FrameNextKey);
 
-        console.log("Price cumulative start: "+frame.oraclePrice0CumulativeStart);
+        /*console.log("Price cumulative start: "+frame.oraclePrice0CumulativeStart);
         console.log("Timestamp cumulative start: "+frame.oracleTimestampStart);
         console.log("Price cumulative end: "+frame.oraclePrice0CumulativeEnd);
         console.log("Timestamp cumulative end: "+frame.oracleTimestampEnd);
         console.log("Average price : "+ frame.priceAverage);
         let r= await this.UniswapV2Pair.getReserves();
         let price = (new BN(r[1])) / (new BN(r[0]));
-        console.log("spot price: "+ price)
+        console.log("spot price: "+ price)*/
 
-        if (frame.state == 2) {
-          console.log("Frame " + FrameNextKey + " in state CLOSED");
-        } else {
-          console.log(colors.red("Frame " + FrameNextKey + " in wrong state "));
-          console.log(colors.red("Frame state is " + frame.state));
-        }
-    }); //TODO: Settle wager and collect fees
-/*    it('Settle wager', async function() {
-        let n = [];
-        //Get all wagers
+        assert.equal(frame.state, 2);
+    });
+    it('Settle wager', async function() {
+        let wagerKeys = [];
         let wagerCount = parseInt(await this.market.getWagersCount());
-        console.log(wagerCount);
+        //console.log(wagerCount);
         for (let i = 0; i < wagerCount; i++) {
-            let w = await this.market.wagers(i);
-            if (w.frameKey == FrameNextKey) n.push(i);
+            wagerKeys.push(i);
         }
-        let wagersKeys = n;
-        console.log(wagersKeys)
-        let length = this.market.getWagersCount();
-        console.log(length);
-        for (let i = 0; i < length; i++) {
+        console.log(wagerKeys)
+        for (let i = 0; i < wagerCount; i++) {
             //Check shares
-            let shareAmount = await this.market.clcShareAmount(wagersKeys[i]);
-            console.log("Wager " + wagersKeys[i] + " share amount = " + parseFloat(shareAmount) / scalar);
-            let shareHorizon = await this.market.clcShareHorizon(wagersKeys[i]);
-            console.log("Wager " + wagersKeys[i] + " share horizon = " + parseFloat(shareHorizon) / scalar);
-            let shareRange = await this.market.clcShareRange(wagersKeys[i]);
-            console.log("Wager " + wagersKeys[i] + " share range = " + parseFloat(shareRange) / scalar);
+            let shareAmount = await this.market.clcShareAmount(wagerKeys[i]);
+            console.log("Wager " + wagerKeys[i] + " share amount = " + parseFloat(shareAmount) / scalar);
+            let shareHorizon = await this.market.clcShareHorizon(wagerKeys[i]);
+            console.log("Wager " + wagerKeys[i] + " share horizon = " + parseFloat(shareHorizon) / scalar);
+            let shareRange = await this.market.clcShareRange(wagerKeys[i]);
+            console.log("Wager " + wagerKeys[i] + " share range = " + parseFloat(shareRange) / scalar);
             //Total share
-            let share = await this.market.clcShare(wagersKeys[i]);
-            console.log("Wager " + key + " total share = " + parseFloat(share) / scalar);
+            let share = await this.market.clcShare(wagerKeys[i]);
+            console.log("Wager " + wagerKeys[i]  + " total share = " + parseFloat(share) / scalar);
             //Total amount
-            let payoutAmount = await this.market.clcSettleAmount(wagersKeys[i]);
-            console.log("Wager " + key + " payout = " + web3.utils.toBN(payoutAmount).toString());
+            let payoutAmount = await this.market.clcSettleAmount(wagerKeys[i]);
+            console.log("Wager " + wagerKeys[i]  + " payout = " + web3.utils.toBN(payoutAmount).toString());
             //Settle wager
             //Get amount of tokens before
-            let wager = await this.market.wagers(wagersKeys[i]);
+            let wager = await this.market.wagers(wagerKeys[i]);
+            console.log("framekey: " + wager.frameKey)
             let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
             console.log(colors.yellow("Balance of market is: " + b1));
-            tx = await this.market.settleWager(wagersKeys[i], {from: accounts[i]});
+            tx = await this.market.settleWager(wagerKeys[i], {from: accounts[i]});
+            //console.log(tx);
             let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
             console.log(colors.yellow("Balance of market is: " + b2.toString()));
             console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
             }
-    });*/
+    });
+    it('Market fee should equal ' + 3*marketFee + '.', async function() {
+        let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
+        //console.log(colors.yellow("Balance of market is: " + b1));
+        await this.market.withdrawFeesMarket({from: accounts[0]});
+        let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
+        /*console.log(colors.yellow("Balance of market is: " + b2.toString()));
+        console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));*/
+        assert.equal(b1.sub(b2), 3*marketFee)
+    });
+    it('Collect protocol fees', async function() {
+        let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
+        console.log(colors.yellow("Balance of market is: " + b1));
+        await this.market.withdrawFeesProtocol({from: accounts[0]});
+        let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
+        console.log(colors.yellow("Balance of market is: " + b2.toString()));
+        console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
+    });
 
 
 
