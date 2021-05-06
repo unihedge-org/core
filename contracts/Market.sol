@@ -2,12 +2,12 @@
 pragma solidity ^0.5.0;
 //pragma experimental ABIEncoderV2;
 
-import '../node_modules/@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
+import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./MarketFactory.sol";
 import "../node_modules/@openzeppelin/contracts/math/SafeMath.sol";
-import "../node_modules/@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
-import "../node_modules/@uniswap/lib/contracts/libraries/FixedPoint.sol";
+import "./MarketFactory.sol";
 
 contract Market {
     using SafeMath for uint;
@@ -151,7 +151,7 @@ contract Market {
         //Transfer funds
         uint amount = token.allowance(msg.sender, address(this));
         //Amount must be greater than 0
-        require(amount > 0, "AMOUNT MUST BRE GREATER THAN 0");
+        require(amount > 0, "AMOUNT MUST BE GREATER THAN 0");
         token.transferFrom(msg.sender, address(this), amount);
         //Calculate fee market
         uint _amountFeeMarket = amount.mul(feeMarket).div(100000);
@@ -205,13 +205,13 @@ contract Market {
         //Correct price if outside settle interval
         if (block.timestamp <= ((frameKey.add(period)).sub(settlementInterval))) {
             //Prices from uniswap
-            uint tmp;
+            uint tmp; //price1Cumulative
             (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
             emit FrameChanged(frameKey);
         }
         if (block.timestamp <= frameKey.add(period)) {
             //Price from uniswapPair
-            uint tmp;
+            uint tmp; //price1Cumulative
             (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
             emit FrameChanged(frameKey);
         }
@@ -249,10 +249,17 @@ contract Market {
     //TODO invalid frame -> return wagers
     function settleWager(uint wagerKey) public returns (uint amount){
         //Check if wager exists or was settled
+        SFrame state;
         require(wagers[wagerKey].state == SWager.PLACED, "WAGER ALREADY SETTLED OR NON EXISTING");
-        SFrame state = closeFrame(wagers[wagerKey].frameKey);
+        if (frames[wagers[wagerKey].frameKey].state == SFrame.OPENED) {
+            state = closeFrame(wagers[wagerKey].frameKey);
+        }
+        else {
+            state = frames[wagers[wagerKey].frameKey].state;
+        }
+        require(state != SFrame.INVALID, "FRAME INVALID"); //Switched
         require(state == SFrame.CLOSED, "FRAME NOT CLOSED");
-        require(state != SFrame.INVALID, "FRAME INVALID");
+        
         //Change state
         wagers[wagerKey].state = SWager.SETTLED;
         frames[wagers[wagerKey].frameKey].numWagersSettled++;
@@ -313,8 +320,8 @@ contract Market {
         feesProtocolBalance = 0;
     }
 
-    function changeWagerOwner(uint wagerKey, address owner){
+/*    function changeWagerOwner(uint wagerKey, address owner){
         require(wagers[wagerKey].owner==msg.sender,"NOT WAGER'S OWNER");
 
-    }
+    }*/
 }
