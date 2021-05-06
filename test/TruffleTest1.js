@@ -39,7 +39,7 @@ const n=3;
 
 const initTimestamp = startTimestamp;
 const period = 86400;
-const settlementInterval = 43200;
+const settlementInterval = 3600*12;
 const minHorizon=0;
 const maxHorizon=30;
 const marketFee = 15;
@@ -58,7 +58,7 @@ contract("HorizonTest", async accounts => {
         }
     });
     it('Should add a new market', async function() {
-        await this.MarketFactory.addMarket(this.DAIcoin.address, addressUniswapV2Pair, period, 1617007676, settlementInterval, minHorizon, maxHorizon, marketFee, {from: accounts[0]});
+        await this.MarketFactory.addMarket(this.DAIcoin.address, addressUniswapV2Pair, period, initTimestamp, settlementInterval, minHorizon, maxHorizon, marketFee, {from: accounts[0]});
     });
     it('Should approve market to spend tokens', async function() {
         var marketKey = await this.MarketFactory.marketsKeys(0);
@@ -89,7 +89,7 @@ contract("HorizonTest", async accounts => {
         console.log(("Block number: "+b2+" timestamp: " + t2.timestamp).bgGreen);*/
         //console.log(web3.utils.hexToNumber(await this.market.clcFrameTimestamp(t2.timestamp)));
         //--------------------------------------------------------------
-        await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], initTimestamp*3600*240, {from: accounts[0], value: new BN('1e18')});
+        await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], initTimestamp*3600*240, {from: accounts[0], value: new BN('3e18')});
         await this.market.updateFramePrices({from: accounts[0]});
     }
     });
@@ -117,7 +117,9 @@ contract("HorizonTest", async accounts => {
         for (let i = 0; i < wagerCount; i++) {
             wagerKeys.push(i);
         }
-        console.log(wagerKeys)
+        console.log(wagerKeys);
+
+
         for (let i = 0; i < wagerCount; i++) {
             //Check shares
             let shareAmount = await this.market.clcShareAmount(wagerKeys[i]);
@@ -136,12 +138,12 @@ contract("HorizonTest", async accounts => {
             //Get amount of tokens before
             let wager = await this.market.wagers(wagerKeys[i]);
             console.log("framekey: " + wager.frameKey)
-            let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-            console.log(colors.yellow("Balance of market is: " + b1));
+            let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
+            console.log(colors.yellow("Balance of user is: " + b1));
             tx = await this.market.settleWager(wagerKeys[i], {from: accounts[i]});
             //console.log(tx);
-            let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-            console.log(colors.yellow("Balance of market is: " + b2.toString()));
+            let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
+            console.log(colors.yellow("Balance of user is: " + b2.toString()));
             console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
             }
     });
