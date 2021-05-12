@@ -1,7 +1,11 @@
-//truffle test ./test/TruffleTest1.js
+//This test uses contracts deployed on Rinkeby test network           |
+//                                                                    |
+//$ ganache-cli --fork https://rinkeby.infura.io/v3/<API key>         |
+//$ truffle test ./test/TruffleTest1.js                               |
+//                                                                    |
+//--------------------------------------------------------------------|
 
-//const Web3 = require('web3');
-//const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
+
 const functions = require("./functions.js");
 
 const {
@@ -14,7 +18,7 @@ const {
 const { assert } = require('chai');
 const colors = require('colors');
 
-//Contacts
+//Contracts
 const contractMarketFactory = artifacts.require("./MarketFactory.sol");
 const contractMarket = artifacts.require("./Market.sol");
 const contractToken = artifacts.require("./node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol");
@@ -44,7 +48,8 @@ const minHorizon=0;
 const maxHorizon=30;
 const marketFee = 15;
 
-contract("HorizonTest", async accounts => {
+contract("UniHedge", async accounts => {
+
     it('Should load contracts from deployed addresses', async function() {
         this.MarketFactory = await contractMarketFactory.new(addressUniswapV2Factory);
         this.DAIcoin = await contractToken.at(addressTokenDAI);
@@ -75,7 +80,7 @@ contract("HorizonTest", async accounts => {
             let tx = await this.market.placeWager(FrameNextKey, 75 - i * 25, 125 + i * 25, {from: accounts[i]});
          }
     });
-    it('Skip time and report prices', async function() {
+    it('should report prices at different time intervals', async function() {
     for(let i=0;i<52;i++){
         /*let blockNum = await web3.eth.getBlockNumber();
         let blockInfo = await web3.eth.getBlock(blockNum);
@@ -93,10 +98,10 @@ contract("HorizonTest", async accounts => {
         await this.market.updateFramePrices({from: accounts[0]});
     }
     });
-    it('Close frame', async function() {
-        let f = await this.market.closeFrame(FrameNextKey, {from: accounts[0]});
+    it('should close frame', async function() {
+        await this.market.closeFrame(FrameNextKey, {from: accounts[0]});
     });
-    it('Check if frame status is CLOSED', async function() {
+    it('should check if frame status is CLOSED', async function() {
         let frame = await this.market.frames(FrameNextKey);
 
         /*console.log("Price cumulative start: "+frame.oraclePrice0CumulativeStart);
@@ -110,42 +115,61 @@ contract("HorizonTest", async accounts => {
 
         assert.equal(frame.state, 2);
     });
-    it('Settle wager', async function() {
+    it('should not close frame more than once', async function() {
+        await expectRevert(
+            this.market.closeFrame(FrameNextKey, {from: accounts[0]}),
+            "FRAME NOT OPENED"
+        );
+    });
+        it('should settle wager', async function() {
+            let wagerKeys = [];
+            let wagerCount = parseInt(await this.market.getWagersCount());
+            //console.log(wagerCount);
+            for (let i = 0; i < wagerCount; i++) {
+                wagerKeys.push(i);
+            }
+            console.log(wagerKeys);
+
+
+            for (let i = 0; i < wagerCount; i++) {
+                //Check shares
+                let shareAmount = await this.market.clcShareAmount(wagerKeys[i]);
+                console.log("Wager " + wagerKeys[i] + " share amount = " + parseFloat(shareAmount) / scalar);
+                let shareHorizon = await this.market.clcShareHorizon(wagerKeys[i]);
+                console.log("Wager " + wagerKeys[i] + " share horizon = " + parseFloat(shareHorizon) / scalar);
+                let shareRange = await this.market.clcShareRange(wagerKeys[i]);
+                console.log("Wager " + wagerKeys[i] + " share range = " + parseFloat(shareRange) / scalar);
+                //Total share
+                let share = await this.market.clcShare(wagerKeys[i]);
+                console.log("Wager " + wagerKeys[i]  + " total share = " + parseFloat(share) / scalar);
+                //Total amount
+                let payoutAmount = await this.market.clcSettleAmount(wagerKeys[i]);
+                console.log("Wager " + wagerKeys[i]  + " payout = " + web3.utils.toBN(payoutAmount).toString());
+                //Settle wager
+                //Get amount of tokens before
+                let wager = await this.market.wagers(wagerKeys[i]);
+                console.log("framekey: " + wager.frameKey)
+                let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
+                console.log(colors.yellow("Balance of user is: " + b1));
+                tx = await this.market.settleWager(wagerKeys[i], {from: accounts[i]});
+                //console.log(tx);
+                let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
+                console.log(colors.yellow("Balance of user is: " + b2.toString()));
+                console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
+                }
+        });
+   
+    it('shouldnt allow to settle wager more than once', async function() {
         let wagerKeys = [];
         let wagerCount = parseInt(await this.market.getWagersCount());
-        //console.log(wagerCount);
         for (let i = 0; i < wagerCount; i++) {
             wagerKeys.push(i);
         }
         console.log(wagerKeys);
-
-
-        for (let i = 0; i < wagerCount; i++) {
-            //Check shares
-            let shareAmount = await this.market.clcShareAmount(wagerKeys[i]);
-            console.log("Wager " + wagerKeys[i] + " share amount = " + parseFloat(shareAmount) / scalar);
-            let shareHorizon = await this.market.clcShareHorizon(wagerKeys[i]);
-            console.log("Wager " + wagerKeys[i] + " share horizon = " + parseFloat(shareHorizon) / scalar);
-            let shareRange = await this.market.clcShareRange(wagerKeys[i]);
-            console.log("Wager " + wagerKeys[i] + " share range = " + parseFloat(shareRange) / scalar);
-            //Total share
-            let share = await this.market.clcShare(wagerKeys[i]);
-            console.log("Wager " + wagerKeys[i]  + " total share = " + parseFloat(share) / scalar);
-            //Total amount
-            let payoutAmount = await this.market.clcSettleAmount(wagerKeys[i]);
-            console.log("Wager " + wagerKeys[i]  + " payout = " + web3.utils.toBN(payoutAmount).toString());
-            //Settle wager
-            //Get amount of tokens before
-            let wager = await this.market.wagers(wagerKeys[i]);
-            console.log("framekey: " + wager.frameKey)
-            let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
-            console.log(colors.yellow("Balance of user is: " + b1));
-            tx = await this.market.settleWager(wagerKeys[i], {from: accounts[i]});
-            //console.log(tx);
-            let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
-            console.log(colors.yellow("Balance of user is: " + b2.toString()));
-            console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
-            }
+        await expectRevert(
+            this.market.settleWager(wagerKeys[1], {from: accounts[1]}),
+            "WAGER ALREADY SETTLED OR NON EXISTING"
+        );
     });
     it('Market fee should equal ' + 3*marketFee + '.', async function() {
         let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
