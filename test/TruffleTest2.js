@@ -92,7 +92,7 @@ contract("UniHedge", async accounts => {
             console.log(FrameNextKey-initTimestamp);
             console.log(period); */
              for (let i = 0; i < n; i++) { //TODO: figure out how to predict correct price....try to use UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair))...
-                let tx = await this.market.placeWager(FrameNextKey, new BN((44018479674483133708461637276119521-i*10000).toString()), new BN((60018479674483133708461637276119521+i*10000).toString()), {from: accounts[i]});
+                let tx = await this.market.placeWager(FrameNextKey, min, max, {from: accounts[i]});
              }
              let b = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
              console.log(colors.green("Balance of market is: " + b));
