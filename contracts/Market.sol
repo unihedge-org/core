@@ -94,7 +94,7 @@ contract Market {
         token = _token;
         ownerMarket = msg.sender;
         period = _period;
-        initTimestamp = _initTimestamp;
+        initTimestamp = _initTimestamp; 
         settlementInterval = _settlementInterval;
         maxHorizon = _maxHorizon;
         minHorizon = _minHorizon;
@@ -223,7 +223,7 @@ contract Market {
         require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
         //Check if frame timing is correct
         require(frameKey.add(period) <= block.timestamp, "FRAME END TIME NOT REACHED");
-        //Check if frame have valid prices
+        //Check if frame has valid prices
         if (frames[frameKey].oraclePrice0CumulativeStart <= 0 || frames[frameKey].oraclePrice0CumulativeEnd <= 0) {
             frames[frameKey].state = SFrame.INVALID;
             return frames[frameKey].state;
@@ -236,7 +236,7 @@ contract Market {
         //UQ112x112 encoded
         uint dP = frames[frameKey].oraclePrice0CumulativeEnd.sub(frames[frameKey].oraclePrice0CumulativeStart);
         uint dT = frames[frameKey].oracleTimestampEnd.sub(frames[frameKey].oracleTimestampStart);
-        //Calculate average price UQ112x112 encoded
+        //Calculate time-weighted average price -- UQ112x112 encoded
         frames[frameKey].priceAverage = uint(((FixedPoint.div(FixedPoint.uq112x112(uint224(dP)), (uint112(dT)))))._x);
 
         //Decode to scalar value
@@ -246,7 +246,7 @@ contract Market {
     }
 
     //Settle wager
-    //TODO invalid frame -> return wagers
+    //TODO: invalid frame -> return wagers
     function settleWager(uint wagerKey) public returns (uint amount){
         //Check if wager exists or was settled
         SFrame state;
@@ -257,13 +257,14 @@ contract Market {
         else {
             state = frames[wagers[wagerKey].frameKey].state;
         }
-        require(state != SFrame.INVALID, "FRAME INVALID"); //Switched
+        require(state != SFrame.INVALID, "FRAME INVALID"); 
         require(state == SFrame.CLOSED, "FRAME NOT CLOSED");
         
         //Change state
         wagers[wagerKey].state = SWager.SETTLED;
         frames[wagers[wagerKey].frameKey].numWagersSettled++;
         emit WagerChanged(wagerKey);
+
         //Check wager outcome
         if (wagers[wagerKey].priceMax > frames[wagers[wagerKey].frameKey].priceAverage && wagers[wagerKey].priceMin < frames[wagers[wagerKey].frameKey].priceAverage) {
             //Calculate settle amount
