@@ -41,17 +41,20 @@ console.log(startTimestamp);
 var FrameNextKey;
 
 const scalar = 1e24;
-const n=3;
 
+//----------------------------------------------------------------------
+const n=3; //Num of wagers to place
 const initTimestamp = startTimestamp;
-const period = 86400;
+const period = 86400; //in seconds
 const settlementInterval = 3600*12;
 const minHorizon=0;
 const maxHorizon=30;
 const marketFee = 10; //in %
 const hoursToSkip = 26; //How many hours to skip after placig wagers
 const bet = '1000e18';
+//----------------------------------------------------------------------
 
+//TODO: add assert,expect... statements to each test block
 
 contract("UniHedge", async accounts => {
 
@@ -81,20 +84,21 @@ contract("UniHedge", async accounts => {
                 await this.DAIcoin.approve(this.market.address, new BN('0'), {from: accounts[i]});
                 await this.DAIcoin.approve(this.market.address, new BN(bet), {from: accounts[i]});
             }
-            let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-            console.log(colors.yellow("Balance of market is: " + b1));
         });
         it('Place '+ n + ' wagers', async function() {
-            FrameNextKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+90000);
-            //console.log(FrameNextKey);
-             for (let i = 0; i < n; i++) {
-                let tx = await this.market.placeWager(FrameNextKey, 75 - i * 25, 125 + i * 25, {from: accounts[i]});
+            //We add 25h to current timestamp and calculate FrameTimestamp
+            FrameNextKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+180000);
+/*             console.log(FrameNextKey.toString());
+            console.log(FrameNextKey-initTimestamp);
+            console.log(period); */
+             for (let i = 0; i < n; i++) { //TODO: figure out how to predict correct price....try to use UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair))...
+                let tx = await this.market.placeWager(FrameNextKey, new BN((44018479674483133708461637276119521-i*10000).toString()), new BN((60018479674483133708461637276119521+i*10000).toString()), {from: accounts[i]});
              }
-             let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-             console.log(colors.yellow("Balance of market is: " + b1));
+             let b = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
+             console.log(colors.green("Balance of market is: " + b));
         });
-        describe("Skip time and report prices at different time intervals", function() {
-            it('should update frame prices at different time intervals', async function() {
+        describe("Skip "+ hoursToSkip + " hours and report prices at different time intervals", function() {
+            it('should update frame prices every 30 min', async function() {
 
                 let tts = hoursToSkip/0.5 | 0;
                 console.log(tts);
@@ -112,26 +116,23 @@ contract("UniHedge", async accounts => {
                     console.log(("Block number: "+b2+" timestamp: " + t2.timestamp).bgGreen);*/
                     //console.log(web3.utils.hexToNumber(await this.market.clcFrameTimestamp(t2.timestamp)));
                     //--------------------------------------------------------------
-                    await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], initTimestamp*3600*240, {from: accounts[0], value: new BN('3e18')});
+                    await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], initTimestamp*3600*240, {from: accounts[5], value: new BN('10e18')});
                     await this.market.updateFramePrices({from: accounts[0]});
+
+                    let frame = await this.market.frames(FrameNextKey);
+                    
+                    console.log(colors.cyan("Start frame price is: " + frame.oraclePrice0CumulativeStart));
+                    console.log(colors.rainbow("End frame price is: " + frame.oraclePrice0CumulativeEnd));
+                    console.log(frame.oraclePrice0CumulativeEnd - frame.oraclePrice0CumulativeStart);
+                    let averagePrice = (frame.oraclePrice0CumulativeEnd - frame.oraclePrice0CumulativeStart)/(frame.oracleTimestampEnd - frame.oracleTimestampStart);
+                    console.log(averagePrice/scalar)
                 }
                 });
             describe("Close frame", function() {
                 it('should close frame', async function() {
                     await this.market.closeFrame(FrameNextKey, {from: accounts[0]});
-                });
-                it('should check if frame status is CLOSED', async function() {
                     let frame = await this.market.frames(FrameNextKey);
-        
-                    /*console.log("Price cumulative start: "+frame.oraclePrice0CumulativeStart);
-                    console.log("Timestamp cumulative start: "+frame.oracleTimestampStart);
-                    console.log("Price cumulative end: "+frame.oraclePrice0CumulativeEnd);
-                    console.log("Timestamp cumulative end: "+frame.oracleTimestampEnd);
-                    console.log("Average price : "+ frame.priceAverage);
-                    let r= await this.UniswapV2Pair.getReserves();
-                    let price = (new BN(r[1])) / (new BN(r[0]));
-                    console.log("spot price: "+ price)*/
-        
+                    console.log(frame.priceAverage.toString())
                     assert.equal(frame.state, 2);
                 });
                 it('should not close frame more than once', async function() {
@@ -141,7 +142,7 @@ contract("UniHedge", async accounts => {
                     );
                 });
                 describe("Settle wager", function() {
-                    it('should settle wager', async function() {
+                    it('should settle all ' +n+ ' wagers', async function() {
                         let wagerKeys = [];
                         let wagerCount = parseInt(await this.market.getWagersCount());
                         //console.log(wagerCount);
@@ -152,7 +153,7 @@ contract("UniHedge", async accounts => {
             
             
                         for (let i = 0; i < wagerCount; i++) {
-                            //Check shares
+/*                             //Check shares
                             let shareAmount = await this.market.clcShareAmount(wagerKeys[i]);
                             console.log("Wager " + wagerKeys[i] + " share amount = " + parseFloat(shareAmount) / scalar);
                             let shareHorizon = await this.market.clcShareHorizon(wagerKeys[i]);
@@ -164,18 +165,32 @@ contract("UniHedge", async accounts => {
                             console.log("Wager " + wagerKeys[i]  + " total share = " + parseFloat(share) / scalar);
                             //Total amount
                             let payoutAmount = await this.market.clcSettleAmount(wagerKeys[i]);
-                            console.log("Wager " + wagerKeys[i]  + " payout = " + web3.utils.toBN(payoutAmount).toString());
+                            console.log("Wager " + wagerKeys[i]  + " payout = " + web3.utils.toBN(payoutAmount).toString()); */
                             //Settle wager
                             //Get amount of tokens before
+                            let frame = await this.market.frames(FrameNextKey);
+                            console.log("Frame average price is: " + frame.priceAverage.toString() );
+
+    
                             let wager = await this.market.wagers(wagerKeys[i]);
+                            console.log("User wagered between prices "+ wager.priceMin.toString() +" and " + wager.priceMax.toString() );
                             console.log("framekey: " + wager.frameKey)
                             let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
+                            let mb1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
+                            console.log(colors.green("Balance of market is: " + mb1));
                             console.log(colors.yellow("Balance of user is: " + b1));
-                            tx = await this.market.settleWager(wagerKeys[i], {from: accounts[i]});
+                            let tx = await this.market.settleWager(wagerKeys[i], {from: accounts[i]});
                             //console.log(tx);
                             let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
                             console.log(colors.yellow("Balance of user is: " + b2.toString()));
-                            console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
+                            console.log(colors.yellow("Difference is: " + (b2.sub(b1)).toString()));
+                            let mb2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
+                            console.log(colors.green("Balance of market is: " + mb2));
+
+                            let wagers = await this.market.wagers(0);
+                            console.log(wagers.state.toString());
+
+                            assert.equal(wagers.state.toString(), '2');
                             }
                     });
             
@@ -192,14 +207,13 @@ contract("UniHedge", async accounts => {
                     );
                     });
                     describe("Check fees", function() {
-                        it('Market fee should equal ' + (1000*n*(10/100) | 0) + '.', async function() {
+                        it('Correct amount of market fees is colected.', async function() {
                             let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
                             console.log(colors.yellow("Balance of market is: " + b1));
                             await this.market.withdrawFeesMarket({from: accounts[0]});
                             let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
                             console.log(colors.yellow("Balance of market is: " + b2.toString()));
                             console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
-                            console.log(b1.sub(b2));
                             let finalFee= 1000*n*(10/100) | 0;
                             console.log(finalFee);
                             assert.equal(b1.sub(b2), finalFee);
@@ -211,6 +225,7 @@ contract("UniHedge", async accounts => {
                             let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
                             console.log(colors.yellow("Balance of market is: " + b2.toString()));
                             console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
+
                         });
                     });
                 });
