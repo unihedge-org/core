@@ -3,10 +3,12 @@
 //$ ganache-cli --fork https://rinkeby.infura.io/v3/<API key>         |
 //$ truffle test ./test/TruffleTest2.js                               |
 //                                                                    |
+//Market contract is modified due to inconsistent                     |
+//values from uniswao oracle on testnet                               |
 //--------------------------------------------------------------------|
 
-
 const functions = require("./functions.js");
+
 
 const {
     BN,
@@ -17,12 +19,11 @@ const {
 
 const { assert } = require('chai');
 const colors = require('colors');
-const BigNumber = require('bignumber.js');
-
+const consola = require('consola')
 
 //Contracts
-const contractMarketFactory = artifacts.require("./MarketFactory.sol");
-const contractMarket = artifacts.require("./Market.sol");
+const contractMarketFactory = artifacts.require("./MarketFactory_2.sol");
+const contractMarket = artifacts.require("./Market_2.sol");
 const contractToken = artifacts.require("./node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol");
 const contractUniswapV2Factory = artifacts.require("../node_modules/@uniswap/v2-core/contracts/UniswapV2Factory.sol");
 const conatractUniswapV2Pair = artifacts.require("./node_modules/@uniswap/v2-core/contracts/UniswapV2Pair.sol");
@@ -36,22 +37,23 @@ let addressTokenWETH = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
 let addressUniswapV2Router02 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
 
 
+
+
 const startTimestamp = Date.now() / 1000 | 0;
-console.log(startTimestamp);
+consola.info("Current timestamp: " + startTimestamp + " s");
 var FrameNextKey;
 
-const scalar = 1e24;
 
 //----------------------------------------------------------------------
 const n=3; //Num of wagers to place
 const initTimestamp = startTimestamp;
-const period = 86400; //in seconds
-const settlementInterval = 3600*12;
+const period = 24; //in hours
+const settlementInterval = 6;
 const minHorizon=0;
 const maxHorizon=30;
-const marketFee = 10; //in %
+const marketFee = 100; // %/1000
 const hoursToSkip = 26; //How many hours to skip after placig wagers
-const bet = '1000e18';
+const bet = new BN('1000e18');
 //----------------------------------------------------------------------
 
 //TODO: add assert,expect... statements to each test block
@@ -74,7 +76,9 @@ contract("UniHedge", async accounts => {
         });
     describe("Deploy a new market and place wagers", function() {
         it('Deploy a new market', async function() {
-            await this.MarketFactory.addMarket(this.DAIcoin.address, addressUniswapV2Pair, period, initTimestamp, settlementInterval, minHorizon, maxHorizon, marketFee, {from: accounts[0]});
+            let periodInSec = period * 3600;
+            let settlementIntInSec = settlementInterval * 3600;
+            await this.MarketFactory.addMarket(this.DAIcoin.address, addressUniswapV2Pair, periodInSec, initTimestamp, settlementIntInSec, minHorizon, maxHorizon, marketFee, {from: accounts[0]});
         });
         it('Approve market to spend tokens', async function() {
             var marketKey = await this.MarketFactory.marketsKeys(0);
@@ -82,58 +86,95 @@ contract("UniHedge", async accounts => {
             this.market = await contractMarket.at(address);
             for (let i = 0; i < n; i++) {
                 await this.DAIcoin.approve(this.market.address, new BN('0'), {from: accounts[i]});
-                await this.DAIcoin.approve(this.market.address, new BN(bet), {from: accounts[i]});
+                await this.DAIcoin.approve(this.market.address, bet, {from: accounts[i]});
             }
         });
         it('Place '+ n + ' wagers', async function() {
             //We add 25h to current timestamp and calculate FrameTimestamp
-            FrameNextKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+180000);
-/*             console.log(FrameNextKey.toString());
-            console.log(FrameNextKey-initTimestamp);
-            console.log(period); */
-             for (let i = 0; i < n; i++) { //TODO: figure out how to predict correct price....try to use UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair))...
-                let tx = await this.market.placeWager(FrameNextKey, min, max, {from: accounts[i]});
+            FrameNextKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+90000);
+/*             consola.log(FrameNextKey.toString());
+            consola.log(FrameNextKey-initTimestamp);
+            consola.log(period); */
+             for (let i = 0; i < n; i++) { 
+                let tx = await this.market.placeWager(FrameNextKey, 5000-i*1000, 6000-i*1000, {from: accounts[i]});
              }
              let b = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-             console.log(colors.green("Balance of market is: " + b));
+             consola.log(colors.green("Balance of market is: " + b));
         });
         describe("Skip "+ hoursToSkip + " hours and report prices at different time intervals", function() {
             it('should update frame prices every 30 min', async function() {
 
                 let tts = hoursToSkip/0.5 | 0;
-                console.log(tts);
+                consola.log(tts);
+
+                let periodInSec = period * 3600;
+                await functions.advanceTimeAndBlock(periodInSec);
 
                 for(let i=0;i<tts;i++){
-                    /*let blockNum = await web3.eth.getBlockNumber();
+                    let blockNum = await web3.eth.getBlockNumber();
                     let blockInfo = await web3.eth.getBlock(blockNum);
-                    console.log(("Block number: "+blockNum+" timestamp: "+blockInfo.timestamp).bgBlue);*/
+                    consola.log(colors.blue("Block number: "+blockNum+" timestamp: "+blockInfo.timestamp));
+
                     //--------------------------------------------------------------
-                    await functions.advanceTimeAndBlock(1800*i); //Advance by 0,5h each run (1800sec)
+                    await functions.advanceTimeAndBlock(1800); //Advance by 0,5h each run (1800sec)
                     //--------------------------------------------------------------
-                    /*let b2 = await web3.eth.getBlockNumber();
+
+                    let b2 = await web3.eth.getBlockNumber();
                     let t2 = await web3.eth.getBlock(b2);
-                    console.log(("Mining: SKIP TIME: " + (t2.timestamp - blockInfo.timestamp) / 3600 + " hours").bgMagenta);
-                    console.log(("Block number: "+b2+" timestamp: " + t2.timestamp).bgGreen);*/
-                    //console.log(web3.utils.hexToNumber(await this.market.clcFrameTimestamp(t2.timestamp)));
+                    consola.log(colors.red("Skip time is : " + parseFloat((t2.timestamp - blockInfo.timestamp) / 3600).toFixed(2) + " hours"));
+                    consola.log(colors.magenta("Block number: "+b2+" timestamp: " + t2.timestamp));
+                    consola.log("End frame is: " + FrameNextKey);
+                    newFrameKey = await this.market.clcFrameTimestamp(t2.timestamp);
+                    consola.log("Current Frame is: " + newFrameKey)
+                    /* if ( t2.timestamp <= ((newFrameKey+period)-settlementInterval)) {
+                        consola.log(colors.bold("Is updating start prices").bgRed);
+                        consola.log(((newFrameKey+period)-settlementInterval))
+                    }
+                    else if ( t2.timestamp <= (newFrameKey+period)) {
+                        consola.log(colors.bold("Is in settlement period").bgRed);
+                    }
+                    else {
+                        consola.log(colors.bold("Different frame").bgRed);
+                    } */
+                    
+                    //consola.log(web3.utils.hexToNumber(await this.market.clcFrameTimestamp(t2.timestamp)));
                     //--------------------------------------------------------------
-                    await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], initTimestamp*3600*240, {from: accounts[5], value: new BN('10e18')});
-                    await this.market.updateFramePrices({from: accounts[0]});
+                    //await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], initTimestamp*3600*240, {from: accounts[5], value: new BN('10e18')});
+                    
+                    await this.market.updateFramePrices(1000000000+i*10000000, t2.timestamp, {from: accounts[0]});
 
                     let frame = await this.market.frames(FrameNextKey);
                     
-                    console.log(colors.cyan("Start frame price is: " + frame.oraclePrice0CumulativeStart));
-                    console.log(colors.rainbow("End frame price is: " + frame.oraclePrice0CumulativeEnd));
-                    console.log(frame.oraclePrice0CumulativeEnd - frame.oraclePrice0CumulativeStart);
+                    consola.log(colors.cyan("Start frame price is: " + frame.oraclePrice0CumulativeStart));
+                    consola.log(colors.cyan("End frame price is: " + frame.oraclePrice0CumulativeEnd));
+                    consola.log("Difference is: " + (frame.oraclePrice0CumulativeEnd - frame.oraclePrice0CumulativeStart));
+                    consola.log(colors.cyan("Start frame timestamp is: " + frame.oracleTimestampStart));
+                    consola.log(colors.cyan("End frame timestamp is: " + frame.oracleTimestampEnd));
+                    consola.log("Difference is: " + (frame.oracleTimestampEnd - frame.oracleTimestampStart));
                     let averagePrice = (frame.oraclePrice0CumulativeEnd - frame.oraclePrice0CumulativeStart)/(frame.oracleTimestampEnd - frame.oracleTimestampStart);
-                    console.log(averagePrice/scalar)
+                    consola.log(colors.underline("Average price is: " + averagePrice + "\n"));
                 }
                 });
             describe("Close frame", function() {
                 it('should close frame', async function() {
                     await this.market.closeFrame(FrameNextKey, {from: accounts[0]});
                     let frame = await this.market.frames(FrameNextKey);
-                    console.log(frame.priceAverage.toString())
+                    consola.log(frame.priceAverage.toString())
                     assert.equal(frame.state, 2);
+                });
+                it('Collect protocol fees', async function() {
+                    let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
+                    consola.log(colors.yellow("Balance of market is: " + b1));
+                    await this.market.withdrawFeesProtocol({from: accounts[0]});
+                    let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
+                    consola.log(colors.yellow("Balance of market is: " + b2.toString()));
+                    consola.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
+                    let finalFee = 0;
+                    for (i=0; i < n; i++) {
+                        finalFee = finalFee + (bet*(100/100000) | 0);
+                    }
+                    consola.log(colors.green("Final fee is: " + finalFee));
+                    assert.equal((b1.sub(b2)).toString(), finalFee.toString());
                 });
                 it('should not close frame more than once', async function() {
                     await expectRevert(
@@ -145,50 +186,51 @@ contract("UniHedge", async accounts => {
                     it('should settle all ' +n+ ' wagers', async function() {
                         let wagerKeys = [];
                         let wagerCount = parseInt(await this.market.getWagersCount());
-                        //console.log(wagerCount);
+                        //consola.log(wagerCount);
                         for (let i = 0; i < wagerCount; i++) {
                             wagerKeys.push(i);
                         }
-                        console.log(wagerKeys);
+                        //consola.log(wagerKeys);
             
             
                         for (let i = 0; i < wagerCount; i++) {
 /*                             //Check shares
                             let shareAmount = await this.market.clcShareAmount(wagerKeys[i]);
-                            console.log("Wager " + wagerKeys[i] + " share amount = " + parseFloat(shareAmount) / scalar);
+                            consola.log("Wager " + wagerKeys[i] + " share amount = " + parseFloat(shareAmount) / scalar);
                             let shareHorizon = await this.market.clcShareHorizon(wagerKeys[i]);
-                            console.log("Wager " + wagerKeys[i] + " share horizon = " + parseFloat(shareHorizon) / scalar);
+                            consola.log("Wager " + wagerKeys[i] + " share horizon = " + parseFloat(shareHorizon) / scalar);
                             let shareRange = await this.market.clcShareRange(wagerKeys[i]);
-                            console.log("Wager " + wagerKeys[i] + " share range = " + parseFloat(shareRange) / scalar);
+                            consola.log("Wager " + wagerKeys[i] + " share range = " + parseFloat(shareRange) / scalar);
                             //Total share
                             let share = await this.market.clcShare(wagerKeys[i]);
-                            console.log("Wager " + wagerKeys[i]  + " total share = " + parseFloat(share) / scalar);
+                            consola.log("Wager " + wagerKeys[i]  + " total share = " + parseFloat(share) / scalar);
                             //Total amount
                             let payoutAmount = await this.market.clcSettleAmount(wagerKeys[i]);
-                            console.log("Wager " + wagerKeys[i]  + " payout = " + web3.utils.toBN(payoutAmount).toString()); */
+                            consola.log("Wager " + wagerKeys[i]  + " payout = " + web3.utils.toBN(payoutAmount).toString()); */
                             //Settle wager
                             //Get amount of tokens before
                             let frame = await this.market.frames(FrameNextKey);
-                            console.log("Frame average price is: " + frame.priceAverage.toString() );
+                            consola.log("Frame average price is: " + frame.priceAverage.toString() );
 
     
                             let wager = await this.market.wagers(wagerKeys[i]);
-                            console.log("User wagered between prices "+ wager.priceMin.toString() +" and " + wager.priceMax.toString() );
-                            console.log("framekey: " + wager.frameKey)
+                            consola.log("User wagered between prices "+ wager.priceMin.toString() +" and " + wager.priceMax.toString() );
+                            consola.log("framekey: " + wager.frameKey)
                             let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
                             let mb1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-                            console.log(colors.green("Balance of market is: " + mb1));
-                            console.log(colors.yellow("Balance of user is: " + b1));
+                            consola.log(colors.green("Balance of market is: " + mb1));
+                            consola.log(colors.yellow("Balance of user is: " + b1));
                             let tx = await this.market.settleWager(wagerKeys[i], {from: accounts[i]});
-                            //console.log(tx);
+                            //consola.log(tx);
                             let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(accounts[i]));
-                            console.log(colors.yellow("Balance of user is: " + b2.toString()));
-                            console.log(colors.yellow("Difference is: " + (b2.sub(b1)).toString()));
+                            consola.log(colors.yellow("Balance of user is: " + b2.toString()));
+                            consola.log(colors.yellow("Difference is: " + (b2.sub(b1)).toString()));
                             let mb2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-                            console.log(colors.green("Balance of market is: " + mb2));
+                            consola.log(colors.green("Balance of market is: " + mb2));
 
                             let wagers = await this.market.wagers(0);
-                            console.log(wagers.state.toString());
+                            consola.log(wagers.state.toString() + "\n");
+                        
 
                             assert.equal(wagers.state.toString(), '2');
                             }
@@ -200,7 +242,7 @@ contract("UniHedge", async accounts => {
                     for (let i = 0; i < wagerCount; i++) {
                         wagerKeys.push(i);
                     }
-                    console.log(wagerKeys);
+                    //consola.log(wagerKeys);
                     await expectRevert(
                         this.market.settleWager(wagerKeys[1], {from: accounts[1]}),
                         "WAGER ALREADY SETTLED OR NON EXISTING"
@@ -209,23 +251,33 @@ contract("UniHedge", async accounts => {
                     describe("Check fees", function() {
                         it('Correct amount of market fees is colected.', async function() {
                             let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-                            console.log(colors.yellow("Balance of market is: " + b1));
+                            consola.log(colors.yellow("Balance of market is: " + b1));
                             await this.market.withdrawFeesMarket({from: accounts[0]});
                             let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-                            console.log(colors.yellow("Balance of market is: " + b2.toString()));
-                            console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
-                            let finalFee= 1000*n*(10/100) | 0;
-                            console.log(finalFee);
-                            assert.equal(b1.sub(b2), finalFee);
+                            consola.log(colors.yellow("Balance of market is: " + b2.toString()));
+                            consola.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
+                            let finalFee = 0;
+                            for (i=0; i < n; i++) {
+                                finalFee = finalFee + (bet*(marketFee/100000) | 0);
+                            }
+                            
+                            consola.log(colors.green("Final fee is: " + finalFee));
+                            assert.equal((b1.sub(b2)).toString(), finalFee.toString());
                         });
+                        //TODO: convertaj v ETH te številke!!!
                         it('Collect protocol fees', async function() {
                             let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-                            console.log(colors.yellow("Balance of market is: " + b1));
+                            consola.log(colors.yellow("Balance of market is: " + b1));
                             await this.market.withdrawFeesProtocol({from: accounts[0]});
                             let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-                            console.log(colors.yellow("Balance of market is: " + b2.toString()));
-                            console.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
-
+                            consola.log(colors.yellow("Balance of market is: " + b2.toString()));
+                            consola.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
+                            let finalFee = 0;
+                            for (i=0; i < n; i++) {
+                                finalFee = finalFee + (bet*(100/100000) | 0);
+                            }
+                            consola.log(colors.green("Final fee is: " + finalFee));
+                            assert.equal((b1.sub(b2)).toString(), finalFee.toString());
                         });
                     });
                 });

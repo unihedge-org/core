@@ -86,7 +86,7 @@ contract("UniHedge", async accounts => {
         let blockInfo = await web3.eth.getBlock(blockNum);
         console.log(("Block number: "+blockNum+" timestamp: "+blockInfo.timestamp).bgBlue);*/
         //--------------------------------------------------------------
-        await functions.advanceTimeAndBlock(1800*i); //Advance by 0,5h each run (1800sec)
+        await functions.advanceTimeAndBlock(1800); //Advance by 0,5h each run (1800sec)
         //--------------------------------------------------------------
         /*let b2 = await web3.eth.getBlockNumber();
         let t2 = await web3.eth.getBlock(b2);
