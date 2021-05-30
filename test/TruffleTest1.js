@@ -86,7 +86,7 @@ contract("UniHedge", async accounts => {
         let blockInfo = await web3.eth.getBlock(blockNum);
         console.log(("Block number: "+blockNum+" timestamp: "+blockInfo.timestamp).bgBlue);*/
         //--------------------------------------------------------------
-        await functions.advanceTimeAndBlock(1800); //Advance by 0,5h each run (1800sec)
+        await functions.advanceTimeAndBlock(1800*i); //Advance by 0,5h each run (1800sec)
         //--------------------------------------------------------------
         /*let b2 = await web3.eth.getBlockNumber();
         let t2 = await web3.eth.getBlock(b2);
@@ -100,6 +100,8 @@ contract("UniHedge", async accounts => {
     });
     it('should close frame', async function() {
         await this.market.closeFrame(FrameNextKey, {from: accounts[0]});
+        let frame = await this.market.frames(FrameNextKey);
+        console.log("Average price is: " + frame.priceAverage.toString())
     });
     it('should check if frame status is CLOSED', async function() {
         let frame = await this.market.frames(FrameNextKey);

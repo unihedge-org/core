@@ -19,7 +19,8 @@ const {
 
 const { assert } = require('chai');
 const colors = require('colors');
-const consola = require('consola')
+const consola = require('consola');
+const BigN = require("bignumber.js");
 
 //Contracts
 const contractMarketFactory = artifacts.require("./MarketFactory_2.sol");
@@ -35,6 +36,7 @@ let addressUniswapV2Pair = "0x8B22F85d0c844Cf793690F6D9DFE9F11Ddb35449";
 let addressTokenDAI = "0xc7AD46e0b8a400Bb3C915120d284AafbA8fc4735";
 let addressTokenWETH = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
 let addressUniswapV2Router02 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
+let addressMarketFactory = "0xf63ecBC45737E9087751CA5d3C98A0359Ee71226";
 
 
 
@@ -63,8 +65,9 @@ contract("UniHedge", async accounts => {
     describe("Testing functionality of Unihedge protocol", function() {
         before(async function() {
             //Deploy market factory
-            this.MarketFactory = await contractMarketFactory.new(addressUniswapV2Factory);
+            //this.MarketFactory = await contractMarketFactory.new(addressUniswapV2Factory);
             //Import deployed contracts
+            this.MarketFactory = await contractMarketFactory.at(addressMarketFactory);
             this.DAIcoin = await contractToken.at(addressTokenDAI);
             this.UniswapV2Factory = await contractUniswapV2Factory.at(addressUniswapV2Factory);
             this.UniswapV2Pair = await conatractUniswapV2Pair.at(addressUniswapV2Pair);
@@ -78,10 +81,15 @@ contract("UniHedge", async accounts => {
         it('Deploy a new market', async function() {
             let periodInSec = period * 3600;
             let settlementIntInSec = settlementInterval * 3600;
+            let count1 = await this.MarketFactory.getMarketsCount();
+            console.log(count1.toString())
             await this.MarketFactory.addMarket(this.DAIcoin.address, addressUniswapV2Pair, periodInSec, initTimestamp, settlementIntInSec, minHorizon, maxHorizon, marketFee, {from: accounts[0]});
+            //assert.equal(, 1); 
+            let count2 = await this.MarketFactory.getMarketsCount();
+            console.log(count2.toString())
         });
         it('Approve market to spend tokens', async function() {
-            var marketKey = await this.MarketFactory.marketsKeys(0);
+            var marketKey = await this.MarketFactory.marketsKeys(1);
             var address = await this.MarketFactory.markets(marketKey);
             this.market = await contractMarket.at(address);
             for (let i = 0; i < n; i++) {
@@ -92,14 +100,20 @@ contract("UniHedge", async accounts => {
         it('Place '+ n + ' wagers', async function() {
             //We add 25h to current timestamp and calculate FrameTimestamp
             FrameNextKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+90000);
-/*             consola.log(FrameNextKey.toString());
+            /*consola.log(FrameNextKey.toString());
             consola.log(FrameNextKey-initTimestamp);
             consola.log(period); */
              for (let i = 0; i < n; i++) { 
-                let tx = await this.market.placeWager(FrameNextKey, 5000-i*1000, 6000-i*1000, {from: accounts[i]});
+                let maxP = new BigN('13211698376');
+                let minP = new BigN('10211298376'); 
+                let tx = await this.market.placeWager(FrameNextKey, minP, maxP.minus(i*(new BigN('100000'))), {from: accounts[i]});
              }
              let b = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
              consola.log(colors.green("Balance of market is: " + b));
+
+             let frame = await this.market.frames(FrameNextKey);
+             console.log("Frame range acc amount is: " + frame.accAmount)
+
         });
         describe("Skip "+ hoursToSkip + " hours and report prices at different time intervals", function() {
             it('should update frame prices every 30 min', async function() {
@@ -141,7 +155,11 @@ contract("UniHedge", async accounts => {
                     //--------------------------------------------------------------
                     //await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[0], initTimestamp*3600*240, {from: accounts[5], value: new BN('10e18')});
                     
-                    await this.market.updateFramePrices(1000000000+i*10000000, t2.timestamp, {from: accounts[0]});
+                    let startPirceAccu = new BigN('351376658422403395211142728202634126243');
+
+                    let priceAccu = startPirceAccu.plus(new BigN('10000000')).multipliedBy(i+1);
+
+                    await this.market.updateFramePrices(priceAccu, {from: accounts[0]});
 
                     let frame = await this.market.frames(FrameNextKey);
                     
@@ -151,30 +169,16 @@ contract("UniHedge", async accounts => {
                     consola.log(colors.cyan("Start frame timestamp is: " + frame.oracleTimestampStart));
                     consola.log(colors.cyan("End frame timestamp is: " + frame.oracleTimestampEnd));
                     consola.log("Difference is: " + (frame.oracleTimestampEnd - frame.oracleTimestampStart));
-                    let averagePrice = (frame.oraclePrice0CumulativeEnd - frame.oraclePrice0CumulativeStart)/(frame.oracleTimestampEnd - frame.oracleTimestampStart);
-                    consola.log(colors.underline("Average price is: " + averagePrice + "\n"));
+                    /* let averagePrice = new BigN(frame.oraclePrice0CumulativeEnd - frame.oraclePrice0CumulativeStart)/(frame.oracleTimestampEnd - frame.oracleTimestampStart);
+                    consola.log(colors.underline("Average price is: " + averagePrice.toFixed() + "\n")); */
                 }
                 });
             describe("Close frame", function() {
                 it('should close frame', async function() {
                     await this.market.closeFrame(FrameNextKey, {from: accounts[0]});
                     let frame = await this.market.frames(FrameNextKey);
-                    consola.log(frame.priceAverage.toString())
+                    consola.log("Average price is: " + frame.priceAverage)
                     assert.equal(frame.state, 2);
-                });
-                it('Collect protocol fees', async function() {
-                    let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-                    consola.log(colors.yellow("Balance of market is: " + b1));
-                    await this.market.withdrawFeesProtocol({from: accounts[0]});
-                    let b2 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
-                    consola.log(colors.yellow("Balance of market is: " + b2.toString()));
-                    consola.log(colors.yellow("Difference is: " + (b1.sub(b2)).toString()));
-                    let finalFee = 0;
-                    for (i=0; i < n; i++) {
-                        finalFee = finalFee + (bet*(100/100000) | 0);
-                    }
-                    consola.log(colors.green("Final fee is: " + finalFee));
-                    assert.equal((b1.sub(b2)).toString(), finalFee.toString());
                 });
                 it('should not close frame more than once', async function() {
                     await expectRevert(
@@ -182,8 +186,8 @@ contract("UniHedge", async accounts => {
                         "FRAME NOT OPENED"
                     );
                 });
-                describe("Settle wager", function() {
-                    it('should settle all ' +n+ ' wagers', async function() {
+                describe("Resolve wager", function() {
+                    it('Should resolve all ' +n+ ' wagers', async function() {
                         let wagerKeys = [];
                         let wagerCount = parseInt(await this.market.getWagersCount());
                         //consola.log(wagerCount);
@@ -248,6 +252,7 @@ contract("UniHedge", async accounts => {
                         "WAGER ALREADY SETTLED OR NON EXISTING"
                     );
                     });
+                    //TODO: convertaj v ETH te številke!!!
                     describe("Check fees", function() {
                         it('Correct amount of market fees is colected.', async function() {
                             let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
@@ -264,7 +269,7 @@ contract("UniHedge", async accounts => {
                             consola.log(colors.green("Final fee is: " + finalFee));
                             assert.equal((b1.sub(b2)).toString(), finalFee.toString());
                         });
-                        //TODO: convertaj v ETH te številke!!!
+                        
                         it('Collect protocol fees', async function() {
                             let b1 = web3.utils.toBN(await this.DAIcoin.balanceOf(this.market.address));
                             consola.log(colors.yellow("Balance of market is: " + b1));

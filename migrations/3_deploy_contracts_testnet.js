@@ -1,4 +1,4 @@
-let MarketFactory = artifacts.require("MarketFactory");
+let MarketFactory = artifacts.require("MarketFactory_2");
 
 let addressUniswapFactory = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
 let addressUniswapV2Pair = "0x8B22F85d0c844Cf793690F6D9DFE9F11Ddb35449";
@@ -10,7 +10,7 @@ module.exports = async function (deployer) {
     await deployer.deploy(MarketFactory, addressUniswapFactory);
     let marketFactory = await MarketFactory.deployed();
     //Create Market for ETH/DAI with DAI 6h
-    await marketFactory.addMarket(addressDAIToken, addressUniswapV2Pair, 86400, 1577836800, 3600, 0, 30, 0);
+    await marketFactory.addMarket(addressDAIToken, addressUniswapV2Pair, 86400, 1577836800, 3600, 1, 7, 100);
     let market = await marketFactory.marketsKeys.call(0);
     console.log("Market address:" + market);
 };
