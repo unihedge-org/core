@@ -24,6 +24,7 @@ contract Harberger_Market {
     uint public taxMarket;
     uint public feeProtocol = 100;
     uint scalar = 1e24;
+    uint num = 100000;
 
     enum SFrame {NULL, OPENED, CLOSED, INVALID}
     struct Frame {
@@ -36,6 +37,7 @@ contract Harberger_Market {
         uint price0CumulativeEnd;
         uint oracleTimestampStart;
         uint oracleTimestampEnd;
+        uint lastBlockNum;
         uint[] parcels;
     }
 
@@ -46,7 +48,7 @@ contract Harberger_Market {
 
     struct ParcelOwner {
         address payable owner;
-        uint timestamp;
+        uint blockNum;
     }
 
     enum SParcel {NULL, BOUGHT, RESOLVED}
@@ -58,11 +60,11 @@ contract Harberger_Market {
         SParcel state;
     }
 
-    event ParcellUpdate(uint index);
+    event ParcelUpdate(uint index);
 
     mapping(uint => Parcel) public parcels;
+    uint[] public parcelKeys;
 
-    //uint[] public intervalKeys;
 
     constructor(MarketFactory_3 _factory, IERC20 _token, IUniswapV2Pair _uniswapPair, uint _period, uint _initTimestamp, uint _taxMarket, uint _feeMarket, uint _dPrice ) public {
         accountingToken = _token;
@@ -97,7 +99,6 @@ contract Harberger_Market {
         return ((timestamp.sub(initTimestamp)).div(period)).mul(period).add(initTimestamp);
     }
 
-    //TODO: check if it works....
     function clcParcelInterval(uint value) public view returns (uint){
         if (value <= 0) return dPrice;
         return value.div(dPrice).mul(dPrice).add(dPrice);
@@ -108,9 +109,8 @@ contract Harberger_Market {
     }
 
     //Change to 1 input: only parcelKey
-    function getCurrentPrice(uint frameKey, uint intervalKey) public view returns (uint){  
-        uint key = frameKey+intervalKey;                    
-        return parcels[key].currentPrice;
+    function getCurrentPrice(uint parcelKey) public view returns (uint){                 
+        return parcels[parcelKey].currentPrice;
     }
 
     function getApprovedAmount() public view returns (uint) {                         
@@ -119,13 +119,53 @@ contract Harberger_Market {
         return approvedAmount;
     }
 
-    function getParcelOwnerFrameKey(uint parcelKey, uint owner) public view returns (uint) {                         
-        return parcels[parcelKey].parcelOwners[owner].timestamp;
+    function getParcelOwnerBlockNum(uint parcelKey, uint owner) public view returns (uint) {                         
+        return parcels[parcelKey].parcelOwners[owner].blockNum;
     }
 
     function getRewardAmount(uint frameKey) public view returns (uint) {                         
         return frames[frameKey].rewardFund;
     }
+
+    function getParcelCount() public view returns (uint){
+        return parcelKeys.length;
+    }
+
+    function getNumberOfParcelOwners(uint parcelIndex) public view returns (uint){
+        return parcels[parcelIndex].parcelOwners.length ;
+    }
+
+    function getBlockNum() public view returns (uint){
+        return block.number;
+    }
+
+
+
+    function getParcelIndex(uint frameKey, uint parcelKey) public view returns (uint) {   
+
+        uint parcelCount = getParcelCount();
+
+        //if (parcelCount == 0) return 0;
+
+        for (uint i=0; i < parcelCount; i++) {
+            if (parcels[i].parcelKey == parcelKey && parcels[i].frameKey == frameKey) return i;
+        }
+
+        return getParcelCount(); 
+    }
+
+    function getParcelOwnerIndex(uint parcelIndex, address owner) public view returns (uint) {   
+
+        //if (parcelCount == 0) return 0;
+
+        for (uint i=0; i<getNumberOfParcelOwners(parcelIndex); i++) {
+            if (parcels[parcelIndex].parcelOwners[i].owner == owner) return i;
+        }
+
+        return getNumberOfParcelOwners(parcelIndex); 
+    }
+
+    
 
     // function getAmounfOfparcelOwners(uint parcelKey) public view returns (uint) {                         
     //     uint onwersLenght = parcels[parcelKey].parcelOwners.lenght
@@ -137,19 +177,19 @@ contract Harberger_Market {
 
         //if (parcels[frameKey][intervalKey].state != SParcel.NULL) return (frameKey, intervalKey);
         
-        parcels[parcelKey].parcelKey = parcelKey;
-        parcels[parcelKey].frameKey = frameKey;
-        parcels[parcelKey].state = SParcel.BOUGHT;
+        parcels[getParcelCount()].parcelKey = parcelKey;
+        parcels[getParcelCount()].frameKey = frameKey;
+        parcelKeys.push(parcelKey);
     }
 
     function AmountToApprove(uint frameKey, uint priceInterval, uint newSellPrice) public view returns (uint) {                         
-        uint parcelKey = clcParcelInterval(priceInterval).add(frameKey);
+        uint parcelKey = clcParcelInterval(priceInterval);
        
         
         uint numOfFrames = clcFramesLeft(frameKey);
         uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFrames);
 
-        uint price = parcels[parcelKey].currentPrice.add(tax);
+        uint price = parcels[getParcelIndex(frameKey, parcelKey)].currentPrice.add(tax);
 
         return price;
     }
@@ -157,40 +197,41 @@ contract Harberger_Market {
 
     function buyParcel(uint timestamp, uint priceInterval, uint newSellPrice) public payable {
         uint frameKey =  getOrCreateFrame(timestamp);                          
-        uint parcelKey = clcParcelInterval(priceInterval).add(frameKey);
+        uint parcelKey = clcParcelInterval(priceInterval);
+
+        if (getParcelIndex(frameKey, parcelKey) == getParcelCount()) CreateParcel(frameKey, parcelKey);
 
         //Calculate tax from the propoed new price (newSellPrice)
         uint numOfFramesLeft = clcFramesLeft(timestamp);
         uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
 
-        //Approved amount has to be at leat equal to price of the Parcel(with tax)
-        require(accountingToken.allowance(msg.sender, address(this)) >= parcels[parcelKey].currentPrice.add(tax), "APPROVED AMOUNT IS NOT ENOUGH");
+        uint parcelIndex = getParcelIndex(frameKey, parcelKey);
 
         //Approved amount has to be at leat equal to price of the Parcel(with tax)
-        require(accountingToken.balanceOf(msg.sender) >= parcels[parcelKey].currentPrice.add(tax), "NOT ENOUGH FUNDS ON ACC");
+        require(accountingToken.allowance(msg.sender, address(this)) >= parcels[parcelIndex].currentPrice.add(tax), "APPROVED AMOUNT IS NOT ENOUGH");
         
         //Transfer complete tax amount to the frame rewardFund
-        accountingToken.transferFrom(msg.sender, address(this), parcels[parcelKey].currentPrice.add(tax));
-        //accountingToken.transferFrom(msg.sender, address(this), tax);
+        accountingToken.transferFrom(msg.sender, address(this), parcels[parcelIndex].currentPrice.add(tax));
         frames[frameKey].rewardFund = frames[frameKey].rewardFund.add(tax);
 
-        if (parcels[parcelKey].state == SParcel.NULL) {
-            //Create the Parcel
-            CreateParcel(frameKey, parcelKey);
-        } else {
-            //Pay the Parcel price to current owner
-            uint oldTaxToReturn = parcels[parcelKey].currentPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
-            accountingToken.transfer(parcels[parcelKey].parcelOwners[parcels[parcelKey].parcelOwners.length - 1].owner, (oldTaxToReturn+parcels[parcelKey].currentPrice));
+
+
+        if (parcels[parcelIndex].state == SParcel.BOUGHT) {
+            //Pay the Parcel price to current owner + return tax
+            uint oldTaxToReturn = parcels[parcelIndex].currentPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+            uint amount = (oldTaxToReturn.add(parcels[parcelIndex].currentPrice));
+            accountingToken.transfer(parcels[parcelIndex].parcelOwners[getNumberOfParcelOwners(parcelIndex).sub(1)].owner, amount);
             frames[frameKey].rewardFund = frames[frameKey].rewardFund.sub(oldTaxToReturn);
         }
        
-        parcels[parcelKey].parcelOwners.push(ParcelOwner(msg.sender, getOrCreateFrame(block.timestamp)));
-        parcels[parcelKey].state = SParcel.BOUGHT;
-        parcels[parcelKey].currentPrice = newSellPrice;
+        parcels[parcelIndex].parcelOwners.push(ParcelOwner(msg.sender, block.number));
+        parcels[parcelIndex].state = SParcel.BOUGHT;
+        parcels[parcelIndex].currentPrice = newSellPrice;
     }
 
     function updateFramePrices(uint PriceCumulative) public {
         uint frameKey = clcFrameTimestamp(block.timestamp);
+        frames[frameKey].lastBlockNum = block.number;
         //Correct price if outside settle interval
         if (block.timestamp <= ((frameKey.add(period)).sub(21600))) {
             frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
@@ -243,45 +284,45 @@ contract Harberger_Market {
     }
 
 
-
-    function settleParcel(uint frameKey, uint owner) public {  
+    function settleParcel(uint frameKey, address owner) public {  
         //Check if frame is closed
-        //require(frames[frameKey].state == SFrame.CLOSED, "FRAME NOT CLOSED");    
-        uint parcelKeyWin = (clcParcelInterval(frames[frameKey].priceAverage)).add(frameKey);
+        require(frames[frameKey].state == SFrame.CLOSED, "FRAME NOT CLOSED");    
+        uint parcelKeyWin = (clcParcelInterval(frames[frameKey].priceAverage));
 
-        // require(parcels[parcelKeyWin].parcelOwners.length-1 >= owner, "OWNER DOES NOT EXIST"); 
+        uint parcelIndex = getParcelIndex(frameKey, parcelKeyWin);
 
-        uint amount = clcSettleAmount(parcelKeyWin, owner);
-        accountingToken.transfer(parcels[parcelKeyWin].parcelOwners[owner].owner, amount);
+        uint amount = clcSettleAmount(parcelIndex, owner);
+        accountingToken.transfer(owner, amount);
+
     }
 
-    function clcShare(uint parcelKey, uint owner) public view returns (uint) {
-        uint ownerTimestamp = parcels[parcelKey].parcelOwners[owner].timestamp;
-        uint endFrameTimestamp = parcels[parcelKey].frameKey;
-        uint firstOwnerTimestamp= parcels[parcelKey].parcelOwners[0].timestamp;
+    function clcShare(uint parcelIndex, address owner) public view returns (uint) {
+        uint ownerIndex = getParcelOwnerIndex(parcelIndex, owner);
+        require(ownerIndex < getNumberOfParcelOwners(parcelIndex), "OWNER DOES NOT EXIST"); 
 
-        uint nextOwnerTimestamp;
+        Parcel memory parcel = parcels[parcelIndex];
 
-        if ((parcels[parcelKey].parcelOwners.length).sub(1) == owner) nextOwnerTimestamp = endFrameTimestamp;
-        else nextOwnerTimestamp = parcels[parcelKey].parcelOwners[owner+1].timestamp;
+        uint ownerBlock= parcel.parcelOwners[ownerIndex].blockNum;
+        uint endBlock = frames[parcel.frameKey].lastBlockNum;
+        uint firstOwnerBlock= parcel.parcelOwners[0].blockNum;
+        uint nextOwnerBlock;
 
-        // nextOwnerFrame = parcels[parcelKey].parcelOwners[owner.add(1)].frameKey;
+        if (getNumberOfParcelOwners(parcelIndex)-1 == ownerIndex) nextOwnerBlock = endBlock;
+        else nextOwnerBlock = parcel.parcelOwners[ownerIndex + 1].blockNum;
+
+        //nextOwnerBlock = parcels[parcelIndex].parcelOwners[ownerIndex + 1].blockNum;
+    
+        uint ownerBlocks = nextOwnerBlock.sub(ownerBlock);
+        uint allBlocks = endBlock.sub(firstOwnerBlock);
+
+        uint share = ownerBlocks.mul(scalar).div(allBlocks);
+        return share;     
+    }
+
+    function clcSettleAmount(uint parcelIndex, address owner) public view returns (uint){
         
-        /* uint timestamp = ((nextOwnerFrame.sub(ownerFrame)).div(period);
-        uint timestampAcc = (endFrameKey.sub(firstOwnerFrameKey)).div(period); */
+        return clcShare(parcelIndex, owner).mul(frames[parcels[parcelIndex].frameKey].rewardFund).div(scalar);
 
-        uint accTimestamps = parcels[parcelKey].parcelOwners[0].timestamp + parcels[parcelKey].parcelOwners[1].timestamp;
-
-        uint ownerTime = ((endFrameTimestamp.sub(ownerTimestamp)));
-        uint wholeTime = (endFrameTimestamp.sub(firstOwnerTimestamp));
-
-        uint share = scalar.mul((endFrameTimestamp).sub(ownerTimestamp)).div(wholeTime);
-        if (share > 1e24) return 1e24;
-        return share;        
-    }
-
-    function clcSettleAmount(uint parcelKey, uint owner) public view returns (uint){
-        return clcShare(parcelKey, owner).mul(frames[parcels[parcelKey].frameKey].rewardFund).div(scalar);
     }
 
 

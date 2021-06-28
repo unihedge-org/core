@@ -24,6 +24,7 @@ const HDWalletProvider = require('@truffle/hdwallet-provider');
 const fs = require('fs');
 const mnemonic = fs.readFileSync(".secret").toString().trim();
 
+
 module.exports = {
   /**
    * Networks define how you connect to your ethereum client and let you set the
@@ -40,13 +41,21 @@ module.exports = {
     // if it's defined here and no other network is specified at the command line.
     // You should run a client (like ganache-cli, geth or parity) in a separate terminal
     // tab if you use this network and you must also set the `host`, `port` and `network_id`
-    // options below to some value.
+    // options below to some value. 
     //
     development: {
      host: "127.0.0.1",     // Localhost (default: none)
-     port: 7545,            // Standard Ethereum port (default: none)
+     port: 8545,            // Standard Ethereum port (default: none)
      network_id: "*",       // Any network (default: none)
-    },
+     gas: 4612388
+    }, 
+    rinkeby: {
+      provider: function() { 
+        return new HDWalletProvider(mnemonic, "https://rinkeby.infura.io/v3/bdf101f883554c00afaf02909c608854");
+       },
+      network_id: "4",  
+      gas: 4612388
+     }, 
 
     // Another network with more advanced options...
     // advanced: {
@@ -61,16 +70,16 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     rinkeby: {
-      provider: () => new HDWalletProvider(mnemonic, `https://rinkeby.infura.io/v3/5b5e5c71a5ed48a1bd63956d8e6ccb5e`),
+      provider: () => new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716'),
       network_id: 4,
       gas: 4612388
     },
 
-    goerli: {
-      provider: () => new HDWalletProvider(mnemonic, `https://goerli.infura.io/v3/5b5e5c71a5ed48a1bd63956d8e6ccb5e`),    // Localhost (default: none)
+/*    goerli: {
+      provider: () => new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716'),    // Localhost (default: none)
       network_id:5,
       gas: 4612388
-    }
+    }*/
 
     // Useful for private networks
     // private: {
@@ -83,6 +92,8 @@ module.exports = {
   // Set default mocha options here, use special reporters etc.
   mocha: {
     // timeout: 100000
+    reporter: 'eth-gas-reporter',
+    reporterOptions : { showTimeSpent: true }
   },
 
   // Configure your compilers
