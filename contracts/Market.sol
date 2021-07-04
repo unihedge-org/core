@@ -11,7 +11,6 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /// @title TWPM Market
 /// @author UniHedge
-/// @notice You can use this contract for only the most basic simulation
 /// @dev All function calls are currently implemented without side effects
 contract MarketContract {
 
