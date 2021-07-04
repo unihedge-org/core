@@ -1,4 +1,4 @@
-let MarketFactory = artifacts.require("MarketFactory_3");
+let MarketFactory = artifacts.require("MarketFactory");
 
 let addressUniswapFactory = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
 let addressUniswapV2Pair = "0x8B22F85d0c844Cf793690F6D9DFE9F11Ddb35449";

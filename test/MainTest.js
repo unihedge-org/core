@@ -1,5 +1,5 @@
 //$ ganache-cli                                                       |
-//$ truffle test ./test/HarbergerTest.js                              | 
+//$ truffle test ./test/MainTest.js                              | 
 //$ ETH/DAI market deployed on Rinkeby:                               | 
 //--------------------------------------------------------------------|
 
@@ -19,12 +19,13 @@ const consola = require('consola');
 const BigN = require("bignumber.js");
 
 //Contracts
-const contractMarketFactory = artifacts.require("./MarketFactory_3.sol");
-const contractMarket = artifacts.require("./Harberger_Market.sol");
-const contractToken = artifacts.require("./node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol");
-const contractUniswapV2Factory = artifacts.require("../node_modules/@uniswap/v2-core/contracts/UniswapV2Factory.sol");
-const conatractUniswapV2Pair = artifacts.require("./node_modules/@uniswap/v2-core/contracts/UniswapV2Pair.sol");
-const contractUniswapV2Router02 = artifacts.require("./node_modules/@uniswap/v2-periphery/contracts/UniswapV2Router02");
+const Token = artifacts.require("./Token.sol");
+const contractMarket = artifacts.require("./Market.sol");
+const contractMarketFactory = artifacts.require("./MarketFactory.sol");
+const contractToken = artifacts.require("@openzeppelin/contracts/token/ERC20/ERC20.sol");
+const contractUniswapV2Factory = artifacts.require("@uniswap/v2-core/contracts/UniswapV2Factory.sol");
+const conatractUniswapV2Pair = artifacts.require("@uniswap/v2-core/contracts/UniswapV2Pair.sol");
+const contractUniswapV2Router02 = artifacts.require("@uniswap/v2-periphery/contracts/UniswapV2Router02.sol");
 
 //Rinkeby contract addresses
 let addressUniswapV2Factory = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
@@ -60,7 +61,7 @@ const dPrice = 10000000;
 
 //TODO: add assert,expect... statements to each test parcel
 
-contract("UniHedge_HarbergerVersion", async accounts => {
+contract("UniHedge", async accounts => {
 
     describe("Testing functionality of Unihedge protocol", function() {
         before(async function() {
@@ -68,14 +69,21 @@ contract("UniHedge_HarbergerVersion", async accounts => {
             this.MarketFactory = await contractMarketFactory.new(addressUniswapV2Factory);
             //Import deployed contracts
             //this.MarketFactory = await contractMarketFactory.at(addressMarketFactory);
-            this.token = await contractToken.at(addressTokenDAI);
+            //this.token = await contractToken.at(addressTokenDAI);
             this.UniswapV2Factory = await contractUniswapV2Factory.at(addressUniswapV2Factory);
             this.UniswapV2Pair = await conatractUniswapV2Pair.at(addressUniswapV2Pair);
             this.UniswapV2Router02 = await contractUniswapV2Router02.at(addressUniswapV2Router02);
-            //Swap ETH for DAI on 'n' accounts
+            // //Swap ETH for DAI on 'n' accounts
+            // for (let i = 0; i < n; i++) {
+            //     await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[i], parseInt(+new Date() / 1000) + 3600 * 24, {from: accounts[i], value: new BN('100e18')});
+            // }
+
+            this.token = await Token.new("UniHedgeToken", "UNH", new BigN('100e18'), {from: accounts[0]});
             for (let i = 0; i < n; i++) {
-                await this.UniswapV2Router02.swapExactETHForTokens(0, [addressTokenWETH, addressTokenDAI], accounts[i], parseInt(+new Date() / 1000) + 3600 * 24, {from: accounts[i], value: new BN('100e18')});
+                await this.token.loadMore({from: accounts[i]})
             }
+            
+
         });
     describe("Deploy a new market and buy parcels", function() {
         it('Deploy a new market', async function() {
@@ -97,9 +105,6 @@ contract("UniHedge_HarbergerVersion", async accounts => {
             FrameNextKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+270000);
             let frames = await this.market.clcFramesLeft(FrameNextKey, {from: accounts[1]});
             console.log(colors.bgYellow("Num of frames left untill final frame: " + frames.toString()));
-
-            let block = await this.market.getBlockNum({from: accounts[1]});
-            console.log(colors.bgYellow("Block is: " + block));
         });
         it('Approve parcel purchase for 1st user', async function() {
             let intervalPrice = await this.market.clcParcelInterval(9346134345);
@@ -108,7 +113,7 @@ contract("UniHedge_HarbergerVersion", async accounts => {
             let allowance1 = await this.token.allowance(accounts[1], this.market.address, {from: accounts[1]});
             console.log(colors.green("Allowance before is: " + allowance1.toString()));
 
-            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 9346134345, new BigN('0.5e18')));
+            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 9346134345, new BigN('10e18')));
             console.log(approveAmount.toString())
             await this.token.approve(this.market.address, approveAmount, {from: accounts[1]});
 
@@ -129,15 +134,12 @@ contract("UniHedge_HarbergerVersion", async accounts => {
             let b1 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
             consola.log(colors.red("Balance of user is: " + b1));
 
-            await this.market.buyParcel(FrameNextKey, 9346134345, new BigN('0.5e18'), {from: accounts[1]});
+            await this.market.buyParcel(FrameNextKey, 9346134345, new BigN('10e18'), {from: accounts[1]});
 
             let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
             consola.log(colors.red("Balance of user is: " + b2));
             let diff = web3.utils.fromWei(b1.sub(b2), 'ether');
             consola.log(colors.inverse("Difference is: " + diff));
-
-            let ownerBlockNum = await this.market.getParcelOwnerBlockNum(0, 0);
-            console.log(colors.bgBlue("Current parcel owner's block number is: : " + ownerBlockNum.toString())); 
 
             /* let parcelKey = await this.market.clcParcelInterval(9346134345);
 
@@ -149,12 +151,12 @@ contract("UniHedge_HarbergerVersion", async accounts => {
 
         });      
         it('Block has updated price', async function() {
-/*             let parcelKey = await this.market.clcParcelInterval(9346134345);
+            let parcelKey = await this.market.clcParcelInterval(9346134345);
 
-            let price = await this.market.getCurrentPrice(parcelKey);
+            let price = await this.market.getCurrentPrice(FrameNextKey, parcelKey);
             price = web3.utils.fromWei(price, 'ether');
 
-            consola.log(colors.america('Current price is ' + price)); */
+            consola.log(colors.america('Current price is ' + price));
 
             let frame = await this.market.frames(FrameNextKey);
             let reward = web3.utils.fromWei(frame.rewardFund, 'ether');
@@ -174,8 +176,9 @@ contract("UniHedge_HarbergerVersion", async accounts => {
             allowance1 = web3.utils.fromWei(allowance1, 'ether');
             console.log(colors.green("Allowance before is: " + allowance1));
 
-            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 9346134345, new BigN('0.6e18')));
-            console.log(approveAmount.toString())
+            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 9346134345, new BigN('70e18')));
+            console.log(approveAmount.toString());
+            
             await this.token.approve(this.market.address, approveAmount, {from: accounts[2]});
 
             let allowance2 = await this.token.allowance(accounts[2], this.market.address, {from: accounts[2]});
@@ -199,7 +202,7 @@ contract("UniHedge_HarbergerVersion", async accounts => {
             consola.log(colors.yellow("Balance of 2nd user is: " + b1));
             consola.log(colors.bgGreen("Balance of seller is: " + seller1));
 
-            await this.market.buyParcel(FrameNextKey, 9346134345, new BigN('0.6e18'), {from: accounts[2]});
+            await this.market.buyParcel(FrameNextKey, 9346134345, new BigN('70e18'), {from: accounts[2]});
 
             let seller2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
             let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[2]));
@@ -222,9 +225,7 @@ contract("UniHedge_HarbergerVersion", async accounts => {
 
             let parcelKeyWin = (await this.market.clcParcelInterval(9346134345));
 
-            let parcelIndex = await this.market.getParcelIndex(FrameNextKey, parcelKeyWin);
-
-            let number = await this.market.getParcelOwnerIndex(parcelIndex, accounts[2], {from: accounts[2]}); 
+            let number = await this.market.getParcelOwnerIndex(FrameNextKey, parcelKeyWin, accounts[2], {from: accounts[2]}); 
 
             console.log("Index is: " + number);
 
@@ -313,9 +314,7 @@ contract("UniHedge_HarbergerVersion", async accounts => {
 
             let parcelKeyWin = (await this.market.clcParcelInterval(frame.priceAverage));
 
-            let parcelIndex = await this.market.getParcelIndex(FrameNextKey, parcelKeyWin);
-
-            let share = await this.market.clcShare(parcelIndex, accounts[2], {from: accounts[2]}); //15004292677200000000  15004307946600000000   15004844072200000000
+            let share = await this.market.clcShare(FrameNextKey, parcelKeyWin, accounts[2], {from: accounts[2]}); //15004292677200000000  15004307946600000000   15004844072200000000
 
 
             console.log("Amount is: " + share);
