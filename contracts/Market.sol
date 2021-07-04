@@ -161,6 +161,12 @@ contract MarketContract {
         return frames[frameKey].parcels[parcelKey].parcelOwners.length ;
     }
 
+    /// @notice Get number of frames
+    /// @return number frames
+    function getNumberOfFrameKeys() public view returns (uint){
+        return framesKeys.length ;
+    }
+
     /// @notice Calculate parcel owner's index in the array of owners of the parcel
     /// @param frameKey Frame's timestamp
     /// @param parcelKey Parcel's key 
