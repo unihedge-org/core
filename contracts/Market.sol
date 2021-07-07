@@ -69,7 +69,7 @@ contract MarketContract {
     struct Parcel {
         uint parcelKey;
         ParcelOwner[] parcelOwners;
-        uint currentPrice;
+        uint acquisitionPrice;
         SParcel state;
     }
 
@@ -135,7 +135,7 @@ contract MarketContract {
     /// @param parcelKey Parcel's key 
     /// @return price that the current owner set
     function getCurrentPrice(uint frameKey, uint parcelKey) public view returns (uint){                 
-        return frames[frameKey].parcels[parcelKey].currentPrice;
+        return frames[frameKey].parcels[parcelKey].acquisitionPrice;
     }
 
     /// @notice Get msg senders approved amount of accounting token to this contract (market)
@@ -210,7 +210,7 @@ contract MarketContract {
         uint numOfFrames = clcFramesLeft(frameKey);
         uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFrames);
 
-        uint price = frames[frameKey].parcels[parcelKey].currentPrice.add(tax);
+        uint price = frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax);
 
         return price;
     }
@@ -229,25 +229,25 @@ contract MarketContract {
         uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
 
         //Approved amount has to be at leat equal to price of the Parcel(with tax)
-        require(accountingToken.allowance(msg.sender, address(this)) >= frames[frameKey].parcels[parcelKey].currentPrice.add(tax), "APPROVED AMOUNT IS NOT ENOUGH");
+        require(accountingToken.allowance(msg.sender, address(this)) >= frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax), "APPROVED AMOUNT IS NOT ENOUGH");
         
         //Transfer complete tax amount to the frame rewardFund
-        accountingToken.transferFrom(msg.sender, address(this), frames[frameKey].parcels[parcelKey].currentPrice.add(tax));
+        accountingToken.transferFrom(msg.sender, address(this), frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax));
         frames[frameKey].rewardFund = frames[frameKey].rewardFund.add(tax);
 
 
 
         if (frames[frameKey].parcels[parcelKey].state == SParcel.BOUGHT) {
             //Pay the Parcel price to current owner + return tax
-            uint oldTaxToReturn = frames[frameKey].parcels[parcelKey].currentPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
-            uint amount = (oldTaxToReturn.add(frames[frameKey].parcels[parcelKey].currentPrice));
+            uint oldTaxToReturn = frames[frameKey].parcels[parcelKey].acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+            uint amount = (oldTaxToReturn.add(frames[frameKey].parcels[parcelKey].acquisitionPrice));
             accountingToken.transfer(frames[frameKey].parcels[parcelKey].parcelOwners[getNumberOfParcelOwners(frameKey, parcelKey).sub(1)].owner, amount);
             frames[frameKey].rewardFund = frames[frameKey].rewardFund.sub(oldTaxToReturn);
         }
        
         frames[frameKey].parcels[parcelKey].parcelOwners.push(ParcelOwner(payable(msg.sender), block.number));
         frames[frameKey].parcels[parcelKey].state = SParcel.BOUGHT;
-        frames[frameKey].parcels[parcelKey].currentPrice = newSellPrice;
+        frames[frameKey].parcels[parcelKey].acquisitionPrice = newSellPrice;
     }
 
     /// @notice Update trading pair's prices in the frame
