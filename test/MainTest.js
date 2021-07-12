@@ -1,5 +1,5 @@
-//$ ganache-cli                                                       |
-//$ truffle test ./test/MainTest.js                              | 
+//$ ganache-cli --fork https://rinkeby.infura.io/v3/<key>             |
+//$ truffle test ./test/MainTest.js                                   | 
 //$ ETH/DAI market deployed on Rinkeby:                               | 
 //--------------------------------------------------------------------|
 
@@ -113,7 +113,10 @@ contract("UniHedge", async accounts => {
             let allowance1 = await this.token.allowance(accounts[1], this.market.address, {from: accounts[1]});
             console.log(colors.green("Allowance before is: " + allowance1.toString()));
 
-            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 9346134345, new BigN('10e18')));
+            /* timestamp = (Date.now() / 1000 | 0)+60;
+            console.log(timestamp); */
+
+            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 9346134345, new BigN('10e18'), new BigN(startTimestamp+3600)));
             console.log(approveAmount.toString())
             await this.token.approve(this.market.address, approveAmount, {from: accounts[1]});
 
@@ -176,7 +179,7 @@ contract("UniHedge", async accounts => {
             allowance1 = web3.utils.fromWei(allowance1, 'ether');
             console.log(colors.green("Allowance before is: " + allowance1));
 
-            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 9346134345, new BigN('70e18')));
+            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 9346134345, new BigN('70e18'), (Date.now() / 1000 | 0)+3600));
             console.log(approveAmount.toString());
             
             await this.token.approve(this.market.address, approveAmount, {from: accounts[2]});
@@ -243,6 +246,10 @@ contract("UniHedge", async accounts => {
             let reward = web3.utils.fromWei(frame.rewardFund, 'ether');
             console.log(colors.america('Current reward fund is equal to: ' + reward));
         });
+        // it('Accounts buy non-winning parcels', async function() {
+
+
+        // });      
 
         it('should update frame prices every 1h', async function() {
             // let tts = hoursToSkip/0.5 | 0;

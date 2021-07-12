@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 /// @title TWPM Market
 /// @author UniHedge
 /// @dev All function calls are currently implemented without side effects
-contract MarketContract {
+contract Market {
 
     using SafeMath for uint;
     //Contract for creating markets
@@ -203,16 +203,26 @@ contract MarketContract {
     /// @param pairPrice Value is trading pair's price (to get correct parcel key) 
     /// @param newSellPrice New sell price is required to calculate tax
     /// @return amoun to approve
-    function AmountToApprove(uint frameKey, uint pairPrice, uint newSellPrice) public view returns (uint) {             
+    function AmountToApprove(uint frameKey, uint pairPrice, uint newSellPrice, uint timestamp) public view returns (uint) {             
 
         uint parcelKey = clcParcelInterval(pairPrice);
         
-        uint numOfFrames = clcFramesLeft(frameKey);
-        uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFrames);
+       /*  uint numOfFrames = clcFramesLeft(frameKey);
+        uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFrames); */
 
-        uint price = frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax);
+        uint dFrame = timestamp.sub(clcFrameTimestamp(timestamp));
+        uint dFrameP = scalar.mul(dFrame).div(period);
 
-        return price;
+        //Calculate tax from the propoed new price (newSellPrice)
+        uint numOfFramesLeft = clcFramesLeft(frameKey);
+        uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+        uint dtax = newSellPrice.mul(taxMarket).div(100000);
+        dtax = dtax.mul(dFrameP).div(scalar);
+        tax = tax.add(dtax);
+
+        uint amount = frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax);
+
+        return amount;
     }
 
     /// @notice Calculate amout required to approve to buy a parcel
@@ -224,25 +234,39 @@ contract MarketContract {
         
         uint parcelKey = getOrCreateParcel(frameKey, pairPrice);
 
-        //Calculate tax from the propoed new price (newSellPrice)
+        uint dFrame = block.timestamp.sub(clcFrameTimestamp(block.timestamp));
+        uint dFrameP = scalar.mul(dFrame).div(period);
+        uint dtax = newSellPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
+
+        //Calculate tax from the proposed new price (newSellPrice)
         uint numOfFramesLeft = clcFramesLeft(timestamp);
         uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+        
+        tax = tax.add(dtax);
 
         //Approved amount has to be at leat equal to price of the Parcel(with tax)
-        require(accountingToken.allowance(msg.sender, address(this)) >= frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax), "APPROVED AMOUNT IS NOT ENOUGH");
+        require(accountingToken.allowance(msg.sender, address(this)) >= frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax), "APPROVED AMOUNT IS TOO SMALL");
         
         //Transfer complete tax amount to the frame rewardFund
         accountingToken.transferFrom(msg.sender, address(this), frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax));
         frames[frameKey].rewardFund = frames[frameKey].rewardFund.add(tax);
 
 
-
+        //Pay the Parcel price to current owner + return tax
         if (frames[frameKey].parcels[parcelKey].state == SParcel.BOUGHT) {
-            //Pay the Parcel price to current owner + return tax
-            uint oldTaxToReturn = frames[frameKey].parcels[parcelKey].acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
-            uint amount = (oldTaxToReturn.add(frames[frameKey].parcels[parcelKey].acquisitionPrice));
-            accountingToken.transfer(frames[frameKey].parcels[parcelKey].parcelOwners[getNumberOfParcelOwners(frameKey, parcelKey).sub(1)].owner, amount);
-            frames[frameKey].rewardFund = frames[frameKey].rewardFund.sub(oldTaxToReturn);
+            //Calculate tax to return. acquisitionPrice/marketTax * number_of_frames_left:
+            //uint oldTaxToReturn = frames[frameKey].parcels[parcelKey].acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+            uint aPrice = frames[frameKey].parcels[parcelKey].acquisitionPrice;
+            uint dFrameTax = aPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
+            uint taxToReturn = aPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+            taxToReturn = taxToReturn.add(dFrameTax);
+            //add acquisition price valut to left over tax
+            uint amount = (taxToReturn.add(frames[frameKey].parcels[parcelKey].acquisitionPrice));
+            //transfer funds
+            uint previousOwner = getNumberOfParcelOwners(frameKey, parcelKey).sub(1);
+            accountingToken.transfer(frames[frameKey].parcels[parcelKey].parcelOwners[previousOwner].owner, amount);
+            //change reward value
+            frames[frameKey].rewardFund = frames[frameKey].rewardFund.sub(taxToReturn);
         }
        
         frames[frameKey].parcels[parcelKey].parcelOwners.push(ParcelOwner(payable(msg.sender), block.number));
