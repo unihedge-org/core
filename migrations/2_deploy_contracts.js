@@ -4,7 +4,7 @@ let Token = artifacts.require("Token");
 let addressUniswapFactory = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
 let addressUniswapV2Pair = "0x8B22F85d0c844Cf793690F6D9DFE9F11Ddb35449";
 let addressDAIToken = "0xc7AD46e0b8a400Bb3C915120d284AafbA8fc4735";
-let tokenAddress = "0xbb5a4E4C0Da4CaD65804695625dBF5bf6F113141";
+let tokenAddress = "0x218ff5C741891eF52D7B3C3a43C59E07d3C79Ddc";
 
 const BigN = require("bignumber.js");
 
