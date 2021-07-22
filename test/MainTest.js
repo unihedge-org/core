@@ -45,7 +45,7 @@ var approveAmount;
 
 
 //----------------------------------------------------------------------
-const n=4; //Num of wagers to place
+const n=6; 
 const initTimestamp = startTimestamp;
 const period = 24; //in hours
 const settlementInterval = 6;
@@ -165,6 +165,18 @@ contract("UniHedge", async accounts => {
             let reward = web3.utils.fromWei(frame.rewardFund, 'ether');
             console.log(colors.america('Current reward fund is equal to: ' + reward));
         });
+        it('Lower the parcel price', async function() {
+            let b1 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+            consola.log(colors.red("Balance of user is: " + b1));
+
+            await this.market.updateParcelPrice(FrameNextKey, 9346134345, new BigN('7e18'), {from: accounts[1]});
+
+            let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+            consola.log(colors.red("Balance of user is: " + b2));
+            let diff = web3.utils.fromWei(b2.sub(b1), 'ether');
+            consola.log(colors.inverse("Difference is: " + diff));
+            
+        });    
         it('New approvement amount has new parcel price added', async function() {
 
             for(let i=1; i<11; i++) {
@@ -246,10 +258,15 @@ contract("UniHedge", async accounts => {
             let reward = web3.utils.fromWei(frame.rewardFund, 'ether');
             console.log(colors.america('Current reward fund is equal to: ' + reward));
         });
-        // it('Accounts buy non-winning parcels', async function() {
+        it('Accounts buy non-winning parcels', async function() {
 
+            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 6346134345, new BigN('15e18'), new BigN(startTimestamp+3600)));
+            console.log(approveAmount.toString())
+            await this.token.approve(this.market.address, approveAmount, {from: accounts[4]});
 
-        // });      
+            await this.market.buyParcel(FrameNextKey, 6346134345, new BigN('15e18'), {from: accounts[4]});
+
+        });      
 
         it('should update frame prices every 1h', async function() {
             // let tts = hoursToSkip/0.5 | 0;

@@ -274,6 +274,43 @@ contract Market {
         frames[frameKey].parcels[parcelKey].acquisitionPrice = newSellPrice;
     }
 
+    function updateParcelPrice(uint timestamp, uint pairPrice, uint acquisitionPrice) public payable {
+
+        uint frameKey =  getOrCreateFrame(timestamp); 
+        uint parcelKey = getOrCreateParcel(frameKey, pairPrice); 
+        
+        require(frames[frameKey].parcels[parcelKey].parcelOwners[getNumberOfParcelOwners(frameKey, parcelKey).sub(1)].owner == msg.sender);
+                      
+        uint numOfFramesLeft = clcFramesLeft(timestamp);
+
+        uint dFrame = block.timestamp.sub(clcFrameTimestamp(block.timestamp));
+        uint dFrameP = scalar.mul(dFrame).div(period);
+
+        uint dtax = acquisitionPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
+        uint taxNew = acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+        taxNew = taxNew.add(dtax);
+
+        uint oldPrice = frames[frameKey].parcels[parcelKey].acquisitionPrice;
+        dtax = oldPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
+        uint taxOld = acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+        taxOld = taxOld.add(dtax);
+
+        if (taxNew > taxOld) {
+            require(accountingToken.allowance(msg.sender, address(this)) >= (taxNew.sub(taxOld)), "APPROVED AMOUNT IS TOO SMALL");
+        
+            //Transfer complete tax amount to the frame rewardFund
+            accountingToken.transferFrom(msg.sender, address(this), (taxNew.sub(taxOld)));
+            frames[frameKey].rewardFund = frames[frameKey].rewardFund.add(taxNew.sub(taxOld));
+        }
+        else if (taxNew < taxOld) {
+            
+            accountingToken.transfer(msg.sender, taxOld.sub(taxNew));
+            frames[frameKey].rewardFund = frames[frameKey].rewardFund.sub(taxOld.sub(taxNew));
+        }
+
+        frames[frameKey].parcels[parcelKey].acquisitionPrice = acquisitionPrice;
+    }
+
     /// @notice Update trading pair's prices in the frame
     /// @param PriceCumulative Cumulative price
     /// @dev For developement purposes the new price is added as an input
