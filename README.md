@@ -8,6 +8,6 @@ Web3.js | v1.4.0
 ### Deployed contracts on Rinkeby testnetwork ###
 
 
-**Rinkeby ETH/DAI market address (22. 7. 21)**: _0x34dA68BC41908E76Bd1beaf11122672fF801Fb48_ 
+**Rinkeby ETH/DAI market address (22. 7. 21)**: _0xBF11CE91A772fd20724C08943d56Af2E24b692b3_ 
 
 **Accounting token address (22. 7. 21):** _0x218ff5C741891eF52D7B3C3a43C59E07d3C79Ddc_ (Token.sol)

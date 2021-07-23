@@ -69,12 +69,7 @@ module.exports = {
 
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
-    rinkeby: {
-      provider: () => new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716'),
-      network_id: 4,
-      networkCheckTimeout: 999999,  
-      gas: 4612388
-    },
+
 
 /*    goerli: {
       provider: () => new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716'),    // Localhost (default: none)

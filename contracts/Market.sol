@@ -275,7 +275,6 @@ contract Market {
     }
 
     function updateParcelPrice(uint timestamp, uint pairPrice, uint acquisitionPrice) public payable {
-
         uint frameKey =  getOrCreateFrame(timestamp); 
         uint parcelKey = getOrCreateParcel(frameKey, pairPrice); 
         
@@ -285,7 +284,6 @@ contract Market {
 
         uint dFrame = block.timestamp.sub(clcFrameTimestamp(block.timestamp));
         uint dFrameP = scalar.mul(dFrame).div(period);
-
         uint dtax = acquisitionPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
         uint taxNew = acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
         taxNew = taxNew.add(dtax);
