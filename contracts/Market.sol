@@ -107,12 +107,21 @@ contract Market {
         return frameTimestamp;
     }
 
+    ///TODO: Use mod math operation
     /// @notice Calculate frames timestamp (beggining of frame)
     /// @param timestamp In seconds
     /// @return frame's timestamp (key)
-    function clcFrameTimestamp(uint timestamp) public view returns (uint){
+    // function clcFrameTimestamp(uint timestamp) public view returns (uint){
+    //     if (timestamp <= initTimestamp) return initTimestamp;
+    //     return ((timestamp.sub(initTimestamp)).div(period)).mul(period).add(initTimestamp);
+    // }
+    function OldclcFrameTimestamp(uint timestamp) public view returns (uint){
         if (timestamp <= initTimestamp) return initTimestamp;
         return ((timestamp.sub(initTimestamp)).div(period)).mul(period).add(initTimestamp);
+    }
+    function clcFrameTimestamp(uint timestamp) public view returns (uint){
+        if (timestamp <= initTimestamp) return initTimestamp;
+        return timestamp.sub((timestamp.sub(initTimestamp)).mod(period));
     }
 
     /// @notice Calculate bottom boundary of a parcel
@@ -274,6 +283,10 @@ contract Market {
         frames[frameKey].parcels[parcelKey].acquisitionPrice = newSellPrice;
     }
 
+    /// @notice Owner can update parcel's price. Has to pay additional tax, or leftover tax gets' returned to him if the new price is lower
+    /// @param timestamp Frame's timestamp get's calculated from this value
+    /// @param pairPrice Is trading pair's price (to get correct parcel key) 
+    /// @param acquisitionPrice New acquisition price
     function updateParcelPrice(uint timestamp, uint pairPrice, uint acquisitionPrice) public payable {
         uint frameKey =  getOrCreateFrame(timestamp); 
         uint parcelKey = getOrCreateParcel(frameKey, pairPrice); 

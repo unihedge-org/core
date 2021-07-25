@@ -46,7 +46,7 @@ module.exports = {
     development: {
      host: "127.0.0.1",     // Localhost (default: none)
      port: 8545,            // Standard Ethereum port (default: none)
-     network_id: "*",       // Any network (default: none)
+     network_id: "4",       // Any network (default: none)
      gas: 4612388
     }, 
     rinkeby: {
@@ -69,6 +69,12 @@ module.exports = {
 
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
+    rinkeby: {
+      provider: () => new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716'),
+      network_id: 4,
+      networkCheckTimeout: 999999,  
+      gas: 4612388
+    },
 
 
 /*    goerli: {

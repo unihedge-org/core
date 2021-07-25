@@ -103,6 +103,10 @@ contract("UniHedge", async accounts => {
         });
         it('Get num of frames left', async function() {
             FrameNextKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+270000);
+            console.log(colors.bold("New frame key is:" + FrameNextKey));
+            let OldFrameNextKey = await this.market.OldclcFrameTimestamp((Date.now() / 1000 | 0)+270000);
+            console.log(colors.bold("Old frame key is:" + OldFrameNextKey));
+
             let frames = await this.market.clcFramesLeft(FrameNextKey, {from: accounts[1]});
             console.log(colors.bgYellow("Num of frames left untill final frame: " + frames.toString()));
         });
