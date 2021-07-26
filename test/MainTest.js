@@ -104,8 +104,6 @@ contract("UniHedge", async accounts => {
         it('Get num of frames left', async function() {
             FrameNextKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+270000);
             console.log(colors.bold("New frame key is:" + FrameNextKey));
-            let OldFrameNextKey = await this.market.OldclcFrameTimestamp((Date.now() / 1000 | 0)+270000);
-            console.log(colors.bold("Old frame key is:" + OldFrameNextKey));
 
             let frames = await this.market.clcFramesLeft(FrameNextKey, {from: accounts[1]});
             console.log(colors.bgYellow("Num of frames left untill final frame: " + frames.toString()));
@@ -120,6 +118,7 @@ contract("UniHedge", async accounts => {
             /* timestamp = (Date.now() / 1000 | 0)+60;
             console.log(timestamp); */
 
+            //parcel: 9350000000; framekey: 1627466935
             let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 9346134345, new BigN('10e18'), new BigN(startTimestamp+3600)));
             console.log(approveAmount.toString())
             await this.token.approve(this.market.address, approveAmount, {from: accounts[1]});
@@ -160,7 +159,7 @@ contract("UniHedge", async accounts => {
         it('Block has updated price', async function() {
             let parcelKey = await this.market.clcParcelInterval(9346134345);
 
-            let price = await this.market.getCurrentPrice(FrameNextKey, parcelKey);
+            let price = await this.market.getParcelPrice(FrameNextKey, parcelKey);
             price = web3.utils.fromWei(price, 'ether');
 
             consola.log(colors.america('Current price is ' + price));
@@ -264,11 +263,16 @@ contract("UniHedge", async accounts => {
         });
         it('Accounts buy non-winning parcels', async function() {
 
-            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, 6346134345, new BigN('15e18'), new BigN(startTimestamp+3600)));
-            console.log(approveAmount.toString())
-            await this.token.approve(this.market.address, approveAmount, {from: accounts[4]});
+            for (i=0; i<5; i++) {
 
-            await this.market.buyParcel(FrameNextKey, 6346134345, new BigN('15e18'), {from: accounts[4]});
+                let priceRange = 6346134345+i*dPrice;
+
+                let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, priceRange, new BigN('15e18'), new BigN(startTimestamp+3600)));
+                console.log(approveAmount.toString())
+                await this.token.approve(this.market.address, approveAmount, {from: accounts[i]});
+
+                await this.market.buyParcel(FrameNextKey, priceRange, new BigN('15e18'), {from: accounts[i]});
+            }
 
         });      
 
