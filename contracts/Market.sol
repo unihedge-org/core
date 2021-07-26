@@ -107,7 +107,6 @@ contract Market {
         return frameTimestamp;
     }
 
-    ///TODO: Use mod math operation
     /// @notice Calculate frames timestamp (beggining of frame)
     /// @param timestamp In seconds
     /// @return frame's timestamp (key)
@@ -115,10 +114,6 @@ contract Market {
     //     if (timestamp <= initTimestamp) return initTimestamp;
     //     return ((timestamp.sub(initTimestamp)).div(period)).mul(period).add(initTimestamp);
     // }
-    function OldclcFrameTimestamp(uint timestamp) public view returns (uint){
-        if (timestamp <= initTimestamp) return initTimestamp;
-        return ((timestamp.sub(initTimestamp)).div(period)).mul(period).add(initTimestamp);
-    }
     function clcFrameTimestamp(uint timestamp) public view returns (uint){
         if (timestamp <= initTimestamp) return initTimestamp;
         return timestamp.sub((timestamp.sub(initTimestamp)).mod(period));
@@ -143,8 +138,40 @@ contract Market {
     /// @param frameKey Frame's timestamp
     /// @param parcelKey Parcel's key 
     /// @return price that the current owner set
-    function getCurrentPrice(uint frameKey, uint parcelKey) public view returns (uint){                 
+    function getParcelPrice(uint frameKey, uint parcelKey) public view returns (uint){                 
         return frames[frameKey].parcels[parcelKey].acquisitionPrice;
+    }
+
+    /// @notice Get no. of created parcels in a frame 
+    /// @param frameKey Frame's timestamp
+    /// @return parcel count
+    function getParcelsCount(uint frameKey) public view returns (uint){                 
+        return frames[frameKey].parcelKeys.length;
+    }
+
+    /// @notice Get parcelKey from index in parcelKeys array
+    /// @param frameKey Frame's timestamp
+    /// @param index frameKeys array index 
+    /// @return parcelKey
+    function getParcelKey(uint frameKey, uint index) public view returns (uint){                 
+        return frames[frameKey].parcelKeys[index];
+    }
+
+    /// @notice Get parcel's state
+    /// @param frameKey Frame's timestamp
+    /// @param parcelKey Parcel's key 
+    /// @return state of parcel
+    function getParcelState(uint frameKey, uint parcelKey) public view returns (SParcel){                 
+        return frames[frameKey].parcels[parcelKey].state;
+    }
+
+    /// @notice Get parcel's owner
+    /// @param frameKey Frame's timestamp
+    /// @param parcelKey Parcel's key 
+    /// @return parcel's owner
+    function getParcelOwner(uint frameKey, uint parcelKey) public view returns (address){ 
+        if (getNumberOfParcelOwners(frameKey, parcelKey) == 0) return address(this);
+        return frames[frameKey].parcels[parcelKey].parcelOwners[getNumberOfParcelOwners(frameKey, parcelKey).sub(1)].owner;
     }
 
     /// @notice Get msg senders approved amount of accounting token to this contract (market)
@@ -167,7 +194,7 @@ contract Market {
     /// @param parcelKey Parcel's key 
     /// @return number of owners
     function getNumberOfParcelOwners(uint frameKey, uint parcelKey) public view returns (uint){
-        return frames[frameKey].parcels[parcelKey].parcelOwners.length ;
+        return frames[frameKey].parcels[parcelKey].parcelOwners.length;
     }
 
     /// @notice Get number of frames
@@ -213,11 +240,7 @@ contract Market {
     /// @param newSellPrice New sell price is required to calculate tax
     /// @return amoun to approve
     function AmountToApprove(uint frameKey, uint pairPrice, uint newSellPrice, uint timestamp) public view returns (uint) {             
-
         uint parcelKey = clcParcelInterval(pairPrice);
-        
-       /*  uint numOfFrames = clcFramesLeft(frameKey);
-        uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFrames); */
 
         uint dFrame = timestamp.sub(clcFrameTimestamp(timestamp));
         uint dFrameP = scalar.mul(dFrame).div(period);
@@ -243,6 +266,8 @@ contract Market {
         
         uint parcelKey = getOrCreateParcel(frameKey, pairPrice);
 
+        require(msg.sender != getParcelOwner(frameKey, parcelKey), "ADDRESS ALREADY OWNS THE PARCEL");
+
         uint dFrame = block.timestamp.sub(clcFrameTimestamp(block.timestamp));
         uint dFrameP = scalar.mul(dFrame).div(period);
         uint dtax = newSellPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
@@ -264,7 +289,6 @@ contract Market {
         //Pay the Parcel price to current owner + return tax
         if (frames[frameKey].parcels[parcelKey].state == SParcel.BOUGHT) {
             //Calculate tax to return. acquisitionPrice/marketTax * number_of_frames_left:
-            //uint oldTaxToReturn = frames[frameKey].parcels[parcelKey].acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
             uint aPrice = frames[frameKey].parcels[parcelKey].acquisitionPrice;
             uint dFrameTax = aPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
             uint taxToReturn = aPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
@@ -291,7 +315,7 @@ contract Market {
         uint frameKey =  getOrCreateFrame(timestamp); 
         uint parcelKey = getOrCreateParcel(frameKey, pairPrice); 
         
-        require(frames[frameKey].parcels[parcelKey].parcelOwners[getNumberOfParcelOwners(frameKey, parcelKey).sub(1)].owner == msg.sender);
+        require(getParcelOwner(frameKey, parcelKey) == msg.sender);
                       
         uint numOfFramesLeft = clcFramesLeft(timestamp);
 
@@ -308,17 +332,14 @@ contract Market {
 
         if (taxNew > taxOld) {
             require(accountingToken.allowance(msg.sender, address(this)) >= (taxNew.sub(taxOld)), "APPROVED AMOUNT IS TOO SMALL");
-        
             //Transfer complete tax amount to the frame rewardFund
             accountingToken.transferFrom(msg.sender, address(this), (taxNew.sub(taxOld)));
             frames[frameKey].rewardFund = frames[frameKey].rewardFund.add(taxNew.sub(taxOld));
         }
         else if (taxNew < taxOld) {
-            
             accountingToken.transfer(msg.sender, taxOld.sub(taxNew));
             frames[frameKey].rewardFund = frames[frameKey].rewardFund.sub(taxOld.sub(taxNew));
         }
-
         frames[frameKey].parcels[parcelKey].acquisitionPrice = acquisitionPrice;
     }
 
@@ -425,12 +446,7 @@ contract Market {
     /// @param owner Owner's address
     /// @return Owner's winnings
     function clcSettleAmount(uint frameKey, uint parcelKey, address owner) public view returns (uint){
-        
         return clcShare(frameKey, parcelKey, owner).mul(frames[frameKey].rewardFund).div(scalar);
-
     }
-
-
-
 
 }
