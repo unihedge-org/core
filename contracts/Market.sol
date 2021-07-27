@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.5.0;
+pragma solidity ^0.8.0;
 //pragma experimental ABIEncoderV2;
 
 import "./MarketFactory.sol";
@@ -133,6 +133,21 @@ contract Market {
     function clcFramesLeft(uint frameKey) public view returns (uint){                      
         return (frameKey.sub(block.timestamp)).div(period).add(1);
     }
+
+    /// @notice Get parcel struct
+    /// @param frameKey Frame's timestamp
+    /// @param parcelKey parcel's key 
+    /// @return parcel struct
+    function getParcel(uint frameKey, uint parcelKey) public view returns (Parcel memory){                 
+        return frames[frameKey].parcels[parcelKey];
+    }
+
+    // /// @notice Get frame struct
+    // /// @param frameKey Frame's timestamp
+    // /// @return frame struct
+    // function getFrame(uint frameKey, uint parcelKey) public view returns (Frame memory){                 
+    //     return frames[frameKey];
+    // }
 
     /// @notice Get current price of a parcel in a frame
     /// @param frameKey Frame's timestamp
