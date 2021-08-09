@@ -381,6 +381,10 @@ contract Market {
         accountingToken.transfer(owner, amount);
     }
 
+    /// @notice Calculate how many blocks the owner, owned the parcel
+    /// @param frameKey Frame's timestamp
+    /// @param parcelKey parcel's key
+    /// @param owner Owner's address
     function clcOwnerBlocks(uint frameKey, uint parcelKey, address owner) internal view returns (uint) {
         Parcel memory parcel = frames[frameKey].parcels[parcelKey];
         uint endBlock = frames[frameKey].lastBlockNum;
@@ -399,7 +403,6 @@ contract Market {
             }
         }
         return ownerBlocks;
-
     }
 
     /// @notice Calculate owner's share based on the number of blocks the account owned the parcel
