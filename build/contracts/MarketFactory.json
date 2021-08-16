@@ -29,7 +29,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     },
     {
       "inputs": [
@@ -48,7 +49,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     },
     {
       "inputs": [],
@@ -61,7 +63,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     },
     {
       "inputs": [],
@@ -74,7 +77,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     },
     {
       "inputs": [
@@ -140,7 +144,8 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function"
+      "type": "function",
+      "constant": true
     }
   ],
   "metadata": "{\"compiler\":{\"version\":\"0.8.7+commit.e28d00a7\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_uniswapFactory\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_token\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_uniswapPair\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_period\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_initTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_tax\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_dPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_tReporting\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_minAcquisitionP\",\"type\":\"uint256\"}],\"name\":\"addMarket\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMarketsCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"markets\",\"outputs\":[{\"internalType\":\"contract Market\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"marketsKeys\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"uniswapFactory\",\"outputs\":[{\"internalType\":\"contract IUniswapV2Factory\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"/D/prog/UniHedge/core/contracts/MarketFactory.sol\":\"MarketFactory\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"/D/prog/UniHedge/core/contracts/Market.sol\":{\"keccak256\":\"0x77376f6fc30981329a32fca706a5338532d7e92f9072a35d3e2128f12b98f027\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://a9b2b28ba814362973025a469ddc2f66e51103f6cd06cefe0e948afe3794df7b\",\"dweb:/ipfs/QmaSRuqjEDzEhdYSSchrDiTdpepQt6rzi4J6uj2A5jw1o4\"]},\"/D/prog/UniHedge/core/contracts/MarketFactory.sol\":{\"keccak256\":\"0x9fc6d88ae2d93317a631191c5e311fda09dcd89a6cfa2f90b69e41cbc4113de0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://838b2be9643412a371de93867c31ef0dcd63ea6d8bee07574c4958bbf29429b2\",\"dweb:/ipfs/QmVYkvV31sMiXqpCQQzEqGUBq9F3rWHj1mqCviTG4yXW32\"]},\"@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x027b891937d20ccf213fdb9c31531574256de774bda99d3a70ecef6e1913ed2a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://087318b21c528119f649899f5b5580566dd8d7b0303d4904bd0e8580c3545f14\",\"dweb:/ipfs/Qmbn5Mj7aUn8hJuQ8VrQjjEXRsXyJKykgnjR9p4C3nfLtL\"]},\"@openzeppelin/contracts/utils/math/SafeMath.sol\":{\"keccak256\":\"0x8666f020bd8fc9dc14f07e2ebc52b5f236ab4cdde7c77679b08cb2f94730043b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://163776cbf565c722232393aa2d62cbe8a2ffb5805986abf4906c00e1e07450a6\",\"dweb:/ipfs/QmPZoN9T3cb6o8bGhjBPZcz7im8T8DWhpr3tjLwhJJHx9N\"]},\"@uniswap/lib/contracts/libraries/FixedPoint.sol\":{\"keccak256\":\"0xc671208d030ea70032b9fe0ac9c05d7dcd3ef2593a1a36e7e7f03bf25c2997c4\",\"urls\":[\"bzz-raw://5d5fac757d514b276ae2954b28048cc854dfbeed20706b784a0c2d3efa6af752\",\"dweb:/ipfs/QmVmSgZ8yN9wqV8wHWj8KhHYbi2LoK6pdPK1i1pBqFKcUc\"]},\"@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol\":{\"keccak256\":\"0xe5905c0989cf5a865ed9bb7b9252536ca011c5b744017a82a7d4443b9c00a891\",\"urls\":[\"bzz-raw://5d2a90a0a796491507462a3da18c3f8819721d571572d765a2207c35bf0a0389\",\"dweb:/ipfs/Qmf9ACYiT3qzjgsYuhm866FBdiBpRMXAPpQhSFbgqcyhHt\"]},\"@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol\":{\"keccak256\":\"0x7c9bc70e5996c763e02ff38905282bc24fb242b0ef2519a003b36824fc524a4b\",\"urls\":[\"bzz-raw://85d5ad2dd23ee127f40907a12865a1e8cb5828814f6f2480285e1827dd72dedf\",\"dweb:/ipfs/QmayKQWJgWmr46DqWseADyUanmqxh662hPNdAkdHRjiQQH\"]},\"@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol\":{\"keccak256\":\"0x993538630a9568290c39140d54c034a66cf1b95cdeef4ba804a948c4ee2fc311\",\"urls\":[\"bzz-raw://adff017b539750d5ac84403360967c4d6b02a1ee9b8f2487f0bcddd7fa7c523e\",\"dweb:/ipfs/QmQqUiUvoezf33f2SZa64M8KgksHSXFPrGuwDvxijtXYMo\"]}},\"version\":1}",
@@ -7125,9 +7130,17 @@
     "name": "solc",
     "version": "0.8.7+commit.e28d00a7.Emscripten.clang"
   },
-  "networks": {},
+  "networks": {
+    "4": {
+      "events": {},
+      "links": {},
+      "address": "0x5a76a6359d0435869998Ed2239e1Bc45D2b800E2",
+      "transactionHash": "0xb8cdac9a145db58cfc4088c8426a2e4c8c2e3109025237e53843dbd570e2d231"
+    }
+  },
   "schemaVersion": "3.4.1",
-  "updatedAt": "2021-08-16T16:01:26.621Z",
+  "updatedAt": "2021-08-16T16:40:43.186Z",
+  "networkType": "ethereum",
   "devdoc": {
     "kind": "dev",
     "methods": {},
