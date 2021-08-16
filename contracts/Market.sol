@@ -37,9 +37,10 @@ contract Market {
     uint public feeProtocol = 100;
     //Reporting time for pair price
     uint public tReporting;
+    //Minimal acquisition price
+    uint public minAcquisitionP;
     //Scalar number used for calculating precentages
     uint scalar = 1e24;
-
 
     enum SFrame {NULL, OPENED, CLOSED, INVALID}
     struct Frame {
@@ -77,7 +78,7 @@ contract Market {
 
     event ParcelUpdate(uint frameKey, uint parcelKey);
 
-    constructor(MarketFactory _factory, IERC20 _token, IUniswapV2Pair _uniswapPair, uint _period, uint _initTimestamp, uint _taxMarket, uint _feeMarket, uint _dPrice, uint _tReporting ) {
+    constructor(MarketFactory _factory, IERC20 _token, IUniswapV2Pair _uniswapPair, uint _period, uint _initTimestamp, uint _taxMarket, uint _feeMarket, uint _dPrice, uint _tReporting, uint _minAcquisitionP) {
         accountingToken = _token;
         ownerMarket = payable(msg.sender);
         period = _period;
@@ -88,6 +89,7 @@ contract Market {
         dPrice = _dPrice;
         factory = _factory;
         tReporting = _tReporting;
+        minAcquisitionP = _minAcquisitionP;
     }
 
 
@@ -218,16 +220,16 @@ contract Market {
     /// @notice Calculate amout required to approve to buy a parcel
     /// @param frameKey Frame's timestamp
     /// @param pairPrice Value is trading pair's price (to get correct parcel key) 
-    /// @param newSellPrice New sell price is required to calculate tax
+    /// @param acquisitionPrice New sell price is required to calculate tax
     /// @return amoun to approve
-    function AmountToApprove(uint frameKey, uint pairPrice, uint newSellPrice, uint timestamp) public view returns (uint) {             
+    function AmountToApprove(uint frameKey, uint pairPrice, uint acquisitionPrice, uint timestamp) public view returns (uint) {             
         uint parcelKey = clcParcelInterval(pairPrice);
         uint dFrame = timestamp.sub(clcFrameTimestamp(timestamp));
         uint dFrameP = scalar.mul(dFrame).div(period);
-        //Calculate tax from the propoed new price (newSellPrice)
+        //Calculate tax from the propoed new price (acquisitionPrice)
         uint numOfFramesLeft = clcFramesLeft(frameKey);
-        uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
-        uint dtax = newSellPrice.mul(taxMarket).div(100000);
+        uint tax = acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+        uint dtax = acquisitionPrice.mul(taxMarket).div(100000);
         dtax = dtax.mul(dFrameP).div(scalar);
         tax = tax.add(dtax);
         uint amount = frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax);
@@ -237,17 +239,18 @@ contract Market {
     /// @notice Calculate amout required to approve to buy a parcel
     /// @param timestamp Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct parcel key) 
-    /// @param newSellPrice New sell price is required to calculate tax
-    function buyParcel(uint timestamp, uint pairPrice, uint newSellPrice) public payable {
+    /// @param acquisitionPrice New sell price is required to calculate tax
+    function buyParcel(uint timestamp, uint pairPrice, uint acquisitionPrice) public payable {
+        require(acquisitionPrice >= minAcquisitionP, "PRICE IS TOO LOW");
         uint frameKey =  getOrCreateFrame(timestamp);                          
         uint parcelKey = getOrCreateParcel(frameKey, pairPrice);
         require(msg.sender != getParcelOwner(frameKey, parcelKey), "ADDRESS ALREADY OWNS THE PARCEL");
         uint dFrame = block.timestamp.sub(clcFrameTimestamp(block.timestamp));
         uint dFrameP = scalar.mul(dFrame).div(period);
-        uint dtax = newSellPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
-        //Calculate tax from the proposed new price (newSellPrice)
+        uint dtax = acquisitionPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
+        //Calculate tax from the proposed new price (acquisitionPrice)
         uint numOfFramesLeft = clcFramesLeft(timestamp);
-        uint tax = newSellPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
+        uint tax = acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
         tax = tax.add(dtax);
         //Approved amount has to be at leat equal to price of the Parcel(with tax)
         require(accountingToken.allowance(msg.sender, address(this)) >= frames[frameKey].parcels[parcelKey].acquisitionPrice.add(tax), "APPROVED AMOUNT IS TOO SMALL");
@@ -273,7 +276,7 @@ contract Market {
        
         frames[frameKey].parcels[parcelKey].parcelOwners.push(ParcelOwner(payable(msg.sender), block.number));
         frames[frameKey].parcels[parcelKey].state = SParcel.BOUGHT;
-        frames[frameKey].parcels[parcelKey].acquisitionPrice = newSellPrice;
+        frames[frameKey].parcels[parcelKey].acquisitionPrice = acquisitionPrice;
     }
 
     /// @notice Owner can update parcel's price. Has to pay additional tax, or leftover tax gets' returned to him if the new price is lower
@@ -281,6 +284,7 @@ contract Market {
     /// @param pairPrice Is trading pair's price (to get correct parcel key) 
     /// @param acquisitionPrice New acquisition price
     function updateParcelPrice(uint timestamp, uint pairPrice, uint acquisitionPrice) public payable {
+        require(acquisitionPrice >= minAcquisitionP, "PRICE IS TOO LOW");
         uint frameKey =  getOrCreateFrame(timestamp); 
         uint parcelKey = getOrCreateParcel(frameKey, pairPrice); 
         
