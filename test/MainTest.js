@@ -13,6 +13,8 @@ const {
     expectRevert
 } = require('@openzeppelin/test-helpers');
 
+const truffleAssert = require('truffle-assertions');
+
 const { assert } = require('chai');
 const colors = require('colors');
 const consola = require('consola');
@@ -68,6 +70,7 @@ const bet = new BN('1000e18');
 const dPrice = 10000000;
 const tReporting = 3600;
 const winningPairPrice = 19211498376;
+const minTax = 77677;
                  
 //----------------------------------------------------------------------
 
@@ -102,7 +105,7 @@ contract("UniHedge", async accounts => {
             let periodInSec = period * 3600;
             let settlementIntInSec = settlementInterval * 3600;
             let count1 = await this.MarketFactory.getMarketsCount();
-            await this.MarketFactory.addMarket(this.token.address, addressUniswapV2Pair, periodInSec, initTimestamp, marketTax, marketFee, dPrice, tReporting, {from: accounts[0]});
+            await this.MarketFactory.addMarket(this.token.address, addressUniswapV2Pair, periodInSec, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, {from: accounts[0]});
             
             let count2 = await this.MarketFactory.getMarketsCount();
 
@@ -221,8 +224,8 @@ contract("UniHedge", async accounts => {
 
             let allowance2 = await this.token.allowance(accounts[2], this.market.address, {from: accounts[2]});
             //allowance2 = web3.utils.fromWei(allowance2, 'ether');
-            //console.log(colors.green("Allowance after is: " + allowance2));
-            assert.equal(allowance2, approveAmount)
+            console.log(colors.green("Allowance after is: " + allowance2));
+            assert.equal(allowance2.toString(), approveAmount.toString())
 
 
         });
@@ -242,6 +245,8 @@ contract("UniHedge", async accounts => {
             consola.log(colors.bgGreen("Balance of seller is: " + seller1));
 
             await this.market.buyParcel(FrameNextKey, winningPairPrice, new BigN('70e18'), {from: accounts[2]});
+
+            
 
             let seller2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
             let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[2]));
@@ -404,28 +409,14 @@ contract("UniHedge", async accounts => {
             consola.log("Average price is: " + frame.priceAverage)
             assert.equal(frame.state, 2);
         });
-        it('Calculate share', async function() {
-
-            let frame = await this.market.frames(FrameNextKey);
-            consola.log("Average price is: " + frame.priceAverage)
-
-            let parcelKeyWin = (await this.market.clcParcelInterval(frame.priceAverage));
-
-            let share = await this.market.clcShare(FrameNextKey, parcelKeyWin, accounts[2], {from: accounts[2]}); //15004292677200000000  15004307946600000000   15004844072200000000
-
-
-            console.log("Amount is: " + share);
-
-
-        });
-        it('Settle parcel for first user', async function() {
+        it('Settle parcel', async function() {
             let b1 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
             let mb1 = web3.utils.toBN(await this.token.balanceOf(this.market.address));
             consola.log(colors.green("Balance of market is: " + mb1));
             consola.log(colors.yellow("Balance of user is: " + b1));
 
 
-            await this.market.settleParcel(FrameNextKey, accounts[1], {from: accounts[1]});
+            await this.market.settleParcel(FrameNextKey, {from: accounts[1]});
 
            
             let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
@@ -436,24 +427,7 @@ contract("UniHedge", async accounts => {
             consola.log(colors.green("Balance of market is: " + mb2));
 
 
-        });
-        it('Settle parcel for second user', async function() {
-            let b1 = web3.utils.toBN(await this.token.balanceOf(accounts[2]));
-            let mb1 = web3.utils.toBN(await this.token.balanceOf(this.market.address));
-            consola.log(colors.green("Balance of market is: " + mb1));
-            consola.log(colors.yellow("Balance of user is: " + b1));
-
-            await this.market.settleParcel(FrameNextKey, accounts[2], {from: accounts[2]});
-
-            let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[2]));
-            consola.log(colors.yellow("Balance of user is: " + b2.toString()));
-            let diff = web3.utils.fromWei(b2.sub(b1), 'ether');
-            consola.log(colors.yellow("Difference is: " + diff));
-            let mb2 = web3.utils.toBN(await this.token.balanceOf(this.market.address));
-            consola.log(colors.green("Balance of market is: " + mb2));
-        });
-
-         
+        });         
     });
 
     });
