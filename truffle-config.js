@@ -18,8 +18,16 @@ module.exports = {
       network_id: 4,
       networkCheckTimeout: 1000000,  
       gas: 4612388,
+      timeoutBlocks: 200 
+    },
+    rinkeby: { //changed to websockets url. Migrations kept crashing with http url
+      provider: () => new HDWalletProvider(mnemonic, 'https://rpc.xdaichain.com/'),
+      network_id: 100,
+      networkCheckTimeout: 1000000,  
+      gas: 4612388,
       timeoutBlocks: 200
     },
+
 
 
     // Useful for private networks
@@ -42,5 +50,12 @@ module.exports = {
     solc: {
       version: "^0.8.0",    // Fetch exact version from solc-bin (default: truffle's version)
     }
+  },
+
+  plugins: [
+    'truffle-plugin-verify'
+  ],
+  api_keys: {
+    etherscan: '29A12AMJ6CT3PA3KS8T6D3F86G42ZDI59J'
   }
 }

@@ -45,17 +45,6 @@ consola.info("Current timestamp: " + startTimestamp + " s");
 var FrameNextKey;
 var approveAmount;
 
-var parcelJsonObj = {
-    "key" : "",
-    "owners" : {
-        "owner" : "",
-        "block" : ""
-    },
-    "price" : "",
-    "state" : ""
-}
-
-
 //----------------------------------------------------------------------
 const n=6; 
 const initTimestamp = startTimestamp;
