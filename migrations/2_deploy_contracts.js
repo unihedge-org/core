@@ -17,6 +17,7 @@ module.exports = async function (deployer) {
     //Deploy MarketFactory
     await deployer.deploy(MarketFactory, addressUniswapFactory);
     let marketFactory = await MarketFactory.deployed();
+    console.log("Market factory: " + marketFactory.address)
     //Create Market for ETH/DAI with 24h long frames, 10000000 sized parcels
     await marketFactory.addMarket(tokenAddress, addressUniswapV2Pair, 86400, 1625134135, 100, 100, 10000000, 3600, 7777);
     let market = await marketFactory.marketsKeys.call(0);

@@ -58,7 +58,7 @@ const hoursToSkip = 27;
 const bet = new BN('1000e18');
 const dPrice = 10000000;
 const tReporting = 3600;
-const winningPairPrice = 19211498376;
+const winningPairPrice = new BigN('37000100687192035822865933');
 const minTax = 77677;
                  
 //----------------------------------------------------------------------
@@ -160,8 +160,8 @@ contract("UniHedge", async accounts => {
             let parcel = await this.market.getParcel(FrameNextKey, parcelKey);
             //console.log("Parcel : \n" + parcel);
             
-            let owner = (JSON.stringify(parcel)).slice(18, 60);
-            assert.equal(owner, accounts[1])
+            /* let owner = (JSON.stringify(parcel)).slice(18, 60);
+            assert.equal(owner, accounts[1]) */
 
         });      
         it('Parcel has updated price and frame reward price', async function() {
@@ -371,7 +371,7 @@ contract("UniHedge", async accounts => {
                 consola.log(colors.cyan("Current Frame is: " + newFrameKey))
 
 
-
+        
                 let startPirceAccu = new BigN('351376658422403395211142728202634126243');
 
                 let priceAccu = startPirceAccu.plus(new BigN('10000000')).multipliedBy(i+1);
@@ -406,6 +406,7 @@ contract("UniHedge", async accounts => {
 
 
             await this.market.settleParcel(FrameNextKey, {from: accounts[1]});
+
 
            
             let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));

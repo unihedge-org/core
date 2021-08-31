@@ -125,9 +125,9 @@ contract Market {
         return timestamp.sub((timestamp.sub(initTimestamp)).mod(period));
     }
 
-    /// @notice Calculate bottom boundary of a parcel
+    /// @notice Calculate top boundary of a parcel
     /// @param value Arbitary price of market's Uniswap pair
-    /// @return parcel key (bottom boundary)
+    /// @return parcel key (top boundary)
     function clcParcelInterval(uint value) public view returns (uint){
         if (value <= 0) return dPrice;
         return value.div(dPrice).mul(dPrice).add(dPrice);
@@ -341,7 +341,7 @@ contract Market {
 
     /// @notice Close frame
     /// @param frameKey Frame's timestamp
-    function closeFrame(uint frameKey) public {
+    function closeFrame(uint frameKey) public payable {
         //Check if frame is opened
         require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
         //Check if frame timing is correct
@@ -362,8 +362,8 @@ contract Market {
         frames[frameKey].priceAverage = uint(((FixedPoint.div(FixedPoint.uq112x112(uint224(priceDiff)), (uint112(timeDiff)))))._x);
 
         //Decode to scalar value
-        frames[frameKey].priceAverage = (frames[frameKey].priceAverage >> 112).mul(scalar); 
-        frames[frameKey].priceAverage = (frames[frameKey].priceAverage << 112).div(1e49);
+        frames[frameKey].priceAverage = (frames[frameKey].priceAverage >> 112).mul(scalar) + (frames[frameKey].priceAverage << 112).div(1e49); 
+        //frames[frameKey].priceAverage = (frames[frameKey].priceAverage << 112).div(1e49);
 
         //Subtract fees from the reward amount and send them to Owners of the market and protocol
         uint marketOwnerFees = frames[frameKey].rewardFund.mul(feeMarket).div(100000);
@@ -378,7 +378,7 @@ contract Market {
 
     /// @notice Settle parcel for a owner. Owner's share of the reward amount get's transfered to owner's account
     /// @param frameKey Frame's timestamp
-    function settleParcel(uint frameKey) public {  
+    function settleParcel(uint frameKey) public payable {  
         //Check if frame is closed
         require(frames[frameKey].state == SFrame.CLOSED, "FRAME NOT CLOSED");    
         //Get winning parcel key
@@ -389,7 +389,7 @@ contract Market {
         uint ownerIndex = getNumberOfParcelOwners(frameKey, parcelKeyWin);
         //Transfer winnings to last owner 
         accountingToken.transfer(parcel.parcelOwners[ownerIndex.sub(1)].owner, frames[frameKey].rewardFund);
-        frames[frameKey].parcels[parcelKeyWin].state = SParcel.SETTLED;
+        // frames[frameKey].parcels[parcelKeyWin].state = SParcel.SETTLED;
     }
 
 }
