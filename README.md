@@ -20,4 +20,8 @@ Web3.js | v1.4.0
 
 ### Deployed contracts on XDAI chain ###
 
-*** WETH/WXDAI Market address (6. 9. 21)**: [_0x137127631A198e0e2D2DDadCAE73428F6798Fc13_](https://blockscout.com/xdai/mainnet/address/0x137127631A198e0e2D2DDadCAE73428F6798Fc13/internal-transactions)
+* **WETH/WXDAI Market address (6. 9. 21)**: [_0x137127631A198e0e2D2DDadCAE73428F6798Fc13_](https://blockscout.com/xdai/mainnet/address/0x137127631A198e0e2D2DDadCAE73428F6798Fc13/internal-transactions)
+    * Accounting token - WXDAI: : _0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d_
+    * Pair: _0x7BEa4Af5D425f2d4485BDad1859c88617dF31A67_
+        * WXDAI: _0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d_
+        * WETH: _0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1_
