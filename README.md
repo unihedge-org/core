@@ -25,3 +25,5 @@ Web3.js | v1.4.0
     * Pair: _0x7BEa4Af5D425f2d4485BDad1859c88617dF31A67_
         * WXDAI: _0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d_
         * WETH: _0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1_
+
+❗ Honeyswap pairs info: https://info.honeyswap.org/#/pairs
