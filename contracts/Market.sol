@@ -88,7 +88,7 @@ contract Market {
     }
 
     modifier minTaxCheck(uint acqPrice) {
-        uint tax = acqPrice.mul(taxMarket).div(100000);
+        uint tax = acqPrice * (taxMarket) / (100000);
         require(tax >= minTax, "PRICE IS TOO LOW");
         _;
     }
@@ -98,13 +98,24 @@ contract Market {
         _;
     }
 
+    modifier hasValidPrices(uint framekey) {
+        if (frames[framekey].oraclePrice0CumulativeStart <= 0 || frames[framekey].oraclePrice0CumulativeEnd <= 0) {
+            frames[framekey].state = SFrame.INVALID;
+            revert("INVALID PRICES");
+        }
+        if (frames[framekey].oraclePrice0CumulativeStart == frames[framekey].oraclePrice0CumulativeEnd) {
+            frames[framekey].state = SFrame.INVALID;
+            revert("INVALID PRICES");
+        }
+        _;
+    }
 
     /// @notice Calculate frames timestamp (beggining of frame)
     /// @param timestamp In seconds
     /// @return frame's timestamp (key)
     function clcFrameTimestamp(uint timestamp) public view returns (uint){
         if (timestamp <= initTimestamp) return initTimestamp;
-        return timestamp.sub((timestamp.sub(initTimestamp)).mod(period));
+        return timestamp - ((timestamp - (initTimestamp)) % (period));
     }
 
     /// @notice Calculate top boundary of a lot
@@ -112,14 +123,14 @@ contract Market {
     /// @return lot key (top boundary)
     function clcLotInterval(uint value) public view returns (uint){
         if (value <= 0) return dPrice;
-        return value.div(dPrice).mul(dPrice).add(dPrice);
+        return value / (dPrice) * (dPrice) + (dPrice);
     }
 
     /// @notice Calculate how many frames there are left untill given frame in input
     /// @param frameKey Timestamp of an arbitary frame in the future
     /// @return number of frames (whole numbers: n=0,1,2...)
     function clcFramesLeft(uint frameKey) public view returns (uint){                      
-        return (frameKey.sub(block.timestamp)).div(period).add(1);
+        return (((frameKey - (block.timestamp)) / period) + 1);
     }
 
     /// @notice Get lot struct
@@ -163,19 +174,18 @@ contract Market {
     /// @param timestamp In second.
     /// @return frameTimestamp Frame's key (timestamp that indicated the beggining of a frame).
     function getOrCreateFrame(uint timestamp) public returns (uint){
-        require(timestamp >= initTimestamp, "TIMESTAMP BEFORE INITIAL TIMESTAMP OF MARKET");
-        //Get start timestamp of a frame
-        uint frameTimestamp = clcFrameTimestamp(timestamp);
+        //Get frame's timestamp - frame key
+        uint frameKey = clcFrameTimestamp(timestamp);
         //Check if frame exists
-        if (frames[frameTimestamp].state != SFrame.NULL) return frameTimestamp;
+        if (frames[frameKey].state != SFrame.NULL) return frameKey;
         //Check if frame startLot number is before current Lot number
-        require(frameTimestamp >= clcFrameTimestamp(block.timestamp), "CAN'T CREATE FRAME IN PAST");
+        require(frameKey >= clcFrameTimestamp(block.timestamp), "CAN'T CREATE FRAME IN PAST");
         //Add frame
-        frames[frameTimestamp].frameKey = frameTimestamp;
-        frames[frameTimestamp].state = SFrame.OPENED; //check if other parameters are at zero
-        framesKeys.push(frameTimestamp);
-        emit FrameUpdate(frameTimestamp);
-        return frameTimestamp;
+        frames[frameKey].frameKey = frameKey;
+        frames[frameKey].state = SFrame.OPENED; //check if other parameters are at zero
+        framesKeys.push(frameKey);
+        emit FrameUpdate(frameKey);
+        return frameKey;
     }
 
     /// @notice Create a lot
@@ -190,75 +200,67 @@ contract Market {
         return lotKey;
     }
 
-    //TODO: Run extensive tests on tax calculations
+
+    function clcTax(uint frameKey, uint acquisitionPrice) public view returns (uint tax) {             
+        uint dFrame = (clcFrameTimestamp(block.timestamp.add(period))).sub(block.timestamp); 
+        uint dFrameP = scalar * dFrame / (period);
+        //Calculate tax from the proposed acquisition price 
+        uint numOfFramesLeft = clcFramesLeft(frameKey);
+        tax = acquisitionPrice * taxMarket / 100000 * numOfFramesLeft;
+        uint dtax = acquisitionPrice * taxMarket / 100000;
+        dtax = dtax * dFrameP / scalar;
+        tax = tax + dtax;
+        return tax;
+    }
+
     /// @notice Calculate amout required to approve to buy a lot
     /// @param frameKey Frame's timestamp
     /// @param pairPrice Value is trading pair's price (to get correct lot key) 
-    /// @param acquisitionPrice New sell price is required to calculate tax
-    /// @return amount to approve
-    function AmountToApprove(uint frameKey, uint pairPrice, uint acquisitionPrice) public view returns (uint) {             
+    /// @param acqPrice New sell price is required to calculate tax
+    /// @return cmpltAmnt complete price of a lot
+    function clcAmountToApprove(uint frameKey, uint pairPrice, uint acqPrice) public view returns (uint cmpltAmnt) {             
         uint lotKey = clcLotInterval(pairPrice);
-        uint dFrame = (clcFrameTimestamp(block.timestamp.add(period))).sub(block.timestamp); 
-        uint dFrameP = scalar.mul(dFrame).div(period);
-        //Calculate tax from the proposed acquisition price 
-        uint numOfFramesLeft = clcFramesLeft(frameKey);
-        uint tax = acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
-        uint dtax = acquisitionPrice.mul(taxMarket).div(100000);
-        dtax = dtax.mul(dFrameP).div(scalar);
-        tax = tax.add(dtax);
-        uint amount = frames[frameKey].lots[lotKey].acquisitionPrice.add(tax);
-        return amount;
+        uint tax = clcTax(frameKey, acqPrice);
+        cmpltAmnt = frames[frameKey].lots[lotKey].acquisitionPrice + tax;
+        return cmpltAmnt;
     }
 
     /// @notice Calculate amout required to approve to buy a lot
     /// @param timestamp Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct lot key) 
     /// @param acquisitionPrice New sell price is required to calculate tax
-    function buyLot(uint timestamp, uint pairPrice, uint acquisitionPrice) public payable minTaxCheck(acquisitionPrice) {
+    function buyLot(uint timestamp, uint pairPrice, uint acquisitionPrice) public minTaxCheck(acquisitionPrice) {
         //Get specified frameKey and lotKey
         uint frameKey =  getOrCreateFrame(timestamp);                          
         uint lotKey = getOrCreateLot(frameKey, pairPrice);
         //Msg.sender shouldn't own the parcel
         require(msg.sender != frames[frameKey].lots[lotKey].lotOwner, "ADDRESS ALREADY OWNS THE PARCEL");
 
-        //------------------------------------->Calculate tax<---------------------------------------------------------
-
-        uint dFrame = (clcFrameTimestamp(block.timestamp.add(period))).sub(block.timestamp); 
-        uint dFrameP = scalar.mul(dFrame).div(period);
-        uint dtax = acquisitionPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
-        uint numOfFramesLeft = clcFramesLeft(timestamp);
-        uint tax = acquisitionPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
-        tax = tax.add(dtax);
-        
-        //--------------------------------------------------------------------------------------------------------------
+        uint tax = clcTax(frameKey, acquisitionPrice);
         //Approved amount has to be at leat equal to price of the Lot(with tax)
-        require(accountingToken.allowance(msg.sender, address(this)) >= frames[frameKey].lots[lotKey].acquisitionPrice.add(tax), "APPROVED AMOUNT IS TOO SMALL");
+        require(accountingToken.allowance(msg.sender, address(this)) >= (frames[frameKey].lots[lotKey].acquisitionPrice + tax), "APPROVED AMOUNT IS TOO SMALL");
         //Transfer tax amount to the market contract
-        accountingToken.transferFrom(msg.sender, address(this), frames[frameKey].lots[lotKey].acquisitionPrice.add(tax));
-        frames[frameKey].rewardFund = frames[frameKey].rewardFund.add(tax);
+        accountingToken.transferFrom(msg.sender, address(this), (frames[frameKey].lots[lotKey].acquisitionPrice + tax));
+        frames[frameKey].rewardFund = (frames[frameKey].rewardFund + tax);
 
         //Pay the Lot price to current owner + return tax
         if (frames[frameKey].lots[lotKey].state == SLot.BOUGHT) {
             //----------------------------->Calculate leftover tax to return to the previous owner<-------------------------
             //acquisitionPrice/marketTax * number_of_frames_left:
-            uint aPrice = frames[frameKey].lots[lotKey].acquisitionPrice;
-            uint dFrameTax = aPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
-            uint taxToReturn = aPrice.mul(taxMarket).div(100000).mul(numOfFramesLeft);
-            taxToReturn = taxToReturn.add(dFrameTax);
+            uint taxRetrn = clcTax(frameKey, frames[frameKey].lots[lotKey].acquisitionPrice);
             //--------------------------------------------------------------------------------------------------------------
-            //add acquisition price value to left over tax
-            uint amount = (taxToReturn.add(frames[frameKey].lots[lotKey].acquisitionPrice));
             //transfer funds
-            accountingToken.transfer(frames[frameKey].lots[lotKey].lotOwner, amount);
+            accountingToken.transfer(frames[frameKey].lots[lotKey].lotOwner, taxRetrn + frames[frameKey].lots[lotKey].acquisitionPrice);
             //change reward value
-            frames[frameKey].rewardFund = frames[frameKey].rewardFund.sub(taxToReturn);
+            frames[frameKey].rewardFund = frames[frameKey].rewardFund - taxRetrn;
         }
        
        //Update lotKey values
-        frames[frameKey].lots[lotKey].lotOwner = (payable(msg.sender));
+        frames[frameKey].lots[lotKey].lotOwner = msg.sender;
         frames[frameKey].lots[lotKey].state = SLot.BOUGHT;
         frames[frameKey].lots[lotKey].acquisitionPrice = acquisitionPrice;
 
+        //updateFramePrices();
         emit LotUpdate(frameKey, lotKey);
     }
 
@@ -266,121 +268,92 @@ contract Market {
     /// @param timestamp Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct lot key) 
     /// @param acquisitionPrice New acquisition price
-    function updateLotPrice(uint timestamp, uint pairPrice, uint acquisitionPrice) public payable minTaxCheck(acquisitionPrice) {
-        uint frameKey =  getOrCreateFrame(timestamp); 
+    function updateLotPrice(uint timestamp, uint pairPrice, uint acquisitionPrice) public minTaxCheck(acquisitionPrice) {
+        uint frameKey = getOrCreateFrame(timestamp); 
         uint lotKey = getOrCreateLot(frameKey, pairPrice); 
-        
         require(frames[frameKey].lots[lotKey].lotOwner == msg.sender, "THIS ADDRESS IS NOT THE OWNER");
-                      
-        uint numOfFramesLeft = clcFramesLeft(timestamp);
 
-        uint dFrame = block.timestamp.sub(clcFrameTimestamp(block.timestamp));
-        uint dFrameP = scalar.mul(dFrame).div(period);
-        uint dtax = acquisitionPrice.mul(taxMarket).div(100000).mul(dFrameP);
-        dtax = dtax.div(scalar);
-
-        uint taxNew = acquisitionPrice.mul(taxMarket).div(100000);
-        taxNew = taxNew.mul(numOfFramesLeft);
-        taxNew = taxNew.add(dtax);
-
-        uint oldPrice = frames[frameKey].lots[lotKey].acquisitionPrice;
-        dtax = oldPrice.mul(taxMarket).div(100000).mul(dFrameP).div(scalar);
-        uint taxOld = acquisitionPrice.mul(taxMarket).div(100000);
-        taxOld = taxOld.mul(numOfFramesLeft);
-        taxOld = taxOld.add(dtax);
+        uint taxNew = clcTax(frameKey, acquisitionPrice);
+        uint taxOld = clcTax(frameKey,frames[frameKey].lots[lotKey].acquisitionPrice);
 
         if (taxNew > taxOld) {
-            require(accountingToken.allowance(msg.sender, address(this)) >= (taxNew.sub(taxOld)), "APPROVED AMOUNT IS TOO SMALL");
+            require(accountingToken.allowance(msg.sender, address(this)) >= (taxNew - taxOld), "APPROVED AMOUNT IS TOO SMALL");
             //Transfer complete tax amount to the frame rewardFund
-            accountingToken.transferFrom(msg.sender, address(this), (taxNew.sub(taxOld)));
-            frames[frameKey].rewardFund = frames[frameKey].rewardFund.add(taxNew.sub(taxOld));
+            accountingToken.transferFrom(msg.sender, address(this), (taxNew - taxOld));
+            frames[frameKey].rewardFund = frames[frameKey].rewardFund + (taxNew- taxOld);
         }
         else if (taxNew < taxOld) {
-            accountingToken.transfer(msg.sender, taxOld.sub(taxNew));
-            frames[frameKey].rewardFund = frames[frameKey].rewardFund.sub(taxOld.sub(taxNew));
+            accountingToken.transfer(msg.sender, taxOld - taxNew);
+            frames[frameKey].rewardFund = frames[frameKey].rewardFund - (taxOld - taxNew);
         }
         frames[frameKey].lots[lotKey].acquisitionPrice = acquisitionPrice;
 
+        //updateFramePrices();
         emit LotUpdate(frameKey, lotKey);
     }
 
     // /// @notice Update trading pair's prices in the frame
-    function updateFramePrices() public {
-        uint tmp;
-        uint frameKey = clcFrameTimestamp(block.timestamp);
-        frames[frameKey].lastBlockNum = block.number;
-        //Correct price if outside settle interval
-        if (block.timestamp >= ((frameKey.add(period)).sub(tReporting)) && frames[frameKey].oraclePrice0CumulativeStart == 0) {
-            (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-            emit FrameUpdate(frameKey);
-        }
-        else if (block.timestamp >= ((frameKey.add(period)).sub(tReporting))) {
-            (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-            emit FrameUpdate(frameKey);
-        }
-    }
-
-    /// @notice Update trading pair's prices in the frame
-    // /// @param PriceCumulative Cumulative price
-    // /// @dev For developement purposes the new price is added as an input
-    // /// @dev Final version should use uniswap's oracles
-    // function updateFramePrices(uint PriceCumulative) public {
+    // function updateFramePrices() public {
+    //     uint tmp;
     //     uint frameKey = clcFrameTimestamp(block.timestamp);
     //     frames[frameKey].lastBlockNum = block.number;
     //     //Correct price if outside settle interval
     //     if (block.timestamp >= ((frameKey.add(period)).sub(tReporting)) && frames[frameKey].oraclePrice0CumulativeStart == 0) {
-    //         frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
-    //         frames[frameKey].oracleTimestampStart = block.timestamp;
+    //         (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
     //         emit FrameUpdate(frameKey);
     //     }
-    //     else if (block.timestamp <= frameKey.add(period) && block.timestamp >= ((frameKey.add(period)).sub(tReporting))) {
-    //         frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
-    //         frames[frameKey].oracleTimestampEnd = block.timestamp;
+    //     else if (block.timestamp >= ((frameKey.add(period)).sub(tReporting))) {
+    //         (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
     //         emit FrameUpdate(frameKey);
     //     }
     // }
 
+    /// @notice Update trading pair's prices in the frame
+    /// @param PriceCumulative Cumulative price
+    /// @dev For developement purposes the new price is added as an input
+    /// @dev Final version should use uniswap's oracles
+    function updateFramePrices(uint PriceCumulative) public {
+        uint frameKey = clcFrameTimestamp(block.timestamp);
+        frames[frameKey].lastBlockNum = block.number;
+        //Correct price if outside settle interval
+        if (block.timestamp >= ((frameKey.add(period)).sub(tReporting)) && frames[frameKey].oraclePrice0CumulativeStart == 0) {
+            frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
+            frames[frameKey].oracleTimestampStart = block.timestamp;
+            emit FrameUpdate(frameKey);
+        }
+        else if (block.timestamp >= ((frameKey.add(period)).sub(tReporting))) {
+            frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
+            frames[frameKey].oracleTimestampEnd = block.timestamp;
+            emit FrameUpdate(frameKey);
+        }
+    }
+
     /// @notice Close frame
     /// @param frameKey Frame's timestamp
-    function closeFrame(uint frameKey) public payable {
-        //Check if frame is opened
+    function closeFrame(uint frameKey) public hasValidPrices(frameKey) {
         require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
-        //Check if frame end has been reached
-        require(frameKey.add(period) <= block.timestamp, "FRAME END TIME NOT REACHED");
-        //Check if frame has valid prices
-        if (frames[frameKey].oraclePrice0CumulativeStart <= 0 || frames[frameKey].oraclePrice0CumulativeEnd <= 0) {
-            frames[frameKey].state = SFrame.INVALID;
-        }
-        if (frames[frameKey].oraclePrice0CumulativeStart == frames[frameKey].oraclePrice0CumulativeEnd) {
-            frames[frameKey].state = SFrame.INVALID;
-        }
+        require( (frameKey + period) <= block.timestamp, "FRAME END TIME NOT REACHED");
         frames[frameKey].state = SFrame.CLOSED;
-
         //UQ112x112 encoded
-        uint priceDiff = frames[frameKey].oraclePrice0CumulativeEnd.sub(frames[frameKey].oraclePrice0CumulativeStart);
-        uint timeDiff = frames[frameKey].oracleTimestampEnd.sub(frames[frameKey].oracleTimestampStart);
+        uint priceDiff = frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart;
+        uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
         //Calculate time-weighted average price -- UQ112x112 encoded
         frames[frameKey].priceAverage = uint(((FixedPoint.div(FixedPoint.uq112x112(uint224(priceDiff)), (uint112(timeDiff)))))._x);
-
         //Decode to scalar value
-        frames[frameKey].priceAverage = (frames[frameKey].priceAverage >> 112).mul(scalar) + (frames[frameKey].priceAverage << 112).div(1e49); 
-        //frames[frameKey].priceAverage = (frames[frameKey].priceAverage << 112).div(1e49);
-
+        frames[frameKey].priceAverage = (frames[frameKey].priceAverage >> 112) * scalar + (frames[frameKey].priceAverage << 112) / (1e49); 
         //Subtract fees from the reward amount 
-        uint marketOwnerFees = frames[frameKey].rewardFund.mul(feeMarket).div(100000);
-        uint protocolOwnerFees = frames[frameKey].rewardFund.mul(feeProtocol).div(100000);
-        frames[frameKey].rewardFund = frames[frameKey].rewardFund.sub(marketOwnerFees).sub(protocolOwnerFees);
-
+        uint marketOwnerFees = frames[frameKey].rewardFund * (feeMarket) / 100000;
+        uint protocolOwnerFees = frames[frameKey].rewardFund * (feeProtocol) / 100000;
+        frames[frameKey].rewardFund = frames[frameKey].rewardFund - marketOwnerFees - protocolOwnerFees;
         //Transfer fees to owners
         accountingToken.transfer(ownerMarket, marketOwnerFees);
         accountingToken.transfer(factory.owner(), protocolOwnerFees);
-
         emit FrameUpdate(frameKey);
     }
 
     /// @notice Settle lot for a owner. Owner's share of the reward amount get's transfered to owner's account
     /// @param frameKey Frame's timestamp
-    function settleLot(uint frameKey) public payable {  
+    function settleLot(uint frameKey) public {  
         //Check if frame is closed
         require(frames[frameKey].state == SFrame.CLOSED, "FRAME NOT CLOSED");    
         //Calcualte the winning lot key
@@ -397,7 +370,7 @@ contract Market {
 
     /// @notice Withdraw any amount out of the contract. Only to be used in extreme cases!
     /// @param amount Amount you want to withdraw
-    function emptyFuds(uint amount) public payable isFactoryOwner {  
+    function emptyFunds(uint amount) public isFactoryOwner {  
         accountingToken.transfer(factory.owner(), amount);
     }
 
