@@ -178,11 +178,10 @@ contract Market {
         uint frameKey = clcFrameTimestamp(timestamp);
         //Check if frame exists
         if (frames[frameKey].state != SFrame.NULL) return frameKey;
-        //Check if frame startLot number is before current Lot number
         require(frameKey >= clcFrameTimestamp(block.timestamp), "CAN'T CREATE FRAME IN PAST");
         //Add frame
         frames[frameKey].frameKey = frameKey;
-        frames[frameKey].state = SFrame.OPENED; //check if other parameters are at zero
+        frames[frameKey].state = SFrame.OPENED;
         framesKeys.push(frameKey);
         emit FrameUpdate(frameKey);
         return frameKey;
@@ -200,7 +199,6 @@ contract Market {
         return lotKey;
     }
 
-
     function clcTax(uint frameKey, uint acquisitionPrice) public view returns (uint tax) {             
         uint dFrame = (clcFrameTimestamp(block.timestamp.add(period))).sub(block.timestamp); 
         uint dFrameP = scalar * dFrame / (period);
@@ -214,11 +212,12 @@ contract Market {
     }
 
     /// @notice Calculate amout required to approve to buy a lot
-    /// @param frameKey Frame's timestamp
+    /// @param timestamp Timestamp that determins which frame it is
     /// @param pairPrice Value is trading pair's price (to get correct lot key) 
     /// @param acqPrice New sell price is required to calculate tax
     /// @return cmpltAmnt complete price of a lot
-    function clcAmountToApprove(uint frameKey, uint pairPrice, uint acqPrice) public view returns (uint cmpltAmnt) {             
+    function clcAmountToApprove(uint timestamp, uint pairPrice, uint acqPrice) public view returns (uint cmpltAmnt) {    
+        uint frameKey = clcFrameTimestamp(timestamp);         
         uint lotKey = clcLotInterval(pairPrice);
         uint tax = clcTax(frameKey, acqPrice);
         cmpltAmnt = frames[frameKey].lots[lotKey].acquisitionPrice + tax;
@@ -228,37 +227,35 @@ contract Market {
     /// @notice Calculate amout required to approve to buy a lot
     /// @param timestamp Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct lot key) 
-    /// @param acquisitionPrice New sell price is required to calculate tax
-    function buyLot(uint timestamp, uint pairPrice, uint acquisitionPrice) public minTaxCheck(acquisitionPrice) {
-        //Get specified frameKey and lotKey
+    /// @param acqPrice New sell price is required to calculate tax
+    function buyLot(uint timestamp, uint pairPrice, uint acqPrice) public minTaxCheck(acqPrice) {
+        //Get frameKey and lotKey values
         uint frameKey =  getOrCreateFrame(timestamp);                          
         uint lotKey = getOrCreateLot(frameKey, pairPrice);
-        //Msg.sender shouldn't own the parcel
         require(msg.sender != frames[frameKey].lots[lotKey].lotOwner, "ADDRESS ALREADY OWNS THE PARCEL");
 
-        uint tax = clcTax(frameKey, acquisitionPrice);
+        uint tax = clcTax(frameKey, acqPrice);
+
         //Approved amount has to be at leat equal to price of the Lot(with tax)
         require(accountingToken.allowance(msg.sender, address(this)) >= (frames[frameKey].lots[lotKey].acquisitionPrice + tax), "APPROVED AMOUNT IS TOO SMALL");
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), (frames[frameKey].lots[lotKey].acquisitionPrice + tax));
         frames[frameKey].rewardFund = (frames[frameKey].rewardFund + tax);
 
-        //Pay the Lot price to current owner + return tax
+        //Pay the current owner + return leftover tax
         if (frames[frameKey].lots[lotKey].state == SLot.BOUGHT) {
-            //----------------------------->Calculate leftover tax to return to the previous owner<-------------------------
-            //acquisitionPrice/marketTax * number_of_frames_left:
             uint taxRetrn = clcTax(frameKey, frames[frameKey].lots[lotKey].acquisitionPrice);
-            //--------------------------------------------------------------------------------------------------------------
             //transfer funds
-            accountingToken.transfer(frames[frameKey].lots[lotKey].lotOwner, taxRetrn + frames[frameKey].lots[lotKey].acquisitionPrice);
-            //change reward value
+            accountingToken.transfer(frames[frameKey].lots[lotKey].lotOwner, (taxRetrn + frames[frameKey].lots[lotKey].acquisitionPrice));
+            //update reward fund
             frames[frameKey].rewardFund = frames[frameKey].rewardFund - taxRetrn;
         }
-       
+        else {
+            frames[frameKey].lots[lotKey].state = SLot.BOUGHT;
+        }
        //Update lotKey values
         frames[frameKey].lots[lotKey].lotOwner = msg.sender;
-        frames[frameKey].lots[lotKey].state = SLot.BOUGHT;
-        frames[frameKey].lots[lotKey].acquisitionPrice = acquisitionPrice;
+        frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
 
         //updateFramePrices();
         emit LotUpdate(frameKey, lotKey);
@@ -267,14 +264,14 @@ contract Market {
     /// @notice Owner can update lot's price. Has to pay additional tax, or leftover tax gets' returned to him if the new price is lower
     /// @param timestamp Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct lot key) 
-    /// @param acquisitionPrice New acquisition price
-    function updateLotPrice(uint timestamp, uint pairPrice, uint acquisitionPrice) public minTaxCheck(acquisitionPrice) {
+    /// @param acqPrice New acquisition price
+    function updateLotPrice(uint timestamp, uint pairPrice, uint acqPrice) public minTaxCheck(acqPrice) {
         uint frameKey = getOrCreateFrame(timestamp); 
         uint lotKey = getOrCreateLot(frameKey, pairPrice); 
         require(frames[frameKey].lots[lotKey].lotOwner == msg.sender, "THIS ADDRESS IS NOT THE OWNER");
 
-        uint taxNew = clcTax(frameKey, acquisitionPrice);
-        uint taxOld = clcTax(frameKey,frames[frameKey].lots[lotKey].acquisitionPrice);
+        uint taxNew = clcTax(frameKey, acqPrice);
+        uint taxOld = clcTax(frameKey, frames[frameKey].lots[lotKey].acquisitionPrice);
 
         if (taxNew > taxOld) {
             require(accountingToken.allowance(msg.sender, address(this)) >= (taxNew - taxOld), "APPROVED AMOUNT IS TOO SMALL");
@@ -286,47 +283,47 @@ contract Market {
             accountingToken.transfer(msg.sender, taxOld - taxNew);
             frames[frameKey].rewardFund = frames[frameKey].rewardFund - (taxOld - taxNew);
         }
-        frames[frameKey].lots[lotKey].acquisitionPrice = acquisitionPrice;
+        frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
 
         //updateFramePrices();
         emit LotUpdate(frameKey, lotKey);
     }
 
-    // /// @notice Update trading pair's prices in the frame
-    // function updateFramePrices() public {
-    //     uint tmp;
-    //     uint frameKey = clcFrameTimestamp(block.timestamp);
-    //     frames[frameKey].lastBlockNum = block.number;
-    //     //Correct price if outside settle interval
-    //     if (block.timestamp >= ((frameKey.add(period)).sub(tReporting)) && frames[frameKey].oraclePrice0CumulativeStart == 0) {
-    //         (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-    //         emit FrameUpdate(frameKey);
-    //     }
-    //     else if (block.timestamp >= ((frameKey.add(period)).sub(tReporting))) {
-    //         (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-    //         emit FrameUpdate(frameKey);
-    //     }
-    // }
-
     /// @notice Update trading pair's prices in the frame
-    /// @param PriceCumulative Cumulative price
-    /// @dev For developement purposes the new price is added as an input
-    /// @dev Final version should use uniswap's oracles
-    function updateFramePrices(uint PriceCumulative) public {
+    function updateFramePrices() public {
+        uint tmp;
         uint frameKey = clcFrameTimestamp(block.timestamp);
         frames[frameKey].lastBlockNum = block.number;
         //Correct price if outside settle interval
         if (block.timestamp >= ((frameKey.add(period)).sub(tReporting)) && frames[frameKey].oraclePrice0CumulativeStart == 0) {
-            frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
-            frames[frameKey].oracleTimestampStart = block.timestamp;
+            (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
             emit FrameUpdate(frameKey);
         }
         else if (block.timestamp >= ((frameKey.add(period)).sub(tReporting))) {
-            frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
-            frames[frameKey].oracleTimestampEnd = block.timestamp;
+            (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
             emit FrameUpdate(frameKey);
         }
     }
+
+    // /// @notice Update trading pair's prices in the frame
+    // /// @param PriceCumulative Cumulative price
+    // /// @dev For developement purposes the new price is added as an input
+    // /// @dev Final version should use uniswap's oracles
+    // function updateFramePrices(uint PriceCumulative) public {
+    //     uint frameKey = clcFrameTimestamp(block.timestamp);
+    //     frames[frameKey].lastBlockNum = block.number;
+    //     //Correct price if outside settle interval
+    //     if (block.timestamp >= ((frameKey + period) - tReporting) && frames[frameKey].oraclePrice0CumulativeStart == 0) {
+    //         frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
+    //         frames[frameKey].oracleTimestampStart = block.timestamp;
+    //         emit FrameUpdate(frameKey);
+    //     }
+    //     else if (block.timestamp >= ((frameKey + period) - tReporting)) {
+    //         frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
+    //         frames[frameKey].oracleTimestampEnd = block.timestamp;
+    //         emit FrameUpdate(frameKey);
+    //     }
+    // }
 
     /// @notice Close frame
     /// @param frameKey Frame's timestamp
@@ -368,6 +365,7 @@ contract Market {
         emit LotUpdate(frameKey, lotKeyWin);
     }
 
+    /// TODO: edit the frame fund value if that money is taken 
     /// @notice Withdraw any amount out of the contract. Only to be used in extreme cases!
     /// @param amount Amount you want to withdraw
     function emptyFunds(uint amount) public isFactoryOwner {  
