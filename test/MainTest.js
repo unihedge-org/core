@@ -63,7 +63,10 @@ const minTax = 77677;
                  
 //----------------------------------------------------------------------
 
-//TODO: add assert,expect... statements to each test parcel
+//TODO: add assert,expect... statements to each test lot
+
+let timeStart = Date.now() / 1000 | 0;
+let timeEnd = 0;
 
 contract("UniHedge", async accounts => {
 
@@ -89,7 +92,7 @@ contract("UniHedge", async accounts => {
             
 
         });
-    describe("Deploy a new market and buy parcels", function() {
+    describe("Deploy a new market and buy lots", function() {
         it('Deploy a new market', async function() {
             let periodInSec = period * 3600;
             let settlementIntInSec = settlementInterval * 3600;
@@ -112,24 +115,24 @@ contract("UniHedge", async accounts => {
             console.log(colors.bgYellow("Num of frames left untill final frame: " + frames.toString()));
             assert.equal(frames, 3)
         });
-        it('Approve parcel purchase for 1st user', async function() {
-            let intervalPrice = await this.market.clcParcelInterval(winningPairPrice);
-            console.log(colors.blue("Parcel interval (key) is " + intervalPrice.toString()));
+        it('Approve lot purchase for 1st user', async function() {
+            let intervalPrice = await this.market.clcLotInterval(winningPairPrice);
+            console.log(colors.blue("Lot interval (key) is " + intervalPrice.toString()));
 
             let allowance1 = await this.token.allowance(accounts[1], this.market.address, {from: accounts[1]});
             console.log(colors.green("Allowance before is: " + allowance1.toString()));
 
-            //parcel: 9350000000; framekey: 1627895117
-            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, winningPairPrice, new BigN('10e18'), new BigN(startTimestamp+3600)));
-            console.info("Amount to approve is: " + approveAmount);
-            await this.token.approve(this.market.address, approveAmount, {from: accounts[1]});
+            //lot: 9350000000; framekey: 1627895117
+            const lotPrice = new BigN(await this.market.clcAmountToApprove(FrameNextKey, winningPairPrice, new BigN('10e18')));
+            console.info("Amount to approve is: " + lotPrice);
+            await this.token.approve(this.market.address, lotPrice, {from: accounts[1]});
 
             let allowance2 = await this.token.allowance(accounts[1], this.market.address, {from: accounts[1]});
             console.log(colors.green("Allowance after is: " + allowance2));
 
-            assert.equal(approveAmount.toString(), allowance2.toString())
+            assert.equal(lotPrice.toString(), allowance2.toString())
         });
-        it('Buy parcel', async function() {
+        it('Buy lot', async function() {
             let b = await web3.eth.getBlockNumber();
             let t = await web3.eth.getBlock(b);
 
@@ -137,37 +140,37 @@ contract("UniHedge", async accounts => {
             consola.log(colors.underline("Current frame is: " + currentFrame.toString()));
 
             let b1 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
-            consola.log(colors.red("Balance of user is: " + b1));
+            consola.log(colors.green("Balance of user is: " + b1));
 
-            await this.market.buyParcel(FrameNextKey, winningPairPrice, new BigN('10e18'), {from: accounts[1]});
+            await this.market.buyLot(FrameNextKey, winningPairPrice, new BigN('10e18'), {from: accounts[1]});
 
             let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
-            consola.log(colors.red("Balance of user is: " + b2));
+            consola.log(colors.green("Balance of user is: " + b2));
             let diff = web3.utils.fromWei(b1.sub(b2), 'ether');
             consola.log(colors.inverse("Difference is: " + diff));
 
             /* 
-            console.log("Parcel key is: " + parcelKey);
-            let parcel = await this.market.parcels(parcelKey);
-            console.log(colors.bgWhite("Block frame key is: : " + parcel.frameKey.toString()));
-            let ownerBlockNum = await this.market.getParcelOwnerBlockNum(parcelKey, 0);
-            console.log(colors.bgBlue("Current parcel owner's block number is: : " + ownerBlockNum.toString())); */
+            console.log("Lot key is: " + lotKey);
+            let lot = await this.market.lots(lotKey);
+            console.log(colors.bgWhite("Block frame key is: : " + lot.frameKey.toString()));
+            let ownerBlockNum = await this.market.getLotOwnerBlockNum(lotKey, 0);
+            console.log(colors.bgBlue("Current lot owner's block number is: : " + ownerBlockNum.toString())); */
 
-            /* let index = await this.market.getParcelOwnerIndex(FrameNextKey, parcelKey, accounts[1]);
-            console.log("Parcel : \n" + index); */
+            /* let index = await this.market.getLotOwnerIndex(FrameNextKey, lotKey, accounts[1]);
+            console.log("Lot : \n" + index); */
 
-            let parcelKey = await this.market.clcParcelInterval(winningPairPrice);
-            let parcel = await this.market.getParcel(FrameNextKey, parcelKey);
-            //console.log("Parcel : \n" + parcel);
+            let lotKey = await this.market.clcLotInterval(winningPairPrice);
+            let lot = await this.market.getLot(FrameNextKey, lotKey);
+            //console.log("Lot : \n" + lot);
             
-            /* let owner = (JSON.stringify(parcel)).slice(18, 60);
+            /* let owner = (JSON.stringify(lot)).slice(18, 60);
             assert.equal(owner, accounts[1]) */
 
         });      
-        it('Parcel has updated price and frame reward price', async function() {
-            let parcelKey = await this.market.clcParcelInterval(winningPairPrice);
-            let parcel = await this.market.getParcel(FrameNextKey, parcelKey);
-            let price = web3.utils.fromWei(parcel.acquisitionPrice, 'ether');
+        it('Lot has updated price and frame reward price', async function() {
+            let lotKey = await this.market.clcLotInterval(winningPairPrice);
+            let lot = await this.market.getLot(FrameNextKey, lotKey);
+            let price = web3.utils.fromWei(lot.acquisitionPrice, 'ether');
             consola.log(colors.cyan('Current price is ' + price));
             assert.equal(price, 10);
         });
@@ -176,20 +179,20 @@ contract("UniHedge", async accounts => {
             let reward = web3.utils.fromWei(frame.rewardFund, 'ether');
             consola.log(colors.cyan('Current reward fund is equal to: ' + reward));
         });
-        it('Lower the parcel price', async function() {
+        it('Lower the lot price', async function() {
             let b1 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
-            consola.log(colors.red("Balance of user is: " + b1));
+            consola.log(colors.green("Balance of user is: " + b1));
 
-            await this.market.updateParcelPrice(FrameNextKey, winningPairPrice, new BigN('7e18'), {from: accounts[1]});
+            await this.market.updateLotPrice(FrameNextKey, winningPairPrice, new BigN('7e18'), {from: accounts[1]});
 
             let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
             consola.log(colors.red("Balance of user is: " + b2));
             let diff = web3.utils.fromWei(b2.sub(b1), 'ether');
             consola.log(colors.inverse("Difference is: " + diff));
 
-            let parcelKey = await this.market.clcParcelInterval(winningPairPrice);
-            let parcel = await this.market.getParcel(FrameNextKey, parcelKey);
-            let price = web3.utils.fromWei(parcel.acquisitionPrice, 'ether');
+            let lotKey = await this.market.clcLotInterval(winningPairPrice);
+            let lot = await this.market.getLot(FrameNextKey, lotKey);
+            let price = web3.utils.fromWei(lot.acquisitionPrice, 'ether');
             assert.equal(price, 7);
         });    
         it('Approve for second account', async function() {
@@ -206,19 +209,19 @@ contract("UniHedge", async accounts => {
             allowance1 = web3.utils.fromWei(allowance1, 'ether');
             console.log(colors.green("Allowance before is: " + allowance1));
 
-            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, winningPairPrice, new BigN('70e18'), (Date.now() / 1000 | 0)+3600));
-            console.log(approveAmount.toString());
+            const lotPrice = new BigN(await this.market.clcAmountToApprove(FrameNextKey, winningPairPrice, new BigN('70e18')));
+            console.log(lotPrice.toString());
             
-            await this.token.approve(this.market.address, approveAmount, {from: accounts[2]});
+            await this.token.approve(this.market.address, lotPrice, {from: accounts[2]});
 
             let allowance2 = await this.token.allowance(accounts[2], this.market.address, {from: accounts[2]});
             //allowance2 = web3.utils.fromWei(allowance2, 'ether');
             console.log(colors.green("Allowance after is: " + allowance2));
-            assert.equal(allowance2.toString(), approveAmount.toString())
+            assert.equal(allowance2.toString(), lotPrice.toString())
 
 
         });
-        it('Second account buys the parcel 1 frame closer to the end frame', async function() {
+        it('Second account buys the lot 1 frame closer to the end frame', async function() {
 
 
             let b = await web3.eth.getBlockNumber();
@@ -233,7 +236,7 @@ contract("UniHedge", async accounts => {
             consola.log(colors.yellow("Balance of 2nd user is: " + b1));
             consola.log(colors.bgGreen("Balance of seller is: " + seller1));
 
-            await this.market.buyParcel(FrameNextKey, winningPairPrice, new BigN('70e18'), {from: accounts[2]});
+            await this.market.buyLot(FrameNextKey, winningPairPrice, new BigN('70e18'), {from: accounts[2]});
 
             
 
@@ -246,30 +249,20 @@ contract("UniHedge", async accounts => {
             let diffSeller = web3.utils.fromWei(seller2.sub(seller1), 'ether');
             consola.log(colors.bgGreen("Difference in seller's balance is: " + diffSeller));
 
-            /* let parcelKey = await this.market.clcParcelInterval(winningPairPrice);
+            /* let lotKey = await this.market.clcLotInterval(winningPairPrice);
 
-            console.log("BlockKey is: " + parcelKey);
-            let parcel = await this.market.parcels(parcelKey);
-            console.log("Block frame key is: : " + parcel.frameKey.toString()); */
-            /* let ownerBlockNum = await this.market.getParcelOwnerBlockNum(parcelKey, 1);
-            console.log(colors.blue("Current parcel owner's block number is: : " + ownerBlockNum.toString())); */
-        });
-        it('Calculate owner index', async function() {
-
-            let parcelKeyWin = (await this.market.clcParcelInterval(winningPairPrice));
-
-            let number = await this.market.getParcelOwnerIndex(FrameNextKey, parcelKeyWin, accounts[2], {from: accounts[2]}); 
-
-            console.log("Index is: " + number);
-
-
+            console.log("BlockKey is: " + lotKey);
+            let lot = await this.market.lots(lotKey);
+            console.log("Block frame key is: : " + lot.frameKey.toString()); */
+            /* let ownerBlockNum = await this.market.getLotOwnerBlockNum(lotKey, 1);
+            console.log(colors.blue("Current lot owner's block number is: : " + ownerBlockNum.toString())); */
         });
         it('Reward fund is updated', async function() {
             let frame = await this.market.frames(FrameNextKey);
             let reward = web3.utils.fromWei(frame.rewardFund, 'ether');
             console.log(colors.america('Current reward fund is equal to: ' + reward));
         });
-        it('First account buys back the parcel 1h later', async function() {
+        it('First account buys back the lot 1h later', async function() {
 
             for(let i=1; i<11; i++) {
                 await functions.advanceTimeAndBlock(10); 
@@ -283,10 +276,10 @@ contract("UniHedge", async accounts => {
             allowance1 = web3.utils.fromWei(allowance1, 'ether');
             console.log(colors.green("Allowance before is: " + allowance1));
 
-            let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, winningPairPrice, new BigN('150e18'), (Date.now() / 1000 | 0)+3600));
-            console.log(approveAmount.toString());
+            let lotPrice  = new BigN(await this.market.clcAmountToApprove(FrameNextKey, winningPairPrice, new BigN('150e18')));
+            console.log(lotPrice.toString());
             
-            await this.token.approve(this.market.address, approveAmount, {from: accounts[1]});
+            await this.token.approve(this.market.address, lotPrice, {from: accounts[1]});
 
             let allowance2 = await this.token.allowance(accounts[1], this.market.address, {from: accounts[1]});
             allowance2 = web3.utils.fromWei(allowance2, 'ether');
@@ -307,7 +300,7 @@ contract("UniHedge", async accounts => {
             consola.log(colors.yellow("Balance of 2nd user is: " + b1));
             consola.log(colors.bgGreen("Balance of seller is: " + seller1));
 
-            await this.market.buyParcel(FrameNextKey, winningPairPrice, new BigN('150e18'), {from: accounts[1]});
+            await this.market.buyLot(FrameNextKey, winningPairPrice, new BigN('150e18'), {from: accounts[1]});
 
             let seller2 = web3.utils.toBN(await this.token.balanceOf(accounts[2]));
             let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
@@ -319,7 +312,7 @@ contract("UniHedge", async accounts => {
             consola.log(colors.bgGreen("Difference in seller's balance is: " + diffSeller));
 
         });
-        it('Accounts buy non-winning parcels', async function() {//TODO: calculate "manualy" (off chain) reward amount to check with assert
+        it('Accounts buy non-winning lots', async function() {//TODO: calculate "manualy" (off chain) reward amount to check with assert
 
             let awardAmount1 = await this.market.getRewardAmount(FrameNextKey);
             console.log(colors.bgGreen("Award amount before is: " + awardAmount1));
@@ -327,9 +320,9 @@ contract("UniHedge", async accounts => {
 
             for (i=0; i<5; i++) {
                 let priceRange = 6346134345+i*dPrice;
-                let approveAmount = new BigN(await this.market.AmountToApprove(FrameNextKey, priceRange, new BigN('15e18'), new BigN(startTimestamp+3600)));
-                await this.token.approve(this.market.address, approveAmount, {from: accounts[i]});
-                await this.market.buyParcel(FrameNextKey, priceRange, new BigN('15e18'), {from: accounts[i]});
+                const lotPrice = new BigN(await this.market.clcAmountToApprove(FrameNextKey, priceRange, new BigN('15e18')));
+                await this.token.approve(this.market.address, lotPrice, {from: accounts[i]});
+                await this.market.buyLot(FrameNextKey, priceRange, new BigN('15e18'), {from: accounts[i]});
             }
 
             let awardAmount2 = await this.market.getRewardAmount(FrameNextKey);
@@ -351,8 +344,8 @@ contract("UniHedge", async accounts => {
             let tts= 14;
 
             for(let i=0;i<tts;i++){
-                let parcelNum = await web3.eth.getBlockNumber();
-                let parcelInfo = await web3.eth.getBlock(parcelNum);
+                let lotNum = await web3.eth.getBlockNumber();
+                let lotInfo = await web3.eth.getBlock(lotNum);
 
 
                 for(let i=0; i<10; i++) {//advance blocks
@@ -364,7 +357,7 @@ contract("UniHedge", async accounts => {
 
                 let b2 = await web3.eth.getBlockNumber();
                 let t2 = await web3.eth.getBlock(b2);
-                consola.log(colors.cyan("Skip time is : " + parseFloat((t2.timestamp - parcelInfo.timestamp) / 3600).toFixed(2) + " hours"));
+                consola.log(colors.cyan("Skip time is : " + parseFloat((t2.timestamp - lotInfo.timestamp) / 3600).toFixed(2) + " hours"));
                 consola.log(colors.cyan("New block number is: "+b2+" timestamp: " + t2.timestamp));
                 consola.info("End frame is: " + FrameNextKey);
                 newFrameKey = await this.market.clcFrameTimestamp(t2.timestamp);
@@ -398,16 +391,17 @@ contract("UniHedge", async accounts => {
             consola.log("Average price is: " + frame.priceAverage)
             assert.equal(frame.state, 2);
         });
-        it('Settle parcel', async function() {
+        it('Settle lot', async function() {
             let b1 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
             let mb1 = web3.utils.toBN(await this.token.balanceOf(this.market.address));
             consola.log(colors.green("Balance of market is: " + mb1));
             consola.log(colors.yellow("Balance of user is: " + b1));
 
 
-            await this.market.settleParcel(FrameNextKey, {from: accounts[1]});
+            let address = await this.market.settleLot(FrameNextKey, {from: accounts[1]});
+            console.log(address);
 
-
+            
            
             let b2 = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
             consola.log(colors.yellow("Balance of user is: " + b2.toString()));
@@ -416,7 +410,8 @@ contract("UniHedge", async accounts => {
             let mb2 = web3.utils.toBN(await this.token.balanceOf(this.market.address));
             consola.log(colors.green("Balance of market is: " + mb2));
 
-
+            timeEnd = Date.now() / 1000 | 0;
+            console.log("Time it took to run all test:" + (timeEnd - timeStart));
         });         
     });
 

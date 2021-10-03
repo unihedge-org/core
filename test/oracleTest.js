@@ -29,7 +29,7 @@ const contractUniswapV2Router02 = artifacts.require("@uniswap/v2-periphery/contr
 
 //xDai contract addresses
 let addressUniswapV2Factory = "0xA818b4F111Ccac7AA31D0BCc0806d64F2E0737D7";
-let addressUniswapV2Pair = "0xd12A728a25FCEbaa5c014952C147f613B8e1d409";
+let addressUniswapV2Pair = "0x7BEa4Af5D425f2d4485BDad1859c88617dF31A67";
 let addressTokenAGAVE = "0x3a97704a1b25F08aa230ae53B352e2e72ef52843";
 let addressToken1INCH = "0x7f7440C5098462f833E123B44B8A03E1d9785BAb";
 let addressUniswapV2Router02 = "0x1C232F01118CB8B424793ae03F870aa7D0ac7f77";
@@ -60,7 +60,7 @@ const minTax = 77677;
 
 //TODO: add assert,expect... statements to each test parcel
 
-contract("UniHedge", async accounts => {
+contract("Oracles", async accounts => {
 
     describe("Testing functionality of Unihedge protocol", function() {
         before(async function() {
@@ -94,8 +94,11 @@ contract("UniHedge", async accounts => {
         */
         it('Get average price', async function() {
             let price;
-            data = await this.priceOracle.clcAveragePrice( new BigN('5546414966556586794191098779672655781969825'),  new BigN('1630096980'), new BigN('5578314933569386115046680863161973379518575'), new BigN('1630182430'));
+            let divider = BigN("10e+18")
+            data = await this.priceOracle.clcAveragePrice( new BigN('273263260014515381366959016891785944289433498'),  new BigN('1630920913'), new BigN('273278619194918620254827271568292049638463248'), new BigN('1630921671'));
             console.log(data.toString());
+            data = data / 100000000000000000000000000.0;
+            console.log(data);
         });
 
     });

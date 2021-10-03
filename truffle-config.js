@@ -20,12 +20,13 @@ module.exports = {
       gas: 4612388,
       timeoutBlocks: 200 
     },
-    xdai: { //changed to websockets url. Migrations kept crashing with http url
+    xdai: { 
       provider: () => new HDWalletProvider(mnemonic, 'https://rpc.xdaichain.com/'),
       network_id: 100,
       networkCheckTimeout: 1000000,  
       gas: 4612388,
-      timeoutBlocks: 200
+      timeoutBlocks: 200,
+      from: '0x7d8fc3ccf41B0A9071994a8590e17009fe7BCe63'
     },
 
 

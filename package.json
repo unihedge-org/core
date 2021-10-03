@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@openzeppelin/test-helpers": "^0.5.10",
-    "eth-gas-reporter": "^0.2.21"
+    "eth-gas-reporter": "^0.2.21",
+    "truffle-plugin-verify": "^0.5.11"
   }
 }
