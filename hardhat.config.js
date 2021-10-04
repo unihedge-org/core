@@ -2,7 +2,7 @@ require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-truffle5");
 require("@atixlabs/hardhat-time-n-mine");
 
-const Rinkeby_PRIVATE_KEY = "7be556ac2c47277e6eba2d3e6c3c7e022462c4af6ee09b4aee19a110980b76bd";
+const Rinkeby_PRIVATE_KEY = "xxx";
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
