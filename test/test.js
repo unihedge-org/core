@@ -1,3 +1,6 @@
+//npx hardhat node --fork https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716
+//npx hardhat test ./test/test.js
+
 const { expect } = require("chai");
 const colors = require('colors');
 const BigN = require("bignumber.js");
