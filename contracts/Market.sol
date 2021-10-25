@@ -58,6 +58,7 @@ contract Market {
     event FrameUpdate(uint64 frameKey);
 
     mapping(uint => Frame) public frames;
+    mapping(address => uint[]) public userFrames;
     uint[] public framesKeys;
 
     enum SLot {NULL, BOUGHT, SETTLED}
@@ -113,6 +114,10 @@ contract Market {
     function clcFrameTimestamp(uint64 timestamp) public view returns (uint64){
         if (timestamp <= initTimestamp) return initTimestamp;
         return timestamp - ((timestamp - (initTimestamp)) % (period));
+    }
+
+    function numOfUserFrames(address user) public view returns (uint){
+        return userFrames[user].length;
     }
 
     /// @notice Calculate top boundary of a lot
@@ -229,6 +234,7 @@ contract Market {
         //Get frameKey and lotKey values
         uint64 frameKey =  getOrCreateFrame(timestamp);                          
         uint lotKey = getOrCreateLot(frameKey, pairPrice);
+        require(frameKey >= clcFrameTimestamp(uint64(block.timestamp)), "CAN'T BUY A LOT FROM THE PAST");
         require(msg.sender != frames[frameKey].lots[lotKey].lotOwner, "ADDRESS ALREADY OWNS THE PARCEL");
 
         uint tax = clcTax(frameKey, acqPrice);
@@ -253,6 +259,7 @@ contract Market {
        //Update lotKey values
         frames[frameKey].lots[lotKey].lotOwner = msg.sender;
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
+        userFrames[msg.sender].push(frameKey);
 
         //updateFramePrices();
         emit LotUpdate(frameKey, lotKey);
