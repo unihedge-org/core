@@ -426,8 +426,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\Market.sol": {
-      "lastModificationDate": 1633335741320,
-      "contentHash": "fa276f1a3c945a6a784ca7ba62597feb",
+      "lastModificationDate": 1635185463214,
+      "contentHash": "f9defb1868e3306a74bb83067f8a77b6",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
         "version": "0.8.4",
@@ -456,8 +456,7 @@
         "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol",
         "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol",
         "@uniswap/lib/contracts/libraries/FixedPoint.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/utils/math/SafeMath.sol"
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol"
       ],
       "versionPragmas": [
         "^0.8.0"
@@ -467,8 +466,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\MarketFactory.sol": {
-      "lastModificationDate": 1632143722351,
-      "contentHash": "07cc2b8198be51b9680f1202c5d2bf4e",
+      "lastModificationDate": 1633368272169,
+      "contentHash": "c66dadee52e45fef2ad1943117677dd4",
       "sourceName": "contracts/MarketFactory.sol",
       "solcConfig": {
         "version": "0.8.4",
