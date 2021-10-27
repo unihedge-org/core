@@ -115,10 +115,21 @@ contract Market {
         if (timestamp <= initTimestamp) return initTimestamp;
         return timestamp - ((timestamp - (initTimestamp)) % (period));
     }
-
-    function numOfUserFrames(address user) public view returns (uint){
+    
+    /// @notice Get number of frame's that the address has bought lots in
+    /// @param user User's address
+    /// @return number of frames
+    function getNumOfUserFrames(address user) public view returns (uint){
         return userFrames[user].length;
     }
+
+    /// @notice Get frame's that the address has bought lots in
+    /// @param user User's address
+    /// @return frame keys
+    function getUserFrames(address user) public view returns(uint[] memory)  {
+        return userFrames[user];
+    }
+
 
     /// @notice Calculate top boundary of a lot
     /// @param value Arbitary price of market's Uniswap pair
