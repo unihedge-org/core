@@ -109,6 +109,7 @@ describe("Market contract", function () {
     let expectedLotKey = ethers.BigNumber.from('1000101302161004392578051').div(dPrice).mul(dPrice).add(dPrice);
     expect(lotKey.toString()).to.equal(expectedLotKey.toString());
   });
+
  
  
  
