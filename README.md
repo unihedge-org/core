@@ -1,16 +1,15 @@
 Software | Version
 ------------- | -------------
-Truffle  | v5.4.1 (core: 5.4.1)
+Hardhat  | 2.6.4
 Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
-Web3.js | v1.4.0
 
 ### Deployed contracts on Rinkeby testnetwork ###
 
 
-* **Market factory address (27). 10. 21)**: [_0xB0F5097C7B007E7c3D060e1eeaFAaC3800E3fc09_](https://rinkeby.etherscan.io/address/0xB0F5097C7B007E7c3D060e1eeaFAaC3800E3fc09)
+* **Market factory address (7. 11. 21)**: [_0x095621F438ca9949DD75a94f1257BB2aeeEB946d_](https://rinkeby.etherscan.io/address/0x095621F438ca9949DD75a94f1257BB2aeeEB946d)
 
-* **Rinkeby market address (27. 10. 21)**: [_0x525DC844dd5779A6fC55Ab9897096d3aEDE52eFe_](https://rinkeby.etherscan.io/address/0x525DC844dd5779A6fC55Ab9897096d3aEDE52eFe)
+* **Rinkeby market address (7. 11. 21)**: [_0x95B2e523C8B70702794e90b13f3b6bB05fcF0A23_](https://rinkeby.etherscan.io/address/0x95B2e523C8B70702794e90b13f3b6bB05fcF0A23)
 
     * Accounting Token - DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592ec0cfb4dbc12d3ab100b257153436a1f0fea)
     * Pair: [_0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e_](https://rinkeby.etherscan.io/address/0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e)
