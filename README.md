@@ -6,10 +6,16 @@ Node | v14.17.2
 
 ### Deployed contracts on Rinkeby testnetwork ###
 
+* Updates:
+    * Updated updateFramePrices() function: Cumulative Prices get updated through the whole frame. In reporting phase only oraclePrice0CumulativeEnd gets updated.
+    * Lot interval changed from upper to lower limit.
+    * ClcPrice() and claimReward() functions added.
+    * clcAmountToApproveForUpdate() function added. It calculates amount to approve for updating your lot's price.   
 
-* **Market factory address (8. 11. 21)**: [_0x7804e877a425770eB4BF75B18B7601EA28fbC910_](https://rinkeby.etherscan.io/address/0x7804e877a425770eB4BF75B18B7601EA28fbC910)
 
-* **Rinkeby market address (8. 11. 21)**: [_0xB2Fee645BcD63a7b04ddA6acac0B2508BC234cce_](https://rinkeby.etherscan.io/address/0xB2Fee645BcD63a7b04ddA6acac0B2508BC234cce)
+* **Market factory address (8. 11. 21)**: [_0x2d9F9075A5f32fA2eaC9177df7e1F1fde1bd281D_](https://rinkeby.etherscan.io/address/0x2d9F9075A5f32fA2eaC9177df7e1F1fde1bd281D)
+
+* **Rinkeby market address (8. 11. 21)**: [_0x2649c50930195E968e1adD4033Ea9C81c4eD33A1_](https://rinkeby.etherscan.io/address/0x2649c50930195E968e1adD4033Ea9C81c4eD33A1)
 
     * Accounting Token - DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592ec0cfb4dbc12d3ab100b257153436a1f0fea)
     * Pair: [_0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e_](https://rinkeby.etherscan.io/address/0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e)

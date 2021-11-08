@@ -341,8 +341,9 @@ contract Market {
         uint frameKey = clcFrameTimestamp(block.timestamp);
         frames[frameKey].lastBlockNum = block.number;
         //Correct price if outside settle interval
-        if (block.timestamp >= ((frameKey + (period)) - (tReporting)) && frames[frameKey].oraclePrice0CumulativeStart == 0) {
+        if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
             (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
+            (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
             emit FrameUpdate(frameKey);
         }
         else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
@@ -359,12 +360,14 @@ contract Market {
     //     uint frameKey = clcFrameTimestamp(uint(block.timestamp));
     //     frames[frameKey].lastBlockNum = uint(block.number);
     //     //Correct price if outside settle interval
-    //     if (block.timestamp >= ((frameKey + period) - tReporting) && frames[frameKey].oraclePrice0CumulativeStart == 0) {
+    //     if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
     //         frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
     //         frames[frameKey].oracleTimestampStart = uint(block.timestamp);
+    //             frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
+    //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
     //         emit FrameUpdate(frameKey);
     //     }
-    //     else if (block.timestamp >= ((frameKey + period) - tReporting)) {
+    //     else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
     //         frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
     //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
     //         emit FrameUpdate(frameKey);
