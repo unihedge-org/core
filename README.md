@@ -4,14 +4,13 @@ Hardhat  | 2.6.4
 Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
-### Deployed contracts on Rinkeby testnetwork ###
-
-* Updates:
+* Recent updates:
     * Updated updateFramePrices() function: Cumulative Prices get updated through the whole frame. In reporting phase only oraclePrice0CumulativeEnd gets updated.
     * Lot interval changed from upper to lower limit.
     * ClcPrice() and claimReward() functions added.
     * clcAmountToApproveForUpdate() function added. It calculates amount to approve for updating your lot's price.   
 
+### Deployed contracts on Rinkeby testnetwork ###
 
 * **Market factory address (8. 11. 21)**: [_0x2d9F9075A5f32fA2eaC9177df7e1F1fde1bd281D_](https://rinkeby.etherscan.io/address/0x2d9F9075A5f32fA2eaC9177df7e1F1fde1bd281D)
 
