@@ -122,7 +122,7 @@ contract Market {
     /// @return lot key (top boundary)
     function clcLotInterval(uint value) public view returns (uint){
         if (value <= 0) return dPrice;
-        return value / (dPrice) * (dPrice) + (dPrice);
+        return value / (dPrice) * (dPrice);
     }
 
     /// @notice Calculate how many frames there are left untill given frame in input
@@ -274,7 +274,7 @@ contract Market {
         //Get frameKey and lotKey values
         uint frameKey =  getOrCreateFrame(timestamp);                          
         uint lotKey = getOrCreateLot(frameKey, pairPrice);
-        require(frameKey >= clcFrameTimestamp(uint(block.timestamp)), "CAN'T BUY A LOT FROM THE PAST");
+        require(frameKey >= clcFrameTimestamp(block.timestamp), "CAN'T BUY A LOT FROM THE PAST");
         require(msg.sender != frames[frameKey].lots[lotKey].lotOwner, "ADDRESS ALREADY OWNS THE PARCEL");
 
         uint tax = clcTax(frameKey, acqPrice);
