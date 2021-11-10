@@ -150,7 +150,7 @@ contract Market {
     function clcAmountToApprove(uint timestamp, uint pairPrice, uint acqPrice) public view returns (uint cmpltAmnt) {    
         uint frameKey = clcFrameTimestamp(timestamp); 
         //Check if the lot is in a current or future frame, otherwise the calculation results in an overflow/underflow.
-        require(frameKey >= clcFrameTimestamp(uint(block.timestamp)), "THIS LOT IS IN A PAST FRAME");        
+        require(frameKey >= clcFrameTimestamp(block.timestamp), "THIS LOT IS IN A PAST FRAME");        
         uint lotKey = clcLotInterval(pairPrice);
         uint tax = clcTax(frameKey, acqPrice);
         cmpltAmnt = frames[frameKey].lots[lotKey].acquisitionPrice + tax;
@@ -165,7 +165,7 @@ contract Market {
     /// @return amnt complete price of a lot
     function clcAmountToApproveForUpdate(uint timestamp, uint pairPrice, uint acqPrice) public view returns (uint amnt) {   
         uint frameKey = clcFrameTimestamp(timestamp);
-        require(frameKey >= clcFrameTimestamp(uint(block.timestamp)), "THIS LOT IS IN A PAST FRAME");   
+        require(frameKey >= clcFrameTimestamp(block.timestamp), "THIS LOT IS IN A PAST FRAME");   
         uint lotKey = clcLotInterval(pairPrice);
         uint tax1 = clcTax(frameKey, frames[frameKey].lots[lotKey].acquisitionPrice);
         uint tax2 = clcTax(frameKey, acqPrice);
@@ -233,7 +233,7 @@ contract Market {
         uint frameKey = clcFrameTimestamp(timestamp);
         //Check if frame exists
         if (frames[frameKey].state != SFrame.NULL) return frameKey;
-        require(frameKey >= clcFrameTimestamp(uint(block.timestamp)), "CAN'T CREATE FRAME IN PAST");
+        require(frameKey >= clcFrameTimestamp(block.timestamp), "CAN'T CREATE FRAME IN PAST");
         //Add frame
         frames[frameKey].frameKey = frameKey;
         frames[frameKey].state = SFrame.OPENED;
@@ -301,7 +301,7 @@ contract Market {
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
         userFrames[msg.sender].push(frameKey);
 
-        updateFramePrices();
+       // updateFramePrices();
         emit LotUpdate(frameKey, lotKey);
     }
 
@@ -314,7 +314,7 @@ contract Market {
         uint frameKey = getOrCreateFrame(timestamp); 
         uint lotKey = getOrCreateLot(frameKey, pairPrice); 
         require(frames[frameKey].lots[lotKey].lotOwner == msg.sender, "MUST BE LOT OWNER");
-        require(frameKey >= clcFrameTimestamp(uint(block.timestamp)), "THIS LOT IS IN A TIME FRAME FROM THE PAST");
+        require(frameKey >= clcFrameTimestamp(block.timestamp), "THIS LOT IS IN A TIME FRAME FROM THE PAST");
 
         uint taxNew = clcTax(frameKey, acqPrice);
         uint taxOld = clcTax(frameKey, frames[frameKey].lots[lotKey].acquisitionPrice);
@@ -331,48 +331,48 @@ contract Market {
         }
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
 
-        updateFramePrices();
+        //updateFramePrices();
         emit LotUpdate(frameKey, lotKey);
     }
 
-    /// @notice Update trading pair's prices in the frame
-    function updateFramePrices() public {
-        uint tmp;
-        uint frameKey = clcFrameTimestamp(block.timestamp);
-        frames[frameKey].lastBlockNum = block.number;
-        //Correct price if outside settle interval
-        if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
-            (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-            (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-            emit FrameUpdate(frameKey);
-        }
-        else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
-            (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-            emit FrameUpdate(frameKey);
-        }
-    }
-
     // /// @notice Update trading pair's prices in the frame
-    // /// @param PriceCumulative Cumulative price
-    // /// @dev For developement purposes the new price is added as an input
-    // /// @dev Final version should use uniswap's oracles
-    // function updateFramePrices(uint PriceCumulative) public {
-    //     uint frameKey = clcFrameTimestamp(uint(block.timestamp));
-    //     frames[frameKey].lastBlockNum = uint(block.number);
+    // function updateFramePrices() public {
+    //     uint tmp;
+    //     uint frameKey = clcFrameTimestamp(block.timestamp);
+    //     frames[frameKey].lastBlockNum = block.number;
     //     //Correct price if outside settle interval
     //     if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
-    //         frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
-    //         frames[frameKey].oracleTimestampStart = uint(block.timestamp);
-    //             frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
-    //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
+    //         (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
+    //         (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
     //         emit FrameUpdate(frameKey);
     //     }
     //     else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
-    //         frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
-    //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
+    //         (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
     //         emit FrameUpdate(frameKey);
     //     }
     // }
+
+    /// @notice Update trading pair's prices in the frame
+    /// @param PriceCumulative Cumulative price
+    /// @dev For developement purposes the new price is added as an input
+    /// @dev Final version should use uniswap's oracles
+    function updateFramePrices(uint PriceCumulative) public {
+        uint frameKey = clcFrameTimestamp(uint(block.timestamp));
+        frames[frameKey].lastBlockNum = uint(block.number);
+        //Correct price if outside settle interval
+        if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
+            frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
+            frames[frameKey].oracleTimestampStart = uint(block.timestamp);
+                frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
+            frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
+            emit FrameUpdate(frameKey);
+        }
+        else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
+            frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
+            frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
+            emit FrameUpdate(frameKey);
+        }
+    }
 
     /// @notice Close frame
     /// @param frameKey Frame's timestamp
