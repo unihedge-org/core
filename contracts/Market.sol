@@ -301,7 +301,7 @@ contract Market {
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
         userFrames[msg.sender].push(frameKey);
 
-       // updateFramePrices();
+        updateFramePrices();
         emit LotUpdate(frameKey, lotKey);
     }
 
@@ -331,48 +331,48 @@ contract Market {
         }
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
 
-        //updateFramePrices();
+        updateFramePrices();
         emit LotUpdate(frameKey, lotKey);
     }
 
-    // /// @notice Update trading pair's prices in the frame
-    // function updateFramePrices() public {
-    //     uint tmp;
-    //     uint frameKey = clcFrameTimestamp(block.timestamp);
-    //     frames[frameKey].lastBlockNum = block.number;
-    //     //Correct price if outside settle interval
-    //     if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
-    //         (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-    //         (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-    //         emit FrameUpdate(frameKey);
-    //     }
-    //     else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
-    //         (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-    //         emit FrameUpdate(frameKey);
-    //     }
-    // }
-
     /// @notice Update trading pair's prices in the frame
-    /// @param PriceCumulative Cumulative price
-    /// @dev For developement purposes the new price is added as an input
-    /// @dev Final version should use uniswap's oracles
-    function updateFramePrices(uint PriceCumulative) public {
-        uint frameKey = clcFrameTimestamp(uint(block.timestamp));
-        frames[frameKey].lastBlockNum = uint(block.number);
+    function updateFramePrices() public {
+        uint tmp;
+        uint frameKey = clcFrameTimestamp(block.timestamp);
+        frames[frameKey].lastBlockNum = block.number;
         //Correct price if outside settle interval
         if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
-            frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
-            frames[frameKey].oracleTimestampStart = uint(block.timestamp);
-                frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
-            frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
+            (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
+            (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
             emit FrameUpdate(frameKey);
         }
         else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
-            frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
-            frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
+            (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
             emit FrameUpdate(frameKey);
         }
     }
+
+    // /// @notice Update trading pair's prices in the frame
+    // /// @param PriceCumulative Cumulative price
+    // /// @dev For developement purposes the new price is added as an input
+    // /// @dev Final version should use uniswap's oracles
+    // function updateFramePrices(uint PriceCumulative) public {
+    //     uint frameKey = clcFrameTimestamp(uint(block.timestamp));
+    //     frames[frameKey].lastBlockNum = uint(block.number);
+    //     //Correct price if outside settle interval
+    //     if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
+    //         frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
+    //         frames[frameKey].oracleTimestampStart = uint(block.timestamp);
+    //             frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
+    //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
+    //         emit FrameUpdate(frameKey);
+    //     }
+    //     else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
+    //         frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
+    //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
+    //         emit FrameUpdate(frameKey);
+    //     }
+    // }
 
     /// @notice Close frame
     /// @param frameKey Frame's timestamp
