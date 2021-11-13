@@ -2,7 +2,8 @@ require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-truffle5");
 require("@atixlabs/hardhat-time-n-mine");
 
-const Rinkeby_PRIVATE_KEY = "xxx";
+const fs = require('fs');
+const Rinkeby_PRIVATE_KEY = fs.readFileSync(".secret").toString().trim();
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -26,6 +27,8 @@ module.exports = {
     rinkeby: {
       url: 'https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
       accounts: [`0x${Rinkeby_PRIVATE_KEY}`],
+      gas: 12450000,
+      gasPrice: 50000000000
     },
   },
 };

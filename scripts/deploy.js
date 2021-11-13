@@ -20,19 +20,19 @@ async function main() {
 
   // We get the contract to deploy
   const MarkerFactory = await hre.ethers.getContractFactory("MarketFactory");
-  /* const factory = await MarkerFactory.deploy("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f");
-
+  const factory = await MarkerFactory.deploy("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f");
   await factory.deployed();
 
-  console.log("Factory deployed to:", factory.address); */
+  console.log("Factory deployed to:", factory.address); 
 
-  const factory = await MarkerFactory.attach('0xF3D4d868d4648b5B87AE68142ddC8e2B7482D031');
+  //const factory = await MarkerFactory.attach('0x2F9a2752e6b45a81Ef6B856Df3D5b93000eEdE4E');
 
-  const Market = await hre.ethers.getContractFactory("Market");
-  const market = await factory.addMarket(addressDAIToken, addressUniswapV2Pair, 3600, 1630911654, 100, 100,  ethers.BigNumber.from('100000000000000000000000000'), 1800, 1000);;
-  console.log( market);
+   const Market = await hre.ethers.getContractFactory("Market");
+   const market = await factory.addMarket(addressDAIToken, addressUniswapV2Pair, 3600, 1636758000, 100, 100,  ethers.BigNumber.from('100000000000000000000000000'), 900, 1000);
+   await market.wait();
+ // console.log( market);
 
-  let marketAddress = await factory.marketsKeys(0);
+  const marketAddress = await factory.marketsKeys(0);
   console.log("Market deployed to:", marketAddress)
  }
 

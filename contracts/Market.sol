@@ -128,8 +128,9 @@ contract Market {
     /// @notice Calculate how many frames there are left untill given frame in input
     /// @param frameKey Timestamp of an arbitary frame in the future
     /// @return number of frames (whole numbers: n=0,1,2...)
-    function clcFramesLeft(uint frameKey) public view returns (uint){                      
-        return (((frameKey - (uint(block.timestamp))) / period) + 1);
+    function clcFramesLeft(uint frameKey) internal view returns (uint){     
+        if (frameKey == clcFrameTimestamp(block.timestamp)) return 0;                 
+        return (((frameKey - (block.timestamp)) / period));
     }
 
     /// @notice Calculate average price of a frame
@@ -165,7 +166,7 @@ contract Market {
     /// @return amnt complete price of a lot
     function clcAmountToApproveForUpdate(uint timestamp, uint pairPrice, uint acqPrice) public view returns (uint amnt) {   
         uint frameKey = clcFrameTimestamp(timestamp);
-        require(frameKey >= clcFrameTimestamp(block.timestamp), "THIS LOT IS IN A PAST FRAME");   
+        //require(frameKey >= clcFrameTimestamp(block.timestamp), "THIS LOT IS IN A PAST FRAME");   
         uint lotKey = clcLotInterval(pairPrice);
         uint tax1 = clcTax(frameKey, frames[frameKey].lots[lotKey].acquisitionPrice);
         uint tax2 = clcTax(frameKey, acqPrice);
@@ -233,7 +234,7 @@ contract Market {
         uint frameKey = clcFrameTimestamp(timestamp);
         //Check if frame exists
         if (frames[frameKey].state != SFrame.NULL) return frameKey;
-        require(frameKey >= clcFrameTimestamp(block.timestamp), "CAN'T CREATE FRAME IN PAST");
+        require(frameKey >= clcFrameTimestamp(block.timestamp), "CANT CREATE FRAME IN PAST");
         //Add frame
         frames[frameKey].frameKey = frameKey;
         frames[frameKey].state = SFrame.OPENED;
@@ -255,7 +256,7 @@ contract Market {
     }
 
     function clcTax(uint frameKey, uint acquisitionPrice) public view returns (uint tax) {             
-        uint dFrame = (clcFrameTimestamp(uint(block.timestamp) + (period))) - (block.timestamp); 
+        uint dFrame = (clcFrameTimestamp(block.timestamp) + (period)) - (block.timestamp); 
         uint dFrameP = scalar * dFrame / (period);
         //Calculate tax from the proposed acquisition price 
         uint numOfFramesLeft = clcFramesLeft(frameKey);
