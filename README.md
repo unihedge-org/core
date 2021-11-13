@@ -5,6 +5,7 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 * Recent updates:
+    * User should be able to buy lots in the current frame now. 
     * Updated updateFramePrices() function: Cumulative Prices get updated through the whole frame. In reporting phase only oraclePrice0CumulativeEnd gets updated.
     * Lot interval changed from upper to lower limit.
     * ClcPrice() and claimReward() functions added.
