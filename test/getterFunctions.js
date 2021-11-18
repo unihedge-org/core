@@ -83,6 +83,21 @@ describe("Market contract", function () {
 
     expect(frameCount).to.equal(2);
   });
+  it('Get open frames', async function() {
+    for (let i = 0; i<=10; i++) {
+      await this.market.connect(accounts[0]).getOrCreateFrame((Date.now() / 1000 | 0)+(period*3600*i));
+    }    
+    let frames = await this.market.connect(accounts[0]).getOpenFrameKeys(10);
+    console.log(colors.bgBlue('Open frames ' + frames));
+
+   // expect(frameCount).to.equal(2);
+  });
+  it('Get frame count', async function() {
+    await this.market.connect(accounts[0]).getOrCreateFrame((Date.now() / 1000 | 0)+86400);
+    let frameCount = await this.market.getNumberOfFrameKeys();
+    console.log(colors.bgBlue('There is ' + frameCount + ' frames.'));
+
+  });
   it('Get lot struct', async function() {
     let lotKey = await this.market.getLotKey(frameKey, 0);
     let lot = await this.market.getLot(frameKey, lotKey);
