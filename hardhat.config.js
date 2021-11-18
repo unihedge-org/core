@@ -21,7 +21,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
-module.exports = {
+module.exports = { 
   solidity: "0.8.4",
   networks: {
     rinkeby: {
@@ -30,5 +30,17 @@ module.exports = {
       gas: 12450000,
       gasPrice: 50000000000
     },
+    BSCTestnet: {
+      url: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
+      accounts: [`0x${Rinkeby_PRIVATE_KEY}`],
+      gas: 12450000,
+      gasPrice: 50000000000
+    },
   },
+  etherscan: {
+    // Your API key for Etherscan
+    // Obtain one at https://bscscan.com/
+    apiKey: 'GPH97NNZCW56HC34VARTFC94ZZZHWSUC4U'
+  },
+  solidity: "0.8.4"
 };
