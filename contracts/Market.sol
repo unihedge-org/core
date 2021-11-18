@@ -45,7 +45,7 @@ contract Market {
         uint frameKey; 
         uint oracleTimestampStart;
         uint oracleTimestampEnd;
-        uint lastBlockNum; 
+        //uint lastBlockNum; 
         uint priceAverage;
         uint rewardFund;
         uint oraclePrice0CumulativeStart;
@@ -55,7 +55,7 @@ contract Market {
         mapping(uint => Lot) lots;
     }
 
-    event FrameUpdate(uint frameKey);
+    event FrameUpdate(uint frameKey, uint oracleTimestampStart, uint oracleTimestampEnd, uint oraclePrice0CumulativeStart, uint oraclePrice0CumulativeEnd, uint rewardFund);
 
     mapping(uint => Frame) public frames;
     mapping(address => uint[]) public userFrames;
@@ -69,7 +69,7 @@ contract Market {
         SLot state;
     }
 
-    event LotUpdate(uint frameKey, uint lotKey);
+    event LotUpdate(uint frameKey, Lot lotStruct);
 
     constructor(MarketFactory _factory, IERC20 _token, IUniswapV2Pair _uniswapPair, uint _period, uint _initTimestamp, uint _taxMarket, uint _feeMarket, uint _dPrice, uint _tReporting, uint _minTax) {
         accountingToken = _token;
@@ -175,6 +175,27 @@ contract Market {
         return amnt;
     }
 
+    /// @notice Get created and still open frames
+    /// @dev You can't get (current) frame's index in the framesKeys array,
+    /// @dev so for loop through the whole array is needed
+    /// @dev other option would be with additional parameter: startIndex
+    /// @param numOfFrames Timestamp that determins which frame it is
+    /// @return uint[] array of frame keys
+    function getOpenFrameKeys(uint numOfFrames) public view returns (uint[] memory){
+        uint currentFrameKey = clcFrameTimestamp(block.timestamp);
+        uint[] memory openFrames = new uint[](numOfFrames);
+        uint8 a = 0;
+        for(uint i = 0; i<framesKeys.length; i++) {
+            uint frame = framesKeys[i];
+            if(frame >= currentFrameKey) {
+                openFrames[a] = frame;
+                a++;
+            }
+            if(a>= numOfFrames) break;
+        }
+        return openFrames;
+    }
+
     /// @notice Get number of frame's that the address has bought lots in
     /// @param user User's address
     /// @return number of frames
@@ -239,7 +260,12 @@ contract Market {
         frames[frameKey].frameKey = frameKey;
         frames[frameKey].state = SFrame.OPENED;
         framesKeys.push(frameKey);
-        emit FrameUpdate(frameKey);
+        emit FrameUpdate(frameKey, 
+                         frames[frameKey].oracleTimestampStart,
+                         frames[frameKey].oracleTimestampEnd,
+                         frames[frameKey].oraclePrice0CumulativeStart,
+                         frames[frameKey].oraclePrice0CumulativeEnd,
+                         frames[frameKey].rewardFund);
         return frameKey;
     }
 
@@ -252,6 +278,7 @@ contract Market {
         if (frames[frameKey].lots[lotKey].state != SLot.NULL) return lotKey;
         frames[frameKey].lots[lotKey].lotKey = lotKey;
         frames[frameKey].lotKeys.push(lotKey);
+        emit LotUpdate(frameKey, frames[frameKey].lots[lotKey]);
         return lotKey;
     }
 
@@ -303,7 +330,14 @@ contract Market {
         userFrames[msg.sender].push(frameKey);
 
         updateFramePrices();
-        emit LotUpdate(frameKey, lotKey);
+
+        emit FrameUpdate(frameKey, 
+                         frames[frameKey].oracleTimestampStart,
+                         frames[frameKey].oracleTimestampEnd,
+                         frames[frameKey].oraclePrice0CumulativeStart,
+                         frames[frameKey].oraclePrice0CumulativeEnd,
+                         frames[frameKey].rewardFund);
+        emit LotUpdate(frameKey, frames[frameKey].lots[lotKey]);
     }
 
     //TODO: Should we add a function that calculates the aprove amount for updating the price
@@ -333,23 +367,33 @@ contract Market {
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
 
         updateFramePrices();
-        emit LotUpdate(frameKey, lotKey);
+        emit LotUpdate(frameKey, frames[frameKey].lots[lotKey]);
     }
 
     /// @notice Update trading pair's prices in the frame
     function updateFramePrices() public {
         uint tmp;
         uint frameKey = clcFrameTimestamp(block.timestamp);
-        frames[frameKey].lastBlockNum = block.number;
+        //frames[frameKey].lastBlockNum = block.number;
         //Correct price if outside settle interval
         if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
             (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
             (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-            emit FrameUpdate(frameKey);
+            emit FrameUpdate(frameKey, 
+                         frames[frameKey].oracleTimestampStart,
+                         frames[frameKey].oracleTimestampEnd,
+                         frames[frameKey].oraclePrice0CumulativeStart,
+                         frames[frameKey].oraclePrice0CumulativeEnd,
+                         frames[frameKey].rewardFund);
         }
         else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
             (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-            emit FrameUpdate(frameKey);
+            emit FrameUpdate(frameKey, 
+                         frames[frameKey].oracleTimestampStart,
+                         frames[frameKey].oracleTimestampEnd,
+                         frames[frameKey].oraclePrice0CumulativeStart,
+                         frames[frameKey].oraclePrice0CumulativeEnd,
+                         frames[frameKey].rewardFund);
         }
     }
 
@@ -359,19 +403,28 @@ contract Market {
     // /// @dev Final version should use uniswap's oracles
     // function updateFramePrices(uint PriceCumulative) public {
     //     uint frameKey = clcFrameTimestamp(uint(block.timestamp));
-    //     frames[frameKey].lastBlockNum = uint(block.number);
     //     //Correct price if outside settle interval
     //     if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
     //         frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
     //         frames[frameKey].oracleTimestampStart = uint(block.timestamp);
     //             frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
     //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
-    //         emit FrameUpdate(frameKey);
+    //         emit FrameUpdate(frameKey, 
+    //                      frames[frameKey].oracleTimestampStart,
+    //                      frames[frameKey].oracleTimestampEnd,
+    //                      frames[frameKey].oraclePrice0CumulativeStart,
+    //                      frames[frameKey].oraclePrice0CumulativeEnd,
+    //                      frames[frameKey].rewardFund);
     //     }
     //     else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
     //         frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
     //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
-    //         emit FrameUpdate(frameKey);
+    //         emit FrameUpdate(frameKey, 
+    //                      frames[frameKey].oracleTimestampStart,
+    //                      frames[frameKey].oracleTimestampEnd,
+    //                      frames[frameKey].oraclePrice0CumulativeStart,
+    //                      frames[frameKey].oraclePrice0CumulativeEnd,
+    //                      frames[frameKey].rewardFund);
     //     }
     // }
 
@@ -394,7 +447,12 @@ contract Market {
         //Transfer fees to owners
         accountingToken.transfer(ownerMarket, marketOwnerFees);
         accountingToken.transfer(factory.owner(), protocolOwnerFees);
-        emit FrameUpdate(frameKey);
+        emit FrameUpdate(frameKey, 
+                         frames[frameKey].oracleTimestampStart,
+                         frames[frameKey].oracleTimestampEnd,
+                         frames[frameKey].oraclePrice0CumulativeStart,
+                         frames[frameKey].oraclePrice0CumulativeEnd,
+                         frames[frameKey].rewardFund);
     }
 
     /// @notice Settle lot for a owner. Owner's share of the reward amount get's transfered to owner's account
@@ -415,7 +473,7 @@ contract Market {
         //State is changed to settled
         frames[frameKey].lots[lotKeyWin].state = SLot.SETTLED;
 
-        emit LotUpdate(frameKey, lotKeyWin);
+        emit LotUpdate(frameKey, frames[frameKey].lots[lotKeyWin]);
     }
 
     /// @notice User can claim the reward if he owns the winning lot
