@@ -181,17 +181,13 @@ contract Market {
     /// @dev other option would be with additional parameter: startIndex
     /// @param numOfFrames Timestamp that determins which frame it is
     /// @return uint[] array of frame keys
-    function getOpenFrameKeys(uint numOfFrames) public view returns (uint[] memory){
-        uint currentFrameKey = clcFrameTimestamp(block.timestamp);
+    function getOpenFrameKeys(uint startFrame, uint numOfFrames) public view returns (uint[] memory){
         uint[] memory openFrames = new uint[](numOfFrames);
-        uint8 a = 0;
-        for(uint i = 0; i<framesKeys.length; i++) {
-            uint frame = framesKeys[i];
-            if(frame >= currentFrameKey) {
-                openFrames[a] = frame;
-                a++;
+        for(uint i = 1; i <= numOfFrames; i++) {
+            uint frameKey = startFrame+(period*i);
+            if(frames[frameKey].state != SFrame.NULL) {
+                openFrames[i-1] = frameKey;
             }
-            if(a>= numOfFrames) break;
         }
         return openFrames;
     }
