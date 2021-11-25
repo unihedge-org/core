@@ -5,13 +5,9 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 * Recent updates:
-    * Contracts are deployed on B. Smart Chain testnet and Rinkeby
-    * Added _getOpenFrameKeys()_ function
-    * Updated events
-    * Market on Binance testnet has a different pair and accounting token
-    * Accounting token on Binance testnet is Dai.sol in /contracts folder
-        * 30DAI has been sent to 0x206...F05 and 0x839...5b9 
-        * You can mint additional dai with mint() function
+    * getOpenFrameKeys updated to search through mapping of frames
+        * Returns open frames of the next n frames. Ex. next 10 frames: 1638206162,1638292562,1638378962,1638465362,1638551762,1638638162,1638724562,0,0,0
+    * Changed market pair on bsc testnet to ETH/DAI 
            
 
 
