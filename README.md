@@ -14,7 +14,8 @@ Node | v14.17.2
 ### Deployed contracts on Binance Smart Chain Testnet ###
 
 BNB Faucet: [LINK](https://testnet.binance.org/faucet-smart)
-Panckake swap: [LINK](https://pancake.kiemtienonline360.com/#/swap)
+
+Pancake swap: [LINK](https://pancake.kiemtienonline360.com/#/swap)
 
 * **Market factory address (25. 11. 21)**: [_0x009A53709AE57b6365A440B33a4f8A7e3DDa45bC_](https://testnet.bscscan.com/address/0x009A53709AE57b6365A440B33a4f8A7e3DDa45bC)
 
