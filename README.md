@@ -5,10 +5,27 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 * Recent updates:
+    * Only Rinkeby contracts are updated 
+    * Changes some functions from public to private
+    * Removed events from private functions
+           
     * getOpenFrameKeys updated to search through mapping of frames
         * Returns open frames of the next n frames. Ex. next 10 frames: 1638206162,1638292562,1638378962,1638465362,1638551762,1638638162,1638724562,0,0,0
-    * Changed market pair on bsc testnet to ETH/DAI 
            
+
+
+### Deployed contracts on Rinkeby testnetwork ###
+
+* **Market factory address (29. 11. 21)**: [_0x8DEF7067D0cf10AA9a761c11228Ff23658b32be5_](https://rinkeby.etherscan.io/address/0x8DEF7067D0cf10AA9a761c11228Ff23658b32be5)
+
+* **Rinkeby market address (29. 11. 21)**: [_0xC662007910cDD7811257Cf9A9341139a351593Cd_](https://rinkeby.etherscan.io/address/0xC662007910cDD7811257Cf9A9341139a351593Cd)
+
+    * Accounting Token - DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592ec0cfb4dbc12d3ab100b257153436a1f0fea)
+    * Pair: [_0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e_](https://rinkeby.etherscan.io/address/0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e)
+        * WETH: [_0xc778417E063141139Fce010982780140Aa0cD5Ab_](https://rinkeby.etherscan.io/token/0xc778417E063141139Fce010982780140Aa0cD5Ab)
+        * DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa)
+
+
 
 
 ### Deployed contracts on Binance Smart Chain Testnet ###
@@ -27,16 +44,6 @@ Pancake swap: [LINK](https://pancake.kiemtienonline360.com/#/swap)
         * ETH: [_0x8BaBbB98678facC7342735486C851ABD7A0d17Ca_](https://testnet.bscscan.com/address/0x8BaBbB98678facC7342735486C851ABD7A0d17Ca)
 
 
-### Deployed contracts on Rinkeby testnetwork ###
-
-* **Market factory address (25. 11. 21)**: [_0x84A4528235d48D9525FCdB7EfC384D49aa89E631_](https://rinkeby.etherscan.io/address/0x84A4528235d48D9525FCdB7EfC384D49aa89E631)
-
-* **Rinkeby market address (25. 11. 21)**: [_0x901e4809801c0CC7b7223ad0F0236b37EDa5A6e9_](https://rinkeby.etherscan.io/address/0x901e4809801c0CC7b7223ad0F0236b37EDa5A6e9)
-
-    * Accounting Token - DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592ec0cfb4dbc12d3ab100b257153436a1f0fea)
-    * Pair: [_0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e_](https://rinkeby.etherscan.io/address/0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e)
-        * WETH: [_0xc778417E063141139Fce010982780140Aa0cD5Ab_](https://rinkeby.etherscan.io/token/0xc778417E063141139Fce010982780140Aa0cD5Ab)
-        * DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa)
 
 
 ### Deployed contracts on XDAI chain ###

@@ -246,7 +246,7 @@ contract Market {
     /// @notice Create a frame
     /// @param timestamp In second.
     /// @return frameTimestamp Frame's key (timestamp that indicated the beggining of a frame).
-    function getOrCreateFrame(uint timestamp) public returns (uint){
+    function getOrCreateFrame(uint timestamp) internal returns (uint){
         //Get frame's timestamp - frame key
         uint frameKey = clcFrameTimestamp(timestamp);
         //Check if frame exists
@@ -256,12 +256,6 @@ contract Market {
         frames[frameKey].frameKey = frameKey;
         frames[frameKey].state = SFrame.OPENED;
         framesKeys.push(frameKey);
-        emit FrameUpdate(frameKey, 
-                         frames[frameKey].oracleTimestampStart,
-                         frames[frameKey].oracleTimestampEnd,
-                         frames[frameKey].oraclePrice0CumulativeStart,
-                         frames[frameKey].oraclePrice0CumulativeEnd,
-                         frames[frameKey].rewardFund);
         return frameKey;
     }
 
@@ -274,11 +268,10 @@ contract Market {
         if (frames[frameKey].lots[lotKey].state != SLot.NULL) return lotKey;
         frames[frameKey].lots[lotKey].lotKey = lotKey;
         frames[frameKey].lotKeys.push(lotKey);
-        emit LotUpdate(frameKey, frames[frameKey].lots[lotKey]);
         return lotKey;
     }
 
-    function clcTax(uint frameKey, uint acquisitionPrice) public view returns (uint tax) {             
+    function clcTax(uint frameKey, uint acquisitionPrice) internal view returns (uint tax) {             
         uint dFrame = (clcFrameTimestamp(block.timestamp) + (period)) - (block.timestamp); 
         uint dFrameP = scalar * dFrame / (period);
         //Calculate tax from the proposed acquisition price 
@@ -336,7 +329,6 @@ contract Market {
         emit LotUpdate(frameKey, frames[frameKey].lots[lotKey]);
     }
 
-    //TODO: Should we add a function that calculates the aprove amount for updating the price
     /// @notice Owner can update lot's price. Has to pay additional tax, or leftover tax gets' returned to him if the new price is lower
     /// @param timestamp Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct lot key) 
@@ -426,7 +418,7 @@ contract Market {
 
     /// @notice Close frame
     /// @param frameKey Frame's timestamp
-    function closeFrame(uint frameKey) public hasValidPrices(frameKey) {
+    function closeFrame(uint frameKey) internal hasValidPrices(frameKey) {
         require( (frameKey + period) <= block.timestamp, "FRAME END TIME NOT REACHED");
         frames[frameKey].state = SFrame.CLOSED;
         //UQ112x112 encoded
@@ -453,17 +445,13 @@ contract Market {
 
     /// @notice Settle lot for a owner. Owner's share of the reward amount get's transfered to owner's account
     /// @param frameKey Frame's timestamp
-    function settleLot(uint frameKey) public {  
+    function settleLot(uint frameKey) internal {  
         //Check if frame is closed
         require(frames[frameKey].state == SFrame.CLOSED, "FRAME NOT CLOSED");    
         //Calcualte the winning lot key
         uint lotKeyWin = (clcLotInterval(frames[frameKey].priceAverage));
         //Check if the lot is already settled
         require(frames[frameKey].lots[lotKeyWin].state != SLot.SETTLED, "LOT ALREADY SETTLED");
-
-        //TODO: decide with the team if this is really necessary, most of the code is executed at this point
-        //Is this neccesary? 
-        require(frames[frameKey].lots[lotKeyWin].lotOwner == msg.sender, "YOU DO NOT OWN THE WINNING LOT!");
         //Transfer winnings to last owner 
         accountingToken.transfer(frames[frameKey].lots[lotKeyWin].lotOwner, frames[frameKey].rewardFund);
         //State is changed to settled
