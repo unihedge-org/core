@@ -347,7 +347,7 @@ contract Market {
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
         userFrames[msg.sender].push(frameKey);
 
-        //updateFramePrices();
+        updateFramePrices();
 
         emit FrameUpdate(frameKey, 
                          frames[frameKey].oracleTimestampStart,
@@ -383,7 +383,7 @@ contract Market {
         }
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
 
-        //updateFramePrices();
+        updateFramePrices();
         emit LotUpdate(frameKey, frames[frameKey].lots[lotKey]);
     }
 
