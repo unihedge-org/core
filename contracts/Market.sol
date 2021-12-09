@@ -7,12 +7,14 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@uniswap/v2-periphery/contracts/libraries/UQ112x112.sol";
 
 
 /// @title TWPM Market
 /// @author UniHedge
 /// @dev All function calls are currently implemented without side effects
 contract Market {
+    using UQ112x112 for uint224;
     //Length of a frame
     uint public period; //64b -- Data packing into storage slots (1 slot = 32 bytes) --> 4*64b = 32 bytes
     //Contract creation time
@@ -137,10 +139,13 @@ contract Market {
     /// @param frameKey Timestamp of an arbitary frame 
     /// @return avgPrice Time weighted aveage price
     function clcPrice(uint frameKey) public hasValidPrices(frameKey) view returns(uint avgPrice) {       
-        uint priceDiff = frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart;
-        uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
-        avgPrice = uint(((FixedPoint.div(FixedPoint.uq112x112(uint224(priceDiff)), (uint112(timeDiff)))))._x);
-        avgPrice = (avgPrice >> 112) * scalar + (avgPrice << 112) / (1e49);
+        // uint priceDiff = frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart;
+        // uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
+        // avgPrice = uint(((FixedPoint.div(FixedPoint.uq112x112(uint224(priceDiff)), (uint112(timeDiff)))))._x);
+        // avgPrice = (avgPrice >> 112) * scalar + (avgPrice << 112) / (1e49);
+
+        avgPrice = uint(UQ112x112.encode(uint112(frames[frameKey].oraclePrice0CumulativeEnd)).uqdiv(uint112(frames[frameKey].oraclePrice0CumulativeStart)));
+
     }
 
     /// @notice Calculate amount required to approve to buy a lot
@@ -183,14 +188,38 @@ contract Market {
     /// @return uint[] array of frame keys
     function getOpenFrameKeys(uint startFrame, uint numOfFrames) public view returns (uint[] memory){
         uint[] memory openFrames = new uint[](numOfFrames);
-        for(uint i = 1; i <= numOfFrames; i++) {
+        for(uint i = 0; i <= numOfFrames; i++) {
             uint frameKey = startFrame+(period*i);
             if(frames[frameKey].state != SFrame.NULL) {
-                openFrames[i-1] = frameKey;
+                openFrames[i] = frameKey;
             }
         }
         return openFrames;
     }
+
+    // function getUserLots(address user) public view returns (Lot[] memory){
+    //     uint currentFrame = clcFrameTimestamp(block.timestamp);
+    //     Lot[] memory userLots = new Lot[](100);
+    //     Lot memory lot;
+        
+    //     for(uint i = 0; i <= 50; i++) {
+    //         uint frameKey = (currentFrame + period*i);
+    //         for (uint j=0; j<=frames[frameKey].lotKeys.length-1; j++) {
+    //             lot = frames[frameKey].lots[j];
+    //             if(lot.lotOwner == user) userLots[i] = lot;
+    //         }
+    //     }
+
+    //     // for(uint i = 1; i <=50; i++) {
+    //     //     uint frameKey = (currentFrame - period*i);
+    //     //     for (uint j=0; j<=frames[frameKey].lotKeys.length-1; j++) {
+    //     //         lot = frames[frameKey].lots[j];
+    //     //         if(lot.lotOwner == user) userLots[i] = lot;
+    //     //     }
+    //     // }
+
+    //     return userLots;
+    // }
 
     /// @notice Get number of frame's that the address has bought lots in
     /// @param user User's address
@@ -318,7 +347,7 @@ contract Market {
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
         userFrames[msg.sender].push(frameKey);
 
-        updateFramePrices();
+        //updateFramePrices();
 
         emit FrameUpdate(frameKey, 
                          frames[frameKey].oracleTimestampStart,
@@ -354,19 +383,19 @@ contract Market {
         }
         frames[frameKey].lots[lotKey].acquisitionPrice = acqPrice;
 
-        updateFramePrices();
+        //updateFramePrices();
         emit LotUpdate(frameKey, frames[frameKey].lots[lotKey]);
     }
 
     /// @notice Update trading pair's prices in the frame
     function updateFramePrices() public {
-        uint tmp;
+        //uint tmp;
         uint frameKey = clcFrameTimestamp(block.timestamp);
         //frames[frameKey].lastBlockNum = block.number;
         //Correct price if outside settle interval
         if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
-            (frames[frameKey].oraclePrice0CumulativeStart, tmp, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
-            (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
+            (frames[frameKey].oraclePrice0CumulativeStart, frames[frameKey].oraclePrice0CumulativeEnd, frames[frameKey].oracleTimestampStart) = uniswapPair.getReserves();
+            //(frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = uniswapPair.getReserves();
             emit FrameUpdate(frameKey, 
                          frames[frameKey].oracleTimestampStart,
                          frames[frameKey].oracleTimestampEnd,
@@ -375,7 +404,7 @@ contract Market {
                          frames[frameKey].rewardFund);
         }
         else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
-            (frames[frameKey].oraclePrice0CumulativeEnd, tmp, frames[frameKey].oracleTimestampEnd) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));
+            (frames[frameKey].oraclePrice0CumulativeStart, frames[frameKey].oraclePrice0CumulativeEnd, frames[frameKey].oracleTimestampStart) = uniswapPair.getReserves();
             emit FrameUpdate(frameKey, 
                          frames[frameKey].oracleTimestampStart,
                          frames[frameKey].oracleTimestampEnd,
@@ -384,6 +413,12 @@ contract Market {
                          frames[frameKey].rewardFund);
         }
     }
+
+    function getFramePrice(uint frameKey) public view returns(uint, uint) {       
+        return (frames[frameKey].oraclePrice0CumulativeStart,
+                frames[frameKey].oraclePrice0CumulativeEnd);
+    }
+    
 
     // /// @notice Update trading pair's prices in the frame
     // /// @param PriceCumulative Cumulative price
@@ -416,18 +451,21 @@ contract Market {
     //     }
     // }
 
+    // temporarly removed hasValidPrices(frameKey)
+    // TODO: Change back to internal
     /// @notice Close frame
     /// @param frameKey Frame's timestamp
-    function closeFrame(uint frameKey) internal hasValidPrices(frameKey) {
+    function closeFrame(uint frameKey) public {
         require( (frameKey + period) <= block.timestamp, "FRAME END TIME NOT REACHED");
         frames[frameKey].state = SFrame.CLOSED;
         //UQ112x112 encoded
-        uint priceDiff = frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart;
-        uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
+        //uint priceDiff = frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart;
+        //uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
         //Calculate time-weighted average price -- UQ112x112 encoded
-        frames[frameKey].priceAverage = uint(((FixedPoint.div(FixedPoint.uq112x112(uint224(priceDiff)), (uint112(timeDiff)))))._x);
+        //frames[frameKey].priceAverage = uint(((FixedPoint.div(FixedPoint.uq112x112(uint224(priceDiff)), (uint112(timeDiff)))))._x);
+        frames[frameKey].priceAverage = uint(UQ112x112.encode(uint112(frames[frameKey].oraclePrice0CumulativeEnd)).uqdiv(uint112(frames[frameKey].oraclePrice0CumulativeStart)));
         //Decode to scalar value
-        frames[frameKey].priceAverage = (frames[frameKey].priceAverage >> 112) * scalar + (frames[frameKey].priceAverage << 112) / (1e49); 
+        //frames[frameKey].priceAverage = (frames[frameKey].priceAverage >> 112) * scalar + (frames[frameKey].priceAverage << 112) / (1e49); 
         //Subtract fees from the reward amount 
         uint marketOwnerFees = frames[frameKey].rewardFund * (feeMarket) / 100000;
         uint protocolOwnerFees = frames[frameKey].rewardFund * (feeProtocol) / 100000;
