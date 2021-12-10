@@ -65,6 +65,7 @@ contract Market {
 
     enum SLot {NULL, BOUGHT, SETTLED}
     struct Lot {
+        uint frameKey;
         uint lotKey;
         address lotOwner;
         uint acquisitionPrice;
@@ -182,7 +183,7 @@ contract Market {
 
     /// @notice Get created and still open frames
     /// @dev You can't get (current) frame's index in the framesKeys array,
-    /// @dev so for loop through the whole array is needed
+    /// @dev so for-loop through the whole array is needed
     /// @dev other option would be with additional parameter: startIndex
     /// @param numOfFrames Timestamp that determins which frame it is
     /// @return uint[] array of frame keys
@@ -197,29 +198,47 @@ contract Market {
         return openFrames;
     }
 
-    // function getUserLots(address user) public view returns (Lot[] memory){
-    //     uint currentFrame = clcFrameTimestamp(block.timestamp);
-    //     Lot[] memory userLots = new Lot[](100);
-    //     Lot memory lot;
-        
-    //     for(uint i = 0; i <= 50; i++) {
-    //         uint frameKey = (currentFrame + period*i);
-    //         for (uint j=0; j<=frames[frameKey].lotKeys.length-1; j++) {
-    //             lot = frames[frameKey].lots[j];
-    //             if(lot.lotOwner == user) userLots[i] = lot;
-    //         }
-    //     }
+    /// @notice Get users lots in the nex 50 frames and previous 50 frames
+    /// @dev First version, it works, but need code optimisation probably :P
+    /// @param user User's address
+    /// @return userLots Returns array of users lots (whole structs)
+    /// @dev Array's size is 100 no mather how many lots this user actually has. 
+    /// @dev So the results have to be filtered before use
+    function getUserLots(address user) public view returns (Lot[] memory userLots){
+        uint currentFrame = clcFrameTimestamp(block.timestamp);
+        userLots = new Lot[](100);
+        Lot memory lot;
+        uint counter = 0;
 
-    //     // for(uint i = 1; i <=50; i++) {
-    //     //     uint frameKey = (currentFrame - period*i);
-    //     //     for (uint j=0; j<=frames[frameKey].lotKeys.length-1; j++) {
-    //     //         lot = frames[frameKey].lots[j];
-    //     //         if(lot.lotOwner == user) userLots[i] = lot;
-    //     //     }
-    //     // }
+        for(uint i = 0; i <= 50; i++) {
+            uint frameKey = (currentFrame + period*i);
+            if (frames[frameKey].state != SFrame.NULL) {
+                for (uint j=0; j<frames[frameKey].lotKeys.length; j++) {
+                    lot = frames[frameKey].lots[frames[frameKey].lotKeys[j]];
+                    if(lot.lotOwner == user) {
+                        userLots[counter]= lot;
+                        counter ++;
+                        if(counter == 100) return userLots;
+                    } 
+                }
+            }
+        }
 
-    //     return userLots;
-    // }
+        for(uint i = 1; i <= 49; i++) {
+            uint frameKey = (currentFrame - period*i);
+            if (frames[frameKey].state != SFrame.NULL) {
+                for (uint j=0; j<frames[frameKey].lotKeys.length; j++) {
+                    lot = frames[frameKey].lots[frames[frameKey].lotKeys[j]];
+                    if(lot.lotOwner == user) {
+                        userLots[counter]= lot;
+                        counter ++;
+                        if(counter == 100) return userLots;
+                    } 
+                }
+            }
+        }
+        return userLots;
+    }
 
     /// @notice Get number of frame's that the address has bought lots in
     /// @param user User's address
@@ -295,6 +314,7 @@ contract Market {
     function getOrCreateLot(uint frameKey, uint pairPrice) internal returns(uint){
         uint lotKey = clcLotInterval(pairPrice);
         if (frames[frameKey].lots[lotKey].state != SLot.NULL) return lotKey;
+        frames[frameKey].lots[lotKey].frameKey = frameKey;
         frames[frameKey].lots[lotKey].lotKey = lotKey;
         frames[frameKey].lotKeys.push(lotKey);
         return lotKey;
@@ -414,42 +434,11 @@ contract Market {
         }
     }
 
+    /// @dev only for dev purposes, will be removed before launch
     function getFramePrice(uint frameKey) public view returns(uint, uint) {       
         return (frames[frameKey].oraclePrice0CumulativeStart,
                 frames[frameKey].oraclePrice0CumulativeEnd);
     }
-    
-
-    // /// @notice Update trading pair's prices in the frame
-    // /// @param PriceCumulative Cumulative price
-    // /// @dev For developement purposes the new price is added as an input
-    // /// @dev Final version should use uniswap's oracles
-    // function updateFramePrices(uint PriceCumulative) public {
-    //     uint frameKey = clcFrameTimestamp(uint(block.timestamp));
-    //     //Correct price if outside settle interval
-    //     if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
-    //         frames[frameKey].oraclePrice0CumulativeStart = PriceCumulative;
-    //         frames[frameKey].oracleTimestampStart = uint(block.timestamp);
-    //             frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
-    //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
-    //         emit FrameUpdate(frameKey, 
-    //                      frames[frameKey].oracleTimestampStart,
-    //                      frames[frameKey].oracleTimestampEnd,
-    //                      frames[frameKey].oraclePrice0CumulativeStart,
-    //                      frames[frameKey].oraclePrice0CumulativeEnd,
-    //                      frames[frameKey].rewardFund);
-    //     }
-    //     else if (block.timestamp >= ((frameKey + (period)) - (tReporting))) {
-    //         frames[frameKey].oraclePrice0CumulativeEnd = PriceCumulative;
-    //         frames[frameKey].oracleTimestampEnd = uint(block.timestamp);
-    //         emit FrameUpdate(frameKey, 
-    //                      frames[frameKey].oracleTimestampStart,
-    //                      frames[frameKey].oracleTimestampEnd,
-    //                      frames[frameKey].oraclePrice0CumulativeStart,
-    //                      frames[frameKey].oraclePrice0CumulativeEnd,
-    //                      frames[frameKey].rewardFund);
-    //     }
-    // }
 
     // temporarly removed hasValidPrices(frameKey)
     // TODO: Change back to internal
@@ -490,7 +479,8 @@ contract Market {
         uint lotKeyWin = (clcLotInterval(frames[frameKey].priceAverage));
         //Check if the lot is already settled
         require(frames[frameKey].lots[lotKeyWin].state != SLot.SETTLED, "LOT ALREADY SETTLED");
-        //Transfer winnings to last owner 
+        //Transfer winnings to last owner
+        require(frames[frameKey].lots[lotKeyWin].lotOwner != 0x0000000000000000000000000000000000000000, "NOBODY OWNED THIS LOT");
         accountingToken.transfer(frames[frameKey].lots[lotKeyWin].lotOwner, frames[frameKey].rewardFund);
         //State is changed to settled
         frames[frameKey].lots[lotKeyWin].state = SLot.SETTLED;
