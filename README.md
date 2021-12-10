@@ -5,6 +5,16 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 * Recent updates:
+    * getUserLots() function added 
+        * It returns an array of 100 dimensions, containing structs of user lots
+        * Ex: If user has 12 lots, first 12 values in returned array will be these lots, other 88 spots will be "empty" lot structs
+            * You have to filter the result for non empty lot structs
+            * Something like this
+            
+                ```
+                let lots = await this.market.getUserLots(accounts[2].address);
+                let nonEmptyLots = lots.filter(val => val.lotOwner == accounts[2].address);
+                ```
     * Change average price calculation, temporarily.
         *  Prices are derived from: uniswapPair.getReserves()
         *  FUnction: uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0))
