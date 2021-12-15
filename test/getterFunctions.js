@@ -1,5 +1,5 @@
 //npx hardhat node --fork https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716
-//npx hardhat test ./test/test.js
+//npx hardhat test ./test/getterFunctions.js
 
 const { expect } = require("chai");
 const colors = require('colors');
@@ -76,54 +76,119 @@ describe("Market contract", function () {
     let reward = ethers.utils.formatEther(frame.rewardFund);
     console.log(colors.bgBlue('Current reward fund is equal to: ' + reward + ' DAI'));
   });
-  it('Get frame count', async function() {
-    await this.market.connect(accounts[0]).getOrCreateFrame((Date.now() / 1000 | 0)+86400);
-    let frameCount = await this.market.getNumberOfFrameKeys();
-    console.log(colors.bgBlue('There is ' + frameCount + ' frames.'));
+  it('Get user lots', async function() {
 
-    expect(frameCount).to.equal(2);
-  });
-  it('Get open frames', async function() {
-    for (let i = 0; i<=10; i++) {
-      await this.market.connect(accounts[0]).getOrCreateFrame((Date.now() / 1000 | 0)+(period*3600*i));
-    }    
-    let frames = await this.market.connect(accounts[0]).getOpenFrameKeys(10);
-    console.log(colors.bgBlue('Open frames ' + frames));
+    for (let i = 0; i < 10; i++) {
+      await this.accountingToken.connect(accounts[1]).loadMore();
+      
+    }
+    const balance = await this.accountingToken.balanceOf(accounts[1].address);
+    console.log("Balance of " + accounts[1].address + " is " + balance)
 
-   // expect(frameCount).to.equal(2);
-  });
-  it('Get frame count', async function() {
-    await this.market.connect(accounts[0]).getOrCreateFrame((Date.now() / 1000 | 0)+86400);
-    let frameCount = await this.market.getNumberOfFrameKeys();
-    console.log(colors.bgBlue('There is ' + frameCount + ' frames.'));
+    firstFrameKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0));
+    var lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[1]).clcAmountToApprove(frameKey, winningPairPrice, ethers.utils.parseEther('10')));
+    await this.accountingToken.connect(accounts[1]).approve(this.market.address, lotPrice);
+    await this.market.connect(accounts[1]).buyLot(frameKey, winningPairPrice, ethers.utils.parseEther('10'));
+
+    //let i=0;
+
+    
+
+    // for(var i=0; i<=10; i++) {
+    //   for(let j=0; j<=4; j+=2) {
+    //     var lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[1]).clcAmountToApprove(firstFrameKey+(i*period), winningPairPrice+(j*dPrice), ethers.utils.parseEther('10')));
+    //     await this.accountingToken.connect(accounts[1]).approve(this.market.address, lotPrice);
+    //     await this.market.connect(accounts[1]).buyLot(firstFrameKey+(i*period), winningPairPrice+(j*dPrice), ethers.utils.parseEther('10'));
+    //     let b = await this.accountingToken.balanceOf(accounts[1].address);
+    //     console.log("Balance of is " + b);
+    //   }
+    // }
+
+    let lots = await this.market.getUserLots(accounts[1].address);
+    console.log("User lots:\n" + lots);
+
 
   });
-  it('Get lot struct', async function() {
-    let lotKey = await this.market.getLotKey(frameKey, 0);
-    let lot = await this.market.getLot(frameKey, lotKey);
-    console.log(colors.bgBlue('Lot key struct: ' + lot));
-
-    expect(lot.lotOwner.toString()).to.equal(accounts[2].address.toString());
-  });
-  it('Get number of lots', async function() {
-    for (let i = 0; i < 7; i++) {
-        let pairPrice = (ethers.BigNumber.from('1000101302161004392578051')).mul(i);
-        let lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[3]).clcAmountToApprove(frameKey, pairPrice, ethers.utils.parseEther('15')));
-        await this.accountingToken.connect(accounts[3]).approve(this.market.address, lotPrice);
-        await this.market.connect(accounts[3]).buyLot(frameKey, pairPrice, ethers.utils.parseEther('15'));
+/*   it('Get user lots', async function() {
+    for (let i = 0; i < 10; i++) {
+      await this.accountingToken.connect(accounts[1]).loadMore();
+      const balance = await this.accountingToken.balanceOf(accounts[1].address);
+      console.log("Balance of " + accounts[i].address + " is " + balance)
     }
 
-    let lotCount = await this.market.getLotsCount(frameKey);
-    console.log(colors.bgBlue('There are : ' + lotCount + ' lots'));
+    let firstFrameKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0));
+    console.log("Timestamp: " + firstFrameKey);
 
-    expect(lotCount).to.equal(8);
-  });
-  it('Get lot key', async function() {
-    let lotKey = await this.market.getLotKey(frameKey, 2);
+    lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[2]).clcAmountToApprove(firstFrameKey, winningPairPrice, ethers.utils.parseEther('15')));
+    await this.accountingToken.connect(accounts[2]).approve(this.market.address, lotPrice);
+    await this.market.connect(accounts[2]).buyLot(firstFrameKey, winningPairPrice, ethers.utils.parseEther('15'));
+    //await this.accountingToken.connect(accounts[1]).approve(this.market.address, lotPrice);
+    //await this.market.connect(accounts[1]).buyLot(firstFrameKey, winningPairPrice, ethers.utils.parseEther('10'));
 
-    let expectedLotKey = ethers.BigNumber.from('1000101302161004392578051').div(dPrice).mul(dPrice).add(dPrice);
-    expect(lotKey.toString()).to.equal(expectedLotKey.toString());
-  });
+    // let firstFrameKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0));
+    // for(let i=0; i<=10; i++) {
+    //   for(let j=0; j<=4; j+=2) {
+    //     var lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[1]).clcAmountToApprove((firstFrameKey+i*(period*3600)), winningPairPrice+j*dPrice, ethers.utils.parseEther('1')));
+    //     await this.accountingToken.connect(accounts[1]).approve(this.market.address, lotPrice);
+    //     await this.market.connect(accounts[1]).buyLot((firstFrameKey+i*(period*3600)), winningPairPrice+j*dPrice, ethers.utils.parseEther('1'));
+    //     let b = await this.accountingToken.balanceOf(accounts[1].address);
+    //     console.log("Balance of is " + b);
+    //   }
+    // }
+
+    let lots = await this.market.getUserLots(accounts[1].address);
+    console.log("User lots:\n" + lots);
+  }); */
+
+  // it('Get frame count', async function() {
+  //  // await this.market.connect(accounts[0]).getOrCreateFrame((Date.now() / 1000 | 0)+86400);
+  //   let frameCount = await this.market.getNumberOfFrameKeys();
+  //   console.log(colors.bgBlue('There is ' + frameCount + ' frames.'));
+
+  //   expect(frameCount).to.equal(2);
+  // });
+  // it('Get open frames', async function() {
+  //   for (let i = 0; i<=10; i++) {
+  //     await this.market.connect(accounts[0]).getOrCreateFrame((Date.now() / 1000 | 0)+(period*3600*i));
+  //   }    
+  //   let frames = await this.market.connect(accounts[0]).getOpenFrameKeys(frameKey, 10);
+  //   console.log(colors.bgBlue('Open frames ' + frames));
+
+  //  // expect(frameCount).to.equal(2);
+  // });
+  // it('Get frame count', async function() {
+  //   await this.market.connect(accounts[0]).getOrCreateFrame((Date.now() / 1000 | 0)+86400);
+  //   let frameCount = await this.market.getNumberOfFrameKeys();
+  //   console.log(colors.bgBlue('There is ' + frameCount + ' frames.'));
+
+  // });
+  // it('Get lot struct', async function() {
+  //   let lotKey = await this.market.getLotKey(frameKey, 0);
+  //   let lot = await this.market.getLot(frameKey, lotKey);
+  //   console.log(colors.bgBlue('Lot key struct: ' + lot));
+
+  //   expect(lot.lotOwner.toString()).to.equal(accounts[2].address.toString());
+  // });
+  // it('Get number of lots', async function() {
+  //   for (let i = 0; i < 7; i++) {
+  //       let pairPrice = (ethers.BigNumber.from('1000101302161004392578051')).mul(i);
+  //       let lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[3]).clcAmountToApprove(frameKey, pairPrice, ethers.utils.parseEther('15')));
+  //       await this.accountingToken.connect(accounts[3]).approve(this.market.address, lotPrice);
+  //       await this.market.connect(accounts[3]).buyLot(frameKey, pairPrice, ethers.utils.parseEther('15'));
+  //   }
+
+  //   let lotCount = await this.market.getLotsCount(frameKey);
+  //   console.log(colors.bgBlue('There are : ' + lotCount + ' lots'));
+
+  //   expect(lotCount).to.equal(8);
+  // });
+  // it('Get lot key', async function() {
+  //   let lotKey = await this.market.getLotKey(frameKey, 2);
+
+  //   let expectedLotKey = ethers.BigNumber.from('1000101302161004392578051').div(dPrice).mul(dPrice);
+  //   expect(lotKey.toString()).to.equal(expectedLotKey.toString());
+  // });
+
 
  
  
