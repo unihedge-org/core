@@ -18,8 +18,8 @@ contract MarketFactory {
         uniswapFactory = IUniswapV2Factory(_uniswapFactory);
     }
 
-    function addMarket(address _token, address _uniswapPair, uint64 _period, uint64 _initTimestamp, uint _tax, uint _fee, uint _dPrice, uint64 _tReporting, uint _minTax) external {
-        Market market = new Market(this, IERC20(_token), IUniswapV2Pair(_uniswapPair), _period, _initTimestamp, _tax, _fee, _dPrice, _tReporting, _minTax);
+    function addMarket(address _token, address _uniswapPair, uint64 _period, uint64 _initTimestamp, uint _tax, uint _fee, uint _dPrice, uint64 _tReporting, uint _minTax, bool _avgPriceSwitch) external {
+        Market market = new Market(this, IERC20(_token), IUniswapV2Pair(_uniswapPair), _period, _initTimestamp, _tax, _fee, _dPrice, _tReporting, _minTax, _avgPriceSwitch);
         markets[address(market)] = market;
         marketsKeys.push(address(market));
     }
