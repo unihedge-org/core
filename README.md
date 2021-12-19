@@ -5,28 +5,19 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 * Recent updates:
-    * getUserLots() function added 
-        * It returns an array of 100 dimensions, containing structs of user lots
-        * Ex: If user has 12 lots, first 12 values in returned array will be these lots, other 88 spots will be "empty" lot structs
-            * You have to filter the result for non empty lot structs
-            * Something like this
-            
-                ```
-                let lots = await this.market.getUserLots(accounts[2].address);
-                let nonEmptyLots = lots.filter(val => val.lotOwner == accounts[2].address);
-                ```
-    * Change average price calculation, temporarily.
-        *  Prices are derived from: uniswapPair.getReserves()
-        *  FUnction: uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0))
-        * For now reserve1 and reserve0 are saved into oraclePrice0CumulativeStart nad oraclePrice0CumulativeEnd
+    * Updated contract code bits to stay in 24kb size limits,
+    * Frame struct now has price0Cumulative and price1Cumulative info
+        * Average price calculation uses either price0 or price1, depending on avgPriceSwitch constructor
+    * FrameUpdate event now has info on all 4 price values (oracleTimestampStart, oracleTimestampEnd, oraclePrice0CumulativeStart, oraclePrice0CumulativeEnd, oraclePrice1CumulativeStart)
+
            
 
 
 ### Deployed contracts on Rinkeby testnetwork ###
 
-* **Market factory address (15. 12. 21)**: [_0x86676E020619CC0977608701E748Da68E3A0DdA1_](https://rinkeby.etherscan.io/address/0x86676E020619CC0977608701E748Da68E3A0DdA1)
+* **Market factory address (19. 12. 21)**: [_0x08c82258486329665B8E4a212e5Ac563024477ce_](https://rinkeby.etherscan.io/address/0x08c82258486329665B8E4a212e5Ac563024477ce)
 
-* **Rinkeby market address (15. 12. 21)**: [_0xd51377a3F8614F17Db5b9487fb324516e6be672B_](https://rinkeby.etherscan.io/address/0xd51377a3F8614F17Db5b9487fb324516e6be672B)
+* **Rinkeby market address (19. 12. 21)**: [_0x1bc9eeE23A80BB4cE990Be1051FD36124f1151F9_](https://rinkeby.etherscan.io/address/0x1bc9eeE23A80BB4cE990Be1051FD36124f1151F9)
 
     * Accounting Token - DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592ec0cfb4dbc12d3ab100b257153436a1f0fea)
     * Pair: [_0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e_](https://rinkeby.etherscan.io/address/0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e)
