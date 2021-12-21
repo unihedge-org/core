@@ -102,6 +102,7 @@ contract Market {
     }
 
 
+    //TODO: add Price1 or not?
     function hasValidPrices(uint frameKey) private view{
         //require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
         if (frames[frameKey].oraclePrice0CumulativeStart <= 0 || frames[frameKey].oraclePrice0CumulativeEnd <= 0) {
@@ -172,8 +173,7 @@ contract Market {
     function clcAmountToApproveForUpdate(uint timestamp, uint pairPrice, uint acqPrice) external view returns (uint amnt) {   
         uint frameKey = clcFrameTimestamp(timestamp);
         //require(frameKey >= clcFrameTimestamp(block.timestamp), "THIS LOT IS IN A PAST FRAME");   
-        uint lotKey = clcLotKey(pairPrice);
-        uint tax1 = clcTax(frameKey, frames[frameKey].lots[lotKey].acquisitionPrice);
+        uint tax1 = clcTax(frameKey, frames[frameKey].lots[clcLotKey(pairPrice)].acquisitionPrice);
         uint tax2 = clcTax(frameKey, acqPrice);
         if(tax1 >= tax2) amnt = 0;
         else amnt = tax2-tax1;
@@ -239,7 +239,8 @@ contract Market {
         }
     }
 
-    //TODO: Should we delete frames from the array if user doesn't own any lots after a somebody buys them etc?
+    //TODO: Should we delete frames from the array if user doesn't own any lots after somebody buys them etc?
+    // or is it okay if it shows frames in which the user used to own lots
     /// @notice Get number of frame's that the address has bought lots in
     /// @param user User's address
     /// @return number of frames
@@ -260,6 +261,14 @@ contract Market {
     /// @return lot struct
     function getLot(uint frameKey, uint lotKey) external view returns (Lot memory){                 
         return frames[frameKey].lots[lotKey];
+    }
+
+    /// @notice Get lotKey from index in lotKeys array
+    /// @param frameKey Frame's timestamp
+    /// @param index frameKeys array index 
+    /// @return lotKey
+    function getLotKey(uint frameKey, uint index) public view returns (uint){                 
+        return frames[frameKey].lotKeys[index];
     }
 
     /// @notice Get no. of created lots in a frame 
@@ -473,11 +482,11 @@ contract Market {
         settleLot(frameKey);
     }
 
-    /// @notice Withdraw any amount out of the contract. Only to be used in extreme cases!
-    /// @param amount Amount you want to withdraw
-    function emptyFunds(uint amount) external isFactoryOwner {  
-        accountingToken.transfer(factory.owner(), amount);
-    }
+    // /// @notice Withdraw any amount out of the contract. Only to be used in extreme cases!
+    // /// @param amount Amount you want to withdraw
+    // function emptyFunds(uint amount) external isFactoryOwner {  
+    //     accountingToken.transfer(factory.owner(), amount);
+    // }
 
 
 }
