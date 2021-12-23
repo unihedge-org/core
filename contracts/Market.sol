@@ -39,9 +39,11 @@ contract Market {
     address public ownerMarket; //256b
     //Minimal lot tax per frame
     uint public minTax; //256b
+    //Average price calculation
+    bool public avgPriceSwitch = false;
     //Scalar number used for calculating precentages
     uint scalar = 1e24; //256b
-    bool avgPriceSwitch = false;
+    
 
     enum SFrame {NULL, OPENED, CLOSED}
     struct Frame {
@@ -90,12 +92,6 @@ contract Market {
         avgPriceSwitch = _avgPriceSwitch;
     }
 
-    modifier minTaxCheck(uint acqPrice) {
-        uint tax = acqPrice * (taxMarket) / (100000);
-        require(tax >= minTax, "PRICE IS TOO LOW");
-        _;
-    }
-
     modifier isFactoryOwner() {
         require(msg.sender == factory.owner(), "NOT THE FACTORY OWNER");
         _;
@@ -113,6 +109,12 @@ contract Market {
             //frames[framekey].state = SFrame.INVALID;
             revert("INVALID FRAME PRICE");
         }
+    }
+
+    //TODO: it should watch time untill the endframe
+    function minTaxCheck(uint frameKey, uint acqPrice) private view{
+        uint tax = clcTax(frameKey, acqPrice);  //acqPrice * (taxMarket) / (100000);
+        require(tax >= minTax, "PRICE IS TOO LOW");
     }
 
     /// @notice Calculate frames timestamp (beggining of frame)
@@ -148,6 +150,7 @@ contract Market {
         uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
         if (avgPriceSwitch) avgPrice = uint(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart) / (timeDiff)))._x);
         else avgPrice = uint(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice1CumulativeEnd - frames[frameKey].oraclePrice1CumulativeStart) / (timeDiff)))._x);
+        avgPrice = (avgPrice >> 112) * scalar + (avgPrice << 112) / (1e49);
     }
 
     /// @notice Calculate amount required to approve to buy a lot
@@ -333,9 +336,10 @@ contract Market {
     /// @param timestamp Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct lot key) 
     /// @param acqPrice New sell price is required to calculate tax
-    function buyLot(uint timestamp, uint pairPrice, uint acqPrice) external minTaxCheck(acqPrice) {
+    function buyLot(uint timestamp, uint pairPrice, uint acqPrice) external {
         //Get frameKey and lotKey values
-        uint frameKey =  getOrCreateFrame(timestamp);                          
+        uint frameKey =  getOrCreateFrame(timestamp);        
+        minTaxCheck(frameKey, acqPrice);                  
         uint lotKey = getOrCreateLot(frameKey, pairPrice);
         require(frameKey >= clcFrameTimestamp(block.timestamp), "LOT IN PAST");
         require(msg.sender != frames[frameKey].lots[lotKey].lotOwner, "ALREADY OWNER");
@@ -381,8 +385,9 @@ contract Market {
     /// @param timestamp Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct lot key) 
     /// @param acqPrice New acquisition price
-    function updateLotPrice(uint timestamp, uint pairPrice, uint acqPrice) external minTaxCheck(acqPrice) {
+    function updateLotPrice(uint timestamp, uint pairPrice, uint acqPrice) external {
         uint frameKey = getOrCreateFrame(timestamp); 
+        minTaxCheck(frameKey,acqPrice);
         uint lotKey = getOrCreateLot(frameKey, pairPrice); 
         require(frames[frameKey].lots[lotKey].lotOwner == msg.sender, "NOT LOT OWNER");
         require(frameKey >= clcFrameTimestamp(block.timestamp), "LOT IN PAST FRAME");
@@ -439,7 +444,8 @@ contract Market {
         uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
         if (avgPriceSwitch) frames[frameKey].priceAverage = uint(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart) / (timeDiff)))._x);
         else frames[frameKey].priceAverage = uint(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice1CumulativeEnd - frames[frameKey].oraclePrice1CumulativeStart) / (timeDiff)))._x);
-       
+        frames[frameKey].priceAverage = (frames[frameKey].priceAverage >> 112) * scalar + (frames[frameKey].priceAverage << 112) / (1e49);
+
         //Subtract fees from the reward amount 
         uint marketOwnerFees = frames[frameKey].rewardFund * (feeMarket) / 100000;
         uint protocolOwnerFees = frames[frameKey].rewardFund * (feeProtocol) / 100000;
@@ -463,7 +469,7 @@ contract Market {
         //Check if frame is closed
         require(frames[frameKey].state == SFrame.CLOSED, "FRAME NOT CLOSED");    
         //Calcualte the winning lot key
-        uint lotKeyWin = (clcLotKey(uint256(frames[frameKey].priceAverage)));
+        uint lotKeyWin = (clcLotKey(frames[frameKey].priceAverage));
         //Check if the lot is already settled
         require(frames[frameKey].lots[lotKeyWin].state != SLot.SETTLED, "LOT ALREADY SETTLED");
         //Transfer winnings to last owner

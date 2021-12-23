@@ -5,19 +5,15 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 * Recent updates:
-    * Updated contract code bits to stay in 24kb size limits,
-    * Frame struct now has price0Cumulative and price1Cumulative info
-        * Average price calculation uses either price0 or price1, depending on avgPriceSwitch constructor
-    * FrameUpdate event now has info on all 4 price values (oracleTimestampStart, oracleTimestampEnd, oraclePrice0CumulativeStart, oraclePrice0CumulativeEnd, oraclePrice1CumulativeStart)
-
-           
+    * clcPrice and average price calculation fixed with decoding back to scalar value
+    * minTax check chainged
 
 
 ### Deployed contracts on Rinkeby testnetwork ###
 
-* **Market factory address (21. 12. 21)**: [_0x051b5fDF44Ad2330CE957F21DA0973027cbefbC3_](https://rinkeby.etherscan.io/address/0x051b5fDF44Ad2330CE957F21DA0973027cbefbC3)
+* **Market factory address (23. 12. 21)**: [_0x1cDb0106491D6Fc88318E4427fa443C8EEd13507_](https://rinkeby.etherscan.io/address/0x1cDb0106491D6Fc88318E4427fa443C8EEd13507)
 
-* **Rinkeby market address (21. 12. 21)**: [_0xdb28A03A248b7227c5BCE3a640dDa1FCAEAbCf8f_](https://rinkeby.etherscan.io/address/0xdb28A03A248b7227c5BCE3a640dDa1FCAEAbCf8f)
+* **Rinkeby market address (23. 12. 21)**: [_0xf2a9FDB7287882045c546e03B055dCafc840CBbE_](https://rinkeby.etherscan.io/address/0xf2a9FDB7287882045c546e03B055dCafc840CBbE)
 
     * Accounting Token - DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592ec0cfb4dbc12d3ab100b257153436a1f0fea)
     * Pair: [_0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e_](https://rinkeby.etherscan.io/address/0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e)
