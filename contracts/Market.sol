@@ -51,7 +51,7 @@ contract Market {
         uint oracleTimestampStart;
         uint oracleTimestampEnd;
         uint rewardFund;
-        uint priceAverage;
+        uint112 priceAverage;
         uint oraclePrice0CumulativeStart;
         uint oraclePrice0CumulativeEnd;
         uint oraclePrice1CumulativeStart;
@@ -141,16 +141,16 @@ contract Market {
         return (((frameKey - (block.timestamp)) / period));
     }
 
-    /// @notice Calculate average price of a frame
+/*     /// @notice Calculate average price of a frame
     /// @param frameKey Timestamp of an arbitary frame 
-    /// @return avgPrice Time weighted aveage price
-    function clcPrice(uint frameKey) external view returns(uint avgPrice) {       
+    /// @return avgPrice Time weighted aveage price */
+    function clcPrice(uint frameKey) external view returns(uint112 avgPrice) {       
         hasValidPrices(frameKey); 
         //Calculate time-weighted average price -- UQ112x112 encoded
         uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
-        if (avgPriceSwitch) avgPrice = uint(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart) / (timeDiff)))._x);
-        else avgPrice = uint(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice1CumulativeEnd - frames[frameKey].oraclePrice1CumulativeStart) / (timeDiff)))._x);
-        avgPrice = (avgPrice >> 112) * scalar + (avgPrice << 112) / (1e49);
+        avgPrice;
+        if (avgPriceSwitch) avgPrice = FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart) / (timeDiff))));
+        else avgPrice = FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice1CumulativeEnd - frames[frameKey].oraclePrice1CumulativeStart) / (timeDiff))));
     }
 
     /// @notice Calculate amount required to approve to buy a lot
@@ -442,9 +442,8 @@ contract Market {
         
         //Calculate time-weighted average price -- UQ112x112 encoded
         uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
-        if (avgPriceSwitch) frames[frameKey].priceAverage = uint(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart) / (timeDiff)))._x);
-        else frames[frameKey].priceAverage = uint(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice1CumulativeEnd - frames[frameKey].oraclePrice1CumulativeStart) / (timeDiff)))._x);
-        frames[frameKey].priceAverage = (frames[frameKey].priceAverage >> 112) * scalar + (frames[frameKey].priceAverage << 112) / (1e49);
+        if (avgPriceSwitch) frames[frameKey].priceAverage = FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart) / (timeDiff))));
+        else frames[frameKey].priceAverage = FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice1CumulativeEnd - frames[frameKey].oraclePrice1CumulativeStart) / (timeDiff))));
 
         //Subtract fees from the reward amount 
         uint marketOwnerFees = frames[frameKey].rewardFund * (feeMarket) / 100000;
@@ -469,6 +468,7 @@ contract Market {
         //Check if frame is closed
         require(frames[frameKey].state == SFrame.CLOSED, "FRAME NOT CLOSED");    
         //Calcualte the winning lot key
+        //uint avgPrice = FixedPoint.decode(frames[frameKey].priceAverage); 
         uint lotKeyWin = (clcLotKey(frames[frameKey].priceAverage));
         //Check if the lot is already settled
         require(frames[frameKey].lots[lotKeyWin].state != SLot.SETTLED, "LOT ALREADY SETTLED");
