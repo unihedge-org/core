@@ -51,7 +51,7 @@ contract Market {
         uint oracleTimestampStart;
         uint oracleTimestampEnd;
         uint rewardFund;
-        uint112 priceAverage;
+        uint priceAverage;
         uint oraclePrice0CumulativeStart;
         uint oraclePrice0CumulativeEnd;
         uint oraclePrice1CumulativeStart;
@@ -144,13 +144,14 @@ contract Market {
 /*     /// @notice Calculate average price of a frame
     /// @param frameKey Timestamp of an arbitary frame 
     /// @return avgPrice Time weighted aveage price */
-    function clcPrice(uint frameKey) external view returns(uint112 avgPrice) {       
+    function clcPrice(uint frameKey) external view returns(uint avgPrice) {       
         hasValidPrices(frameKey); 
         //Calculate time-weighted average price -- UQ112x112 encoded
         uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
         avgPrice;
-        if (avgPriceSwitch) avgPrice = FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart) / (timeDiff))));
-        else avgPrice = FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice1CumulativeEnd - frames[frameKey].oraclePrice1CumulativeStart) / (timeDiff))));
+        if (avgPriceSwitch) avgPrice = (FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart) / (timeDiff)))));
+        else avgPrice = (FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice1CumulativeEnd - frames[frameKey].oraclePrice1CumulativeStart) / (timeDiff)))));
+        avgPrice = avgPrice*scalar;
     }
 
     /// @notice Calculate amount required to approve to buy a lot
@@ -444,7 +445,7 @@ contract Market {
         uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
         if (avgPriceSwitch) frames[frameKey].priceAverage = FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice0CumulativeEnd - frames[frameKey].oraclePrice0CumulativeStart) / (timeDiff))));
         else frames[frameKey].priceAverage = FixedPoint.decode(FixedPoint.uq112x112(uint224((frames[frameKey].oraclePrice1CumulativeEnd - frames[frameKey].oraclePrice1CumulativeStart) / (timeDiff))));
-
+        frames[frameKey].priceAverage = frames[frameKey].priceAverage*scalar;
         //Subtract fees from the reward amount 
         uint marketOwnerFees = frames[frameKey].rewardFund * (feeMarket) / 100000;
         uint protocolOwnerFees = frames[frameKey].rewardFund * (feeProtocol) / 100000;

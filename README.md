@@ -5,16 +5,15 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 * Recent updates:
-    * Avg price is decoded with Fixedpoint.decode() function (from uq112.112 to uint112)
-    * Price values now have no decimal point, whole number is a lot smaller
-    * Current dPrice is: 100000000000
+    * Average price has 24 zeros (decimals) --> avgPrice*scalar
+    * dPrice = 1e28 (10000000000000000000000000000)
 
 
 ### Deployed contracts on Rinkeby testnetwork ###
 
-* **Market factory address (6. 1. 22)**: [_0x5f5410C5D3e125EFd1987d43c7B115E7495D5537_](https://rinkeby.etherscan.io/address/0x5f5410C5D3e125EFd1987d43c7B115E7495D5537)
+* **Market factory address (10. 1. 22)**: [_0xb9a0CE2186BE67a99C5337Cc96CfC0510978CBfe_](https://rinkeby.etherscan.io/address/0xb9a0CE2186BE67a99C5337Cc96CfC0510978CBfe)
 
-* **Rinkeby market address (6. 1. 22)**: [_0xA10df678900Ad2F6852586933C22904e55B3A652_](https://rinkeby.etherscan.io/address/0xA10df678900Ad2F6852586933C22904e55B3A652)
+* **Rinkeby market address (10. 1. 22)**: [_0x3E833169D2f401797E849bF844e0804Ee7a42329_](https://rinkeby.etherscan.io/address/0x3E833169D2f401797E849bF844e0804Ee7a42329)
 
     * Accounting Token - DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592ec0cfb4dbc12d3ab100b257153436a1f0fea)
     * Pair: [_0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e_](https://rinkeby.etherscan.io/address/0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e)
