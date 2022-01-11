@@ -13,7 +13,7 @@ Node | v14.17.2
 
 * **Market factory address (10. 1. 22)**: [_0xb9a0CE2186BE67a99C5337Cc96CfC0510978CBfe_](https://rinkeby.etherscan.io/address/0xb9a0CE2186BE67a99C5337Cc96CfC0510978CBfe)
 
-* **Rinkeby market address (10. 1. 22)**: [_0x3E833169D2f401797E849bF844e0804Ee7a42329_](https://rinkeby.etherscan.io/address/0x3E833169D2f401797E849bF844e0804Ee7a42329)
+* **Rinkeby market address (10. 1. 22)**: [_0xfe48CDe922317C6A4F46079EBA332742230e6c1a_](https://rinkeby.etherscan.io/address/0xfe48CDe922317C6A4F46079EBA332742230e6c1a)
 
     * Accounting Token - DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592ec0cfb4dbc12d3ab100b257153436a1f0fea)
     * Pair: [_0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e_](https://rinkeby.etherscan.io/address/0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e)
