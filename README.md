@@ -5,7 +5,7 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 * Recent updates:
-    * 💥new function: manualyUpdateAvgPrice(frameKey, value)
+    * 💥new function: UpdateAvgPrice(frameKey, value)
 
 
 ### Deployed contracts on Rinkeby testnetwork ###
