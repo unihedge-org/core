@@ -5,8 +5,7 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 * Recent updates:
-    * Average price has 24 zeros (decimals) --> avgPrice*scalar
-    * dPrice = 1e28 (10000000000000000000000000000)
+    * 💥new function: manualyUpdateAvgPrice(frameKey, value)
 
 
 ### Deployed contracts on Rinkeby testnetwork ###
