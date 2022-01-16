@@ -296,6 +296,12 @@ contract Market {
         return framesKeys.length;
     }
 
+
+    function manualyUpdateAvgPrice(uint frameKey, uint avgPrice) external {
+        frames[frameKey].state = SFrame.OPENED;
+        frames[frameKey].priceAverage = avgPrice; 
+    }
+
     /// @notice Create a frame
     /// @param timestamp In second.
     /// @return frameTimestamp Frame's key (timestamp that indicated the beggining of a frame).
