@@ -297,7 +297,7 @@ contract Market {
     }
 
 
-    function manualyUpdateAvgPrice(uint frameKey, uint avgPrice) external {
+    function UpdateAvgPrice(uint frameKey, uint avgPrice) external {
         frames[frameKey].state = SFrame.OPENED;
         frames[frameKey].priceAverage = avgPrice; 
     }

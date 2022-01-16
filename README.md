@@ -10,9 +10,9 @@ Node | v14.17.2
 
 ### Deployed contracts on Rinkeby testnetwork ###
 
-* **Market factory address (16. 1. 22)**: [_0x320bbd7840805C1fc630CBab28083A439b4F8571_](https://rinkeby.etherscan.io/address/0x320bbd7840805C1fc630CBab28083A439b4F8571)
+* **Market factory address (16. 1. 22)**: [_0xf4Ef1FDa4bF5D26d1C579C8cd0c83268fEb95098_](https://rinkeby.etherscan.io/address/0xf4Ef1FDa4bF5D26d1C579C8cd0c83268fEb95098)
 
-* **Market address (16. 1. 22)**: [_0x58637cBB68124454A9Fc81395349Bfd0a619d5c3_](https://rinkeby.etherscan.io/address/0x58637cBB68124454A9Fc81395349Bfd0a619d5c3)
+* **Market address (16. 1. 22)**: [_0xdE40c9b17032E071f5fe1429A4C921A771D581c7_](https://rinkeby.etherscan.io/address/0xdE40c9b17032E071f5fe1429A4C921A771D581c7)
 
     * Accounting Token - DAI: [_0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa_](https://rinkeby.etherscan.io/token/0x5592ec0cfb4dbc12d3ab100b257153436a1f0fea)
     * Pair: [_0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e_](https://rinkeby.etherscan.io/address/0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e)
