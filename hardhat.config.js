@@ -1,6 +1,7 @@
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-truffle5");
 require("@atixlabs/hardhat-time-n-mine");
+//require("hardhat-gas-reporter");
 
 const fs = require('fs');
 const Rinkeby_PRIVATE_KEY = fs.readFileSync(".secret").toString().trim();
@@ -42,5 +43,9 @@ module.exports = {
     // Obtain one at https://bscscan.com/
     apiKey: 'GPH97NNZCW56HC34VARTFC94ZZZHWSUC4U'
   },
+  // gasReporter: {
+  //   currency: 'EUR',
+  //   gasPrice: 21
+  // },
   solidity: "0.8.4"
 };

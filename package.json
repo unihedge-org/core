@@ -24,15 +24,16 @@
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@^0.3.0-beta.11",
+    "@nomiclabs/hardhat-etherscan": "^2.1.7",
     "@openzeppelin/test-helpers": "^0.5.10",
-    "eth-gas-reporter": "^0.2.21",
+    "eth-gas-reporter": "^0.2.23",
     "ethereum-waffle": "^3.4.0",
     "ethers": "^5.5.1",
     "hardhat": "^2.6.4",
-    "hardhat-deploy": "^0.9.4"
+    "hardhat-deploy": "^0.9.4",
+    "hardhat-gas-reporter": "^1.0.6"
   },
   "scripts": {
     "test": "npx hardhat test ./test/test.js  --network localhost"
-}
-  
+  }
 }
