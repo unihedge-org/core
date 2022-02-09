@@ -7,12 +7,11 @@ const BigN = require("bignumber.js");
 
 //Rinkeby contract addresses
 let addressUniswapV2Factory = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
-let addressUniswapV2Pair = "0x8B22F85d0c844Cf793690F6D9DFE9F11Ddb35449";
+let addressSushiswapV2Pair = "0x397FF1542f962076d0BFE58eA045FfA2d347ACa0";
 let addressTokenDAI = "0xc7AD46e0b8a400Bb3C915120d284AafbA8fc4735";
 let addressTokenWETH = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
 let addressUniswapV2Router02 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
 let addressMarketFactory = "0xf63ecBC45737E9087751CA5d3C98A0359Ee71226";
-
 //Binance Smart Chain Testnet contract addresses
 // let addressUniswapV2Factory = "0x6725F303b657a9451d8BA641348b6761A6CC7a17";
 // let addressUniswapV2Pair = "0xF8194358E8D0BAb9FdCF411f0f163Df4722d881B";
@@ -34,11 +33,11 @@ const marketFee = 100; // %/1000
 const marketTax = 100;
 const hoursToSkip = 27; 
 const bet = new BigN('1000e18');
-const dPrice = 10000000;
+const dPrice = 100000000000;
 const tReporting = 3600;
-const winningPairPrice = ethers.BigNumber.from('33878730631931454610765830028872803783086522414');
-const minTax = 77677;
-let frameKey;      
+const winningPairPrice = ethers.BigNumber.from('68330075231621000000000000000000000000');
+const minTax = 77677; 
+let frameKey; 
 let lotKey;            
 //----------------------------------------------------------------------
 
@@ -57,6 +56,9 @@ describe("Market contract", function () {
     const TokenContract = await ethers.getContractFactory("Token");
     this.accountingToken = await TokenContract.connect(accounts[0]).deploy();
 
+    const MarketGetterContract = await ethers.getContractFactory("MarketGetter");
+    this.marketGetter = await MarketGetterContract.deploy();
+
     for (let i = 0; i < 15; i++) {
       await this.accountingToken.connect(accounts[i]).loadMore();
       const balance = await this.accountingToken.balanceOf(accounts[i].address);
@@ -66,7 +68,7 @@ describe("Market contract", function () {
   it('Deploy a new market', async function() {
     let marketCount = await this.MarketFactory.getMarketsCount();
     console.log("Market count is: " + marketCount);
-    await this.MarketFactory.connect(accounts[0]).addMarket(this.accountingToken.address, addressUniswapV2Pair, period*3600, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, false);
+    await this.MarketFactory.connect(accounts[0]).addMarket(this.accountingToken.address, addressSushiswapV2Pair, period*3600, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, true);
     marketCount = await this.MarketFactory.getMarketsCount();
     console.log("Market count is: " + marketCount);
 
@@ -82,7 +84,7 @@ it('Approve lot purchase for 1st user', async function() {
 
     let allowance1 = await this.accountingToken.allowance(accounts[1].address, this.market.address);
     console.log(colors.green("Allowance before is: " + allowance1.toString())); 
-    const lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[1]).clcAmountToApprove(frameKey, winningPairPrice, ethers.utils.parseEther('10')));
+    const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApprove(this.market.address, frameKey, winningPairPrice, ethers.utils.parseEther('10')));
 
     console.info("Amount to approve is: " + lotPrice);
     await this.accountingToken.connect(accounts[1]).approve(this.market.address, lotPrice);
@@ -124,7 +126,7 @@ it('Approve lot purchase for 1st user frame now', async function() {
 
     // let allowance1 = await this.accountingToken.allowance(accounts[1].address, this.market.address);
     // console.log(colors.green("Allowance before is: " + allowance1.toString())); 
-    const lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[1]).clcAmountToApprove(inputFrameKey, winningPairPrice, ethers.utils.parseEther('10')));
+    const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApprove(this.market.address,inputFrameKey, winningPairPrice, ethers.utils.parseEther('10')));
 
     // console.info("Amount to approve is: " + lotPrice);
     await this.accountingToken.connect(accounts[1]).approve(this.market.address, lotPrice);
@@ -180,6 +182,7 @@ it('Owners lowers the price', async function() {
     console.log(colors.bgGreen("Difference is: " + (b2-b1)));
 
     lotKey = await this.market.clcLotKey(winningPairPrice);
+    console.log("LotKey: " + lotKey);
     let lot = await this.market.getLot(frameKey, lotKey);
     let price = ethers.utils.formatEther(lot.acquisitionPrice, 'ether');
     assert.equal(price, 7);
@@ -187,7 +190,7 @@ it('Owners lowers the price', async function() {
 it('Owners sets the price back to a higher value', async function() {
     let allowance1 = await this.accountingToken.allowance(accounts[1].address, this.market.address);
     console.log(colors.green("Allowance before is: " + allowance1.toString())); 
-    const lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[1]).clcAmountToApproveForUpdate(frameKey, winningPairPrice, ethers.utils.parseEther('15')));
+    const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApproveForUpdate(this.market.address, frameKey, winningPairPrice, ethers.utils.parseEther('15')));
 
     console.info("Amount to approve is: " + lotPrice);
     await this.accountingToken.connect(accounts[1]).approve(this.market.address, lotPrice);
@@ -215,7 +218,7 @@ it('Second account buys the same lot 1d later', async function() {
     await ethers.provider.send("evm_mine");
     let allowance1 = await this.accountingToken.allowance(accounts[2].address, this.market.address);
     console.log(colors.green("Allowance before is: " + allowance1.toString())); 
-    const lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[2]).clcAmountToApprove(frameKey, winningPairPrice, ethers.utils.parseEther('15')));
+    const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApprove(this.market.address,frameKey, winningPairPrice, ethers.utils.parseEther('15')));
 
     console.info("Amount to approve is: " + lotPrice);
     await this.accountingToken.connect(accounts[2]).approve(this.market.address, lotPrice);
@@ -243,26 +246,26 @@ it('Second account buys the same lot 1d later', async function() {
 
     assert.equal(owner.toString(), accounts[2].address.toString());
 });
-it('Frame mapping to address', async function() {
-    for (i=5; i<8; i++) {
-        const lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[5]).clcAmountToApprove(((Date.now() / 1000 | 0)+(86400*i)), 6346134345, ethers.utils.parseEther('100')));
-        await this.accountingToken.connect(accounts[5]).approve(this.market.address, lotPrice);
-        await this.market.connect(accounts[5]).buyLot(((Date.now() / 1000 | 0)+(86400*i)), 6346134345, ethers.utils.parseEther('100'));
-    }
+// it('Frame mapping to address', async function() {
+//     for (i=5; i<8; i++) {
+//         const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApprove(this.market.address,((Date.now() / 1000 | 0)+(86400*i)), 6346134345, ethers.utils.parseEther('100')));
+//         await this.accountingToken.connect(accounts[5]).approve(this.market.address, lotPrice);
+//         await this.market.connect(accounts[5]).buyLot(((Date.now() / 1000 | 0)+(86400*i)), 6346134345, ethers.utils.parseEther('100'));
+//     }
 
-    let numOfFrames = await this.market.connect(accounts[5]).getNumOfUserFrames(accounts[5].address);
-    //console.log(Number(numOfFrames));
-    let frames = [];
-    /* for(let k=0; k<=Number(numOfFrames)-1; k++) frames[k] = await this.market.userFrames(accounts[5].address, k);
-    console.log(colors.cyan(accounts[5].address + ' frames: ' + frames)); */
-    await this.market.getUserFrames(accounts[5].address);
-    console.log(colors.cyan(accounts[5].address + ' frames: ' + frames)); 
+//     let numOfFrames = await this.market.connect(accounts[5]).getNumOfUserFrames(accounts[5].address);
+//     //console.log(Number(numOfFrames));
+//     let frames = [];
+//     /* for(let k=0; k<=Number(numOfFrames)-1; k++) frames[k] = await this.market.userFrames(accounts[5].address, k);
+//     console.log(colors.cyan(accounts[5].address + ' frames: ' + frames)); */
+//     await this.market.getUserFrames(accounts[5].address);
+//     console.log(colors.cyan(accounts[5].address + ' frames: ' + frames)); 
 
-});
+// });
 it('Accounts buy non-winning lots', async function() {
     for (i=0; i<4; i++) {
         let priceRange = 6346134345+i*dPrice;
-        const lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[2]).clcAmountToApprove(frameKey, priceRange, ethers.utils.parseEther('100')));
+        const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApprove(this.market.address,frameKey, priceRange, ethers.utils.parseEther('100')));
         await this.accountingToken.connect(accounts[i]).approve(this.market.address, lotPrice);
         await this.market.connect(accounts[i]).buyLot(frameKey, priceRange, ethers.utils.parseEther('100'));
     }
@@ -274,7 +277,7 @@ it('Get user lots', async function() {
 
     await this.accountingToken.connect(accounts[2]).loadMore();
     let priceRange = 634613433453545+i*dPrice;
-    const lotPrice = ethers.BigNumber.from(await this.market.connect(accounts[2]).clcAmountToApprove(frameKey, priceRange, ethers.utils.parseEther('10')));
+    const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApprove(this.market.address,frameKey, priceRange, ethers.utils.parseEther('10')));
     await this.accountingToken.connect(accounts[2]).approve(this.market.address, lotPrice);
     await this.market.connect(accounts[2]).buyLot(frameKey, priceRange, ethers.utils.parseEther('10'));
 
@@ -283,8 +286,11 @@ it('Get user lots', async function() {
     let lot = await this.market.getLot(frameKey, lotKey);
     console.log("Lot: " + lot);
 
+    let blockNum = await ethers.provider.getBlockNumber();
+    let blockInfo = await ethers.provider.getBlock(blockNum);
+    let currentFrame = await this.market.clcFrameTimestamp(blockInfo.timestamp);
     
-    let lots = await this.market.getUserLots(accounts[2].address);
+    let lots = await this.marketGetter.getUserLots(this.market.address, accounts[2].address, 0, currentFrame, currentFrame+(period*10), 2, 5);
     let nonEmptyLots = lots.filter(val => val.lotOwner == accounts[2].address);
 
     console.log(nonEmptyLots);
@@ -379,11 +385,27 @@ it('Get frame average price', async function() {
 it('Call calculate price', async function() {
     let frame = await this.market.frames(frameKey);
     console.log(colors.bgWhite("Average price is: " + frame.priceAverage));
-    let avgPrice = await this.market.clcPrice(frameKey);
+    let avgPrice = await this.marketGetter.clcPrice(this.market.address, frameKey);
     console.log(avgPrice.toString());
 
     assert.equal(frame.priceAverage.toString(), avgPrice.toString());
-  });
+});
+it('Change avg price function', async function() {
+    let frame = await this.market.frames(frameKey);
+    console.log(colors.red("Average before price is: " + frame.priceAverage));
+    await this.market.UpdateAvgPrice(frameKey, 123456789);
+    frame = await this.market.frames(frameKey);
+    console.log(colors.red("Average price after is: " + frame.priceAverage));
+}); 
+it('Get frames ', async function() {
+    let blockNum = await ethers.provider.getBlockNumber();
+    let blockInfo = await ethers.provider.getBlock(blockNum);
+    let currentFrame = await this.market.clcFrameTimestamp(blockInfo.timestamp);
+    let frames = [];
+    await this.market.UpdateAvgPrice(frameKey, 123456789);
+    frames = await this.marketGetter. getFrames(this.market.address, frameKey,currentFrame, 1, 2);
+    console.log(colors.blue(frames));
+}); 
   
 
 });
