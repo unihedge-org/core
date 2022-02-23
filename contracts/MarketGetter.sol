@@ -92,11 +92,27 @@ contract MarketGetter {
         }
     }
 
-    // function getFrameState(Market market, uint frameKey) internal view returns(MLib.SFrame state) {
-    //     uint tmp;
-    //     (tmp,tmp,tmp,tmp,tmp, tmp, tmp, tmp, tmp, state) = market.frames(frameKey);
-    //     return state;
-    // }
+    function getFrameState(Market market, uint frameKey) internal view returns(MLib.SFrame state) {
+        uint tmp;
+        (tmp,tmp,tmp,tmp,tmp, tmp, tmp, tmp, tmp, state) = market.frames(frameKey);
+        return state;
+    }
+
+/*     function getLotsUserOpenFrames(Market market, uint frameKey,uint perPage) internal view returns(MLib.Lot[] memory userLots) {
+        MLib.Lot memory lot;
+        uint lotKeys = market.getLotKeys(frameKey);
+            for (uint j=0; j < lotKeys.length; j++) {
+                lot = getLotStruct(market, frameKey, lotKeys[j]);
+                if(lot.lotOwner == user) {
+                    if(counter >= ((page-1)*perPage) && counter < page*perPage) {
+                        userLots[lotArrayCount]= lot;
+                        lotArrayCount++;
+                    }
+            counter ++;
+            } 
+        }
+
+    } */
 
     /// @notice Get users lots in the nex 50 frames and previous 50 frames
     /// @dev First version, it works, but need code optimisation probably :P
@@ -135,25 +151,25 @@ contract MarketGetter {
             }
         }
 
-        if(mode == 2 || mode == 0) {
-            for(uint frameKey = timestamp_start; frameKey <= timestamp_end; frameKey+=period) {
-                frameState = market.getFrameState(frameKey);
-                if (frameState == MLib.SFrame.CLOSED) {
-                    //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
-                    lotKeys = market.getLotKeys(frameKey);
-                    for (uint j=0; j < lotKeys.length; j++) {
-                        lot = getLotStruct(market, frameKey, lotKeys[j]);
-                        if(lot.lotOwner == user) {
-                            if(counter >= ((page-1)*perPage) && counter < page*perPage) {
-                                userLots[lotArrayCount]= lot;
-                                lotArrayCount++;
-                            }
-                            counter ++;
-                        } 
-                    }
-                }
-            }
-        }
+        // if(mode == 2 || mode == 0) {
+        //     for(uint frameKey = timestamp_start; frameKey <= timestamp_end; frameKey+=period) {
+        //         frameState = market.getFrameState(frameKey);
+        //         if (frameState == MLib.SFrame.CLOSED) {
+        //             //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
+        //             lotKeys = market.getLotKeys(frameKey);
+        //             for (uint j=0; j < lotKeys.length; j++) {
+        //                 lot = getLotStruct(market, frameKey, lotKeys[j]);
+        //                 if(lot.lotOwner == user) {
+        //                     if(counter >= ((page-1)*perPage) && counter < page*perPage) {
+        //                         userLots[lotArrayCount]= lot;
+        //                         lotArrayCount++;
+        //                     }
+        //                     counter ++;
+        //                 } 
+        //             }
+        //         }
+        //     }
+        // }
 
         if(counter > page*perPage) {
             pagesLeft = ((counter/perPage) - page);
