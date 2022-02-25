@@ -313,6 +313,7 @@ contract Market {
         hasValidPrices(frameKey);
         require( (frameKey + period) <= block.timestamp, "FRAME END TIME NOT REACHED");
         frames[frameKey].state = MLib.SFrame.CLOSED;
+        address factoryOwner = factory.owner();
         
         //Calculate time-weighted average price -- UQ112x112 encoded
         uint timeDiff = frames[frameKey].oracleTimestampEnd - frames[frameKey].oracleTimestampStart;
@@ -325,7 +326,7 @@ contract Market {
         frames[frameKey].rewardFund = frames[frameKey].rewardFund - marketOwnerFees - protocolOwnerFees;
         //Transfer fees to owners
         accountingToken.transfer(ownerMarket, marketOwnerFees);
-        accountingToken.transfer(factory.owner(), protocolOwnerFees);
+        accountingToken.transfer(factoryOwner, protocolOwnerFees);
         emit FrameUpdate(frameKey, 
                          frames[frameKey].oracleTimestampStart,
                          frames[frameKey].oracleTimestampEnd,
