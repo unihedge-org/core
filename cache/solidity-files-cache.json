@@ -40,7 +40,7 @@
       "contentHash": "3fa31c3860f2b9585c3a98c64850829e",
       "sourceName": "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -74,7 +74,7 @@
       "contentHash": "6375842b01002cf7b8f7899b01c5e8c8",
       "sourceName": "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -107,11 +107,11 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\node_modules\\@uniswap\\lib\\contracts\\libraries\\FixedPoint.sol": {
-      "lastModificationDate": 1625395854090,
+      "lastModificationDate": 1641496985264,
       "contentHash": "dc596f83d7c5841f61b8c8b244ff59e9",
       "sourceName": "@uniswap/lib/contracts/libraries/FixedPoint.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -145,7 +145,7 @@
       "contentHash": "0eac3e1a83ee62326ca007811285b274",
       "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -179,7 +179,7 @@
       "contentHash": "5365090efc586b728719e562ebfed0d6",
       "sourceName": "@openzeppelin/contracts/utils/math/SafeMath.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -213,7 +213,7 @@
       "contentHash": "ec39b5372f4f4d52101b4da561e2aee6",
       "sourceName": "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -247,7 +247,7 @@
       "contentHash": "4cd775b8e3da7b400f3a69b5a09ffc26",
       "sourceName": "contracts/priceOracles.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -286,7 +286,7 @@
       "contentHash": "aa1be06992a99bb7393b26a6af3c4dfb",
       "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -322,7 +322,7 @@
       "contentHash": "acad756301f0fb200ecc66138e8cd5c5",
       "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -360,7 +360,7 @@
       "contentHash": "07f148e0d44b2ffc23b3ae6dd6e38cfb",
       "sourceName": "@openzeppelin/contracts/utils/Context.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -394,7 +394,7 @@
       "contentHash": "0a73a96c9a9237a44c5af55a9be172eb",
       "sourceName": "contracts/Token.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -426,11 +426,11 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\Market.sol": {
-      "lastModificationDate": 1645649985898,
-      "contentHash": "baad6025b88c06417dc387d887782906",
+      "lastModificationDate": 1646327935078,
+      "contentHash": "3169992e3bdcbcb11c3dcaccf892c419",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -453,7 +453,7 @@
       },
       "imports": [
         "./MarketFactory.sol",
-        "./MLibrary.sol",
+        "./MLib.sol",
         "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol",
         "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol",
         "@uniswap/lib/contracts/libraries/FixedPoint.sol",
@@ -472,7 +472,7 @@
       "contentHash": "0267e68c30bc76a4b94a337b6527391e",
       "sourceName": "contracts/MarketFactory.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -511,7 +511,7 @@
       "contentHash": "afd5ff299d7375e268a7f27920ca38d8",
       "sourceName": "contracts/Dai.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -545,7 +545,7 @@
       "contentHash": "59d93f5f40ffdc3d8cdf9f1c8d5ea8e9",
       "sourceName": "@uniswap/v2-periphery/contracts/libraries/UQ112x112.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -575,11 +575,11 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\MarketGetter.sol": {
-      "lastModificationDate": 1645720627802,
-      "contentHash": "e735512c886d7383c7a92467b6bd0ae6",
+      "lastModificationDate": 1646395073302,
+      "contentHash": "1e11686b51a1d479ca1d8bad4aee208e",
       "sourceName": "contracts/MarketGetter.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -603,7 +603,7 @@
       "imports": [
         "./MarketFactory.sol",
         "./Market.sol",
-        "./MLibrary.sol",
+        "./MLib.sol",
         "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol",
         "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol",
         "@uniswap/lib/contracts/libraries/FixedPoint.sol",
@@ -617,12 +617,12 @@
         "MarketGetter"
       ]
     },
-    "D:\\prog\\UniHedge\\core\\contracts\\MLibrary.sol": {
-      "lastModificationDate": 1643756794894,
-      "contentHash": "8040c899ec3393c02d17b64f37838173",
-      "sourceName": "contracts/MLibrary.sol",
+    "D:\\prog\\UniHedge\\core\\contracts\\MLib.sol": {
+      "lastModificationDate": 1646325604161,
+      "contentHash": "aa2b92d979d986cae444b2f42516b7df",
+      "sourceName": "contracts/MLib.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.0",
         "settings": {
           "optimizer": {
             "enabled": false,

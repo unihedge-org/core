@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 //pragma experimental ABIEncoderV2;
 
 import "./MarketFactory.sol";
-import "./MLibrary.sol";
+import "./MLib.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
@@ -288,6 +288,7 @@ contract Market {
     /// @notice Update trading pair's prices in the frame
     function updateFramePrices() public {
         uint frameKey = clcFrameTimestamp(block.timestamp);
+
         //Correct price if outside settle interval
         if (block.timestamp < ((frameKey + (period)) - (tReporting))) {
             (frames[frameKey].oraclePrice0CumulativeStart, frames[frameKey].oraclePrice1CumulativeStart, frames[frameKey].oracleTimestampStart) = UniswapV2OracleLibrary.currentCumulativePrices(address(uniswapPair));

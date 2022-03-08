@@ -47,5 +47,5 @@ module.exports = {
   //   currency: 'EUR',
   //   gasPrice: 21
   // },
-  solidity: "0.8.4"
+  solidity: "0.8.0"
 };

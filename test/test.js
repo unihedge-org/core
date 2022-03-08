@@ -5,17 +5,10 @@ const { expect } = require("chai");
 const colors = require('colors');
 const BigN = require("bignumber.js");
 
-//Rinkeby contract addresses
-let addressUniswapV2Factory = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
-let addressSushiswapV2Pair = "0x397FF1542f962076d0BFE58eA045FfA2d347ACa0";
-let addressTokenDAI = "0xc7AD46e0b8a400Bb3C915120d284AafbA8fc4735";
-let addressTokenWETH = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
-let addressUniswapV2Router02 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
-let addressMarketFactory = "0xf63ecBC45737E9087751CA5d3C98A0359Ee71226";
-//Binance Smart Chain Testnet contract addresses
-// let addressUniswapV2Factory = "0x6725F303b657a9451d8BA641348b6761A6CC7a17";
-// let addressUniswapV2Pair = "0xF8194358E8D0BAb9FdCF411f0f163Df4722d881B";
-// let addressTokenDAI = "0x0466CdF0044a02E8Bc35C8447FD9B8468848DECF";
+let addressUniswapV2Factory = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"; 
+let addressUniswapV2Pair = "0x6FF62bfb8c12109E8000935A6De54daD83a4f39f";
+let addressTokenDAI = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
+let addressTokenWETH = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619";
 
 
 var accounts = [];
@@ -33,9 +26,9 @@ const marketFee = 100; // %/1000
 const marketTax = 100;
 const hoursToSkip = 27; 
 const bet = new BigN('1000e18');
-const dPrice = 100000000000;
+const dPrice = 10000000000000;
 const tReporting = 3600;
-const winningPairPrice = ethers.BigNumber.from('68330075231621000000000000000000000000');
+const winningPairPrice = ethers.BigNumber.from('2820000000000000000000000000');
 const minTax = 77677; 
 let frameKey; 
 let lotKey;            
@@ -51,7 +44,7 @@ describe("Market contract", function () {
     //console.log(accounts[5].address);
 
     const MarketFactoryContract = await ethers.getContractFactory("MarketFactory");
-    this.MarketFactory = await MarketFactoryContract.deploy("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f");
+    this.MarketFactory = await MarketFactoryContract.deploy(addressUniswapV2Factory);
 
     const TokenContract = await ethers.getContractFactory("Token");
     this.accountingToken = await TokenContract.connect(accounts[0]).deploy();
@@ -68,7 +61,7 @@ describe("Market contract", function () {
   it('Deploy a new market', async function() {
     let marketCount = await this.MarketFactory.getMarketsCount();
     console.log("Market count is: " + marketCount);
-    await this.MarketFactory.connect(accounts[0]).addMarket(this.accountingToken.address, addressSushiswapV2Pair, period*3600, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, true);
+    await this.MarketFactory.connect(accounts[0]).addMarket(this.accountingToken.address, addressUniswapV2Pair, period*3600, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, true);
     marketCount = await this.MarketFactory.getMarketsCount();
     console.log("Market count is: " + marketCount);
 
@@ -95,6 +88,8 @@ it('Approve lot purchase for 1st user', async function() {
 it('Buy lot', async function() {
     let b1 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[1].address));
     console.log(colors.green("Balance of user is: " + b1));
+
+    console.log("FrameKey: " + frameKey);
 
     await this.market.connect(accounts[1]).buyLot(frameKey, winningPairPrice, ethers.utils.parseEther('10'));
 
@@ -281,19 +276,13 @@ it('Get user lots', async function() {
     await this.accountingToken.connect(accounts[2]).approve(this.market.address, lotPrice);
     await this.market.connect(accounts[2]).buyLot(frameKey, priceRange, ethers.utils.parseEther('10'));
 
-    
-
-    let lot = await this.market.getLot(frameKey, lotKey);
-    console.log("Lot: " + lot);
-
     let blockNum = await ethers.provider.getBlockNumber();
     let blockInfo = await ethers.provider.getBlock(blockNum);
     let currentFrame = await this.market.clcFrameTimestamp(blockInfo.timestamp);
     
-    let lots = await this.marketGetter.getUserLots(this.market.address, accounts[2].address, 0, currentFrame, currentFrame+(period*10), 2, 5);
-    let nonEmptyLots = lots.filter(val => val.lotOwner == accounts[2].address);
+    let lots = await this.marketGetter.getLotsUser(this.market.address, accounts[2].address, 0, currentFrame, frameKey, 0, 2);
 
-    console.log(nonEmptyLots);
+    console.log(lots);
   });
 it('Update frame prices', async function() {
     let secToSKip = (period * 3600 * 2) + (3600*20);
@@ -382,7 +371,18 @@ it('Get frame average price', async function() {
     let frame = await this.market.frames(frameKey);
     console.log(colors.bgWhite("Average price is: " + frame.priceAverage));
 });
+it('Get lot owner', async function() {
+    let lotKey = await this.market.clcLotKey(winningPairPrice);
+    let lot = await this.market.lots(frameKey, lotKey);
+    console.log(colors.bgGreen("Owner of " + lot.lotKey + " lot is: " + lot.lotOwner));
+
+    let avgPrice = await this.marketGetter.clcPrice(this.market.address, frameKey);
+    let lotKey2 = await this.market.clcLotKey(avgPrice);
+    console.log(colors.bgGreen("Lot key from average price: " + lotKey2));
+
+});
 it('Call calculate price', async function() {
+    console.log("FrameKey: " + frameKey);
     let frame = await this.market.frames(frameKey);
     console.log(colors.bgWhite("Average price is: " + frame.priceAverage));
     let avgPrice = await this.marketGetter.clcPrice(this.market.address, frameKey);
@@ -392,20 +392,20 @@ it('Call calculate price', async function() {
 });
 it('Change avg price function', async function() {
     let frame = await this.market.frames(frameKey);
-    console.log(colors.red("Average before price is: " + frame.priceAverage));
+    console.log(colors.gray("Average before price is: " + frame.priceAverage));
     await this.market.UpdateAvgPrice(frameKey, 123456789);
     frame = await this.market.frames(frameKey);
-    console.log(colors.red("Average price after is: " + frame.priceAverage));
+    console.log(colors.white("Average price after is: " + frame.priceAverage));
 }); 
-it('Get frames ', async function() {
-    let blockNum = await ethers.provider.getBlockNumber();
-    let blockInfo = await ethers.provider.getBlock(blockNum);
-    let currentFrame = await this.market.clcFrameTimestamp(blockInfo.timestamp);
-    let frames = [];
-    await this.market.UpdateAvgPrice(frameKey, 123456789);
-    frames = await this.marketGetter. getFrames(this.market.address, frameKey,currentFrame, 1, 2);
-    console.log(colors.blue(frames));
-}); 
+// it('Get frames ', async function() {
+//     let blockNum = await ethers.provider.getBlockNumber();
+//     let blockInfo = await ethers.provider.getBlock(blockNum);
+//     let currentFrame = await this.market.clcFrameTimestamp(blockInfo.timestamp);
+//     let frames = [];
+//     await this.market.UpdateAvgPrice(frameKey, 123456789);
+//     frames = await this.marketGetter. getFrames(this.market.address, frameKey,currentFrame, 1, 2);
+//     console.log(colors.blue(frames));
+// }); 
   
 
 });

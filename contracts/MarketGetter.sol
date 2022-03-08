@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import "./MarketFactory.sol";
 import "./Market.sol";
-import "./MLibrary.sol";
+import "./MLib.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
@@ -104,18 +104,18 @@ contract MarketGetter {
     /// @return userLots Returns array of users lots (whole structs)
     /// @dev Array's size is 100 no mather how many lots this user actually has. 
     /// @dev So the results have to be filtered before use
-    function getLotsUser(Market market, address user,uint mode, uint timestamp_start,uint timestamp_end, uint page, uint perPage) external view returns (MLib.Lot[] memory userLots, uint pagesLeft){
+    function getLotsUser(Market market, address user,uint mode, uint frameKey_start,uint frameKey_end, uint page, uint perPage) external view returns (MLib.Lot[] memory userLots, uint pagesLeft){
         userLots = new MLib.Lot[](perPage+1);
         
         MLib.SFrame frameState;
         uint[] memory lotKeys;
         //0 - counter; 1 - arracCounter, 2 - period
-        uint[] memory uintVariables;
+        uint[] memory uintVariables = new uint[](3);
 
         uintVariables[2] = market.period();
 
         if (mode <= 1) {
-            for(uint frameKey = timestamp_start; frameKey <= timestamp_end; frameKey+=uintVariables[2]) {
+            for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
                 frameState = market.getFrameState(frameKey);
                 
 
@@ -128,11 +128,11 @@ contract MarketGetter {
                         
                         
                         if(userLots[perPage].lotOwner == user) {
-                            if(uintVariables[0] >= ((page-1)*perPage) && uintVariables[0] < page*perPage) {
+                            if(uintVariables[0] >= (page*perPage) && (uintVariables[0] < (page+1)*perPage) ) {
                                 userLots[uintVariables[1]]= userLots[perPage];
-                                uintVariables[1]++;
+                                uintVariables[1]= uintVariables[1] + 1;
                             }
-                            uintVariables[0] ++;
+                            uintVariables[0]= uintVariables[0] + 1;
                         } 
                     }
                 }
@@ -140,7 +140,7 @@ contract MarketGetter {
         }
 
         if(mode == 2 || mode == 0) {
-            for(uint frameKey = timestamp_start; frameKey <= timestamp_end; frameKey+=uintVariables[2]) {
+            for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
                 frameState = market.getFrameState(frameKey);
                 if (frameState == MLib.SFrame.CLOSED) {
                     //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
@@ -148,24 +148,53 @@ contract MarketGetter {
                     for (uint j=0; j < lotKeys.length; j++) {
                         userLots[perPage] = (getLotStruct(market, frameKey, lotKeys[j]));
                         if(userLots[perPage].lotOwner == user) {
-                            if(uintVariables[0] >= ((page-1)*perPage) && uintVariables[0] < page*perPage) {
+                            if(uintVariables[0] >= ((page)*perPage) && uintVariables[0] < (page+1)*perPage) {
                                 userLots[uintVariables[1]]= userLots[perPage];
-                                uintVariables[1]++;
+                                uintVariables[1]= uintVariables[1] + 1;
                             }
-                            uintVariables[0] ++;
+                            uintVariables[0]= uintVariables[0] + 1;
                         } 
                     }
                 }
             }
         }
 
-        if(uintVariables[0] > page*perPage) {
+        if(uintVariables[0] > (page+1)*perPage) {
             pagesLeft = ((uintVariables[0]/perPage) - page);
         }
         else pagesLeft=0;
 
         return(userLots, pagesLeft);
 
+    }
+
+
+    //TODO: use same methodology as in userLots
+    function getFrames(Market market, uint frameKey_start,uint frameKey_end, uint page, uint perPage) external view returns (MLib.Frame[] memory frames, uint pagesLeft) { 
+        frames = new MLib.Frame[](perPage);
+        MLib.Frame memory frame;
+        uint frameCount = 0;
+        
+        uint[] memory uintVariables = new uint[](3);
+        uintVariables[2] = market.period();
+
+            for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
+                frame = getFrameStruct(market, frameKey);
+                if (frame.state == MLib.SFrame.OPENED) {
+                    if(uintVariables[0] >= ((page)*perPage) && uintVariables[0] < (page+1)*perPage) {
+                        frames[frameCount] = frame;
+                        uintVariables[1]= uintVariables[1] + 1;
+                    }
+                    uintVariables[0]= uintVariables[0] + 1;
+                } 
+            }
+
+        if(uintVariables[0] > (page+1)*perPage) {
+            pagesLeft = ((uintVariables[0]/perPage) - page);
+        }
+        else pagesLeft=0;
+        
+        return(frames, pagesLeft);
     }
 
     /// @notice Calculate amount required to approve to buy a lot
@@ -219,30 +248,7 @@ contract MarketGetter {
     }
 
 
-    function getFrames(Market market, uint timestamp_start,uint timestamp_end, uint page, uint perPage) external view returns (MLib.Frame[] memory frames, uint pagesLeft) { 
-        frames = new MLib.Frame[](perPage);
-        uint counter = 0;
-        MLib.Frame memory frame;
-        uint period = market.period();
-        uint frameCount = 0;
 
-            for(uint i = timestamp_start; i <= timestamp_end; i=i+period) {
-                frame = getFrameStruct(market, i);
-                if (frame.state == MLib.SFrame.OPENED) {
-                    if (counter >= ((page-1)*perPage) && counter < page*perPage) {
-                        frames[frameCount] = frame;
-                        frameCount++;
-                    }
-                    counter++;
-                } 
-            }
-        if(counter > page*perPage) {
-            pagesLeft = ((counter/perPage) - page);
-        }
-        else pagesLeft=0;
-        
-        return(frames, pagesLeft);
-    }
 
 
 
