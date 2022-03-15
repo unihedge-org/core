@@ -426,8 +426,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\Market.sol": {
-      "lastModificationDate": 1646327935078,
-      "contentHash": "3169992e3bdcbcb11c3dcaccf892c419",
+      "lastModificationDate": 1647104421021,
+      "contentHash": "d19483614f2fb91f5b5c47d83082d950",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
         "version": "0.8.0",
@@ -575,8 +575,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\MarketGetter.sol": {
-      "lastModificationDate": 1646395073302,
-      "contentHash": "1e11686b51a1d479ca1d8bad4aee208e",
+      "lastModificationDate": 1647104430090,
+      "contentHash": "b0ee0620b4cb2722134f998c718a49eb",
       "sourceName": "contracts/MarketGetter.sol",
       "solcConfig": {
         "version": "0.8.0",

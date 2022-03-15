@@ -1,5 +1,6 @@
 //npx hardhat node --fork https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716
 //npx hardhat test ./test/test.js
+//npx hardhat node --fork https://polygon-mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716 --fork-block-number 25867882
 
 const { expect } = require("chai");
 const colors = require('colors');
@@ -28,10 +29,11 @@ const hoursToSkip = 27;
 const bet = new BigN('1000e18');
 const dPrice = 10000000000000;
 const tReporting = 3600;
-const winningPairPrice = ethers.BigNumber.from('2820000000000000000000000000');
+const winningPairPrice = ethers.BigNumber.from('2602000000000000000000000000');
 const minTax = 77677; 
 let frameKey; 
-let lotKey;            
+let lotKey;          
+let startframe;  
 //----------------------------------------------------------------------
 
 let timeStart = Date.now() / 1000 | 0;
@@ -74,12 +76,18 @@ describe("Market contract", function () {
 });
 it('Approve lot purchase for 1st user', async function() {
     frameKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+270000);
+    startframe = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0));
 
     let allowance1 = await this.accountingToken.allowance(accounts[1].address, this.market.address);
     console.log(colors.green("Allowance before is: " + allowance1.toString())); 
+
     const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApprove(this.market.address, frameKey, winningPairPrice, ethers.utils.parseEther('10')));
 
     console.info("Amount to approve is: " + lotPrice);
+
+
+
+
     await this.accountingToken.connect(accounts[1]).approve(this.market.address, lotPrice);
 
     let allowance2 = await this.accountingToken.allowance(accounts[1].address, this.market.address);
@@ -143,6 +151,8 @@ it('Buy lot frame now', async function() {
 
     //let buyTx = await this.market.connect(accounts[1]).buyLot(timestamp, winningPairPrice, ethers.utils.parseEther('10'));
     //console.log(buyTx);
+
+    
 
     await expect(this.market.connect(accounts[1]).buyLot(timestamp, winningPairPrice, ethers.utils.parseEther('10')))
       .to.emit(this.market, "LotUpdate");
@@ -265,7 +275,7 @@ it('Accounts buy non-winning lots', async function() {
         await this.market.connect(accounts[i]).buyLot(frameKey, priceRange, ethers.utils.parseEther('100'));
     }
 
-    let reward = ethers.utils.formatEther(await this.market.getRewardAmount(frameKey));
+    let reward = ethers.utils.formatEther(await this.marketGetter.getRewardAmount(this.market.address, frameKey));
     console.log(colors.bgYellow('Current reward fund is equal to: ' + reward + ' DAI'));
 });
 it('Get user lots', async function() { 
@@ -397,15 +407,30 @@ it('Change avg price function', async function() {
     frame = await this.market.frames(frameKey);
     console.log(colors.white("Average price after is: " + frame.priceAverage));
 }); 
-// it('Get frames ', async function() {
-//     let blockNum = await ethers.provider.getBlockNumber();
-//     let blockInfo = await ethers.provider.getBlock(blockNum);
-//     let currentFrame = await this.market.clcFrameTimestamp(blockInfo.timestamp);
-//     let frames = [];
-//     await this.market.UpdateAvgPrice(frameKey, 123456789);
-//     frames = await this.marketGetter. getFrames(this.market.address, frameKey,currentFrame, 1, 2);
-//     console.log(colors.blue(frames));
-// }); 
+it('Get frames ', async function() {
+    let blockNum = await ethers.provider.getBlockNumber();
+    let blockInfo = await ethers.provider.getBlock(blockNum);
+    let currentFrame = await this.market.clcFrameTimestamp(blockInfo.timestamp);
+    let frames = [];
+    frames = await this.marketGetter.getFrames(this.market.address, startframe,currentFrame, 0, 3);
+    console.log(frames);
+}); 
+it('Get frames User ', async function() {
+    let blockNum = await ethers.provider.getBlockNumber();
+    let blockInfo = await ethers.provider.getBlock(blockNum);
+    let currentFrame = await this.market.clcFrameTimestamp(blockInfo.timestamp);
+    let frames = [];
+    frames = await this.marketGetter.getFramesUser(this.market.address, accounts[2].address, startframe,currentFrame, 0, 2);
+    console.log(frames);
+}); 
+it('Get Lots ', async function() {
+    let blockNum = await ethers.provider.getBlockNumber();
+    let blockInfo = await ethers.provider.getBlock(blockNum);
+    let currentFrame = await this.market.clcFrameTimestamp(blockInfo.timestamp);
+    let lots = [];
+    lots = await this.marketGetter.getLots(this.market.address, startframe,currentFrame, 0, 5);
+    console.log(lots);
+}); 
   
 
 });

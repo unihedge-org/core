@@ -74,22 +74,19 @@ contract Market {
         _;
     }
 
-
-    //TODO: add Price1 or not?
     //Should it be private and another copy is used in marektGetter contract?....
     function hasValidPrices(uint frameKey) public view{
         //require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
-        if (frames[frameKey].oraclePrice0CumulativeStart <= 0 || frames[frameKey].oraclePrice0CumulativeEnd <= 0) {
+        if (frames[frameKey].oraclePrice0CumulativeStart <= 0 || frames[frameKey].oraclePrice0CumulativeEnd <= 0 || frames[frameKey].oraclePrice1CumulativeStart <= 0 || frames[frameKey].oraclePrice1CumulativeEnd <= 0) {
             //frames[framekey].state = SFrame.INVALID;
             revert("INVALID FRAME PRICE");
         }
-        if (frames[frameKey].oraclePrice0CumulativeStart == frames[frameKey].oraclePrice0CumulativeEnd) {
+        if (frames[frameKey].oraclePrice0CumulativeStart == frames[frameKey].oraclePrice0CumulativeEnd || frames[frameKey].oraclePrice1CumulativeStart == frames[frameKey].oraclePrice1CumulativeEnd) {
             //frames[framekey].state = SFrame.INVALID;
             revert("INVALID FRAME PRICE");
         }
     }
 
-    //TODO: it should watch time untill the endframe
     function minTaxCheck(uint frameKey, uint acqPrice) private view{
         uint tax = clcTax(frameKey, acqPrice);  //acqPrice * (taxMarket) / (100000);
         require(tax >= minTax, "PRICE IS TOO LOW");
@@ -119,21 +116,17 @@ contract Market {
         return (((frameKey - (block.timestamp)) / period));
     }
 
+    /// @notice Get Frame struct
+    /// @param frameKey MLib.Frame's timestamp
+    /// @return Frame struct
     function getFrame(uint frameKey) external view returns (MLib.Frame memory){
         return(frames[frameKey]);           
-    }
-
-    /// @notice Get frame's that the address has bought lots in
-    /// @param user User's address
-    /// @return frame keys
-    function getUserFrames(address user) external view returns(uint[] memory)  {
-        return userFrames[user];
     }
 
     /// @notice Get lot struct
     /// @param frameKey MLib.Frame's timestamp
     /// @param lotKey lot's key 
-    /// @return lot struct
+    /// @return Lot struct
     function getLot(uint frameKey, uint lotKey) external view returns (MLib.Lot memory){                 
         return lots[frameKey][lotKey];
     }
@@ -145,25 +138,24 @@ contract Market {
         return frames[frameKey].lotKeys;
     }
 
-    /// @notice Get frame's award amount (accumulation of different lot taxes)
-    /// @notice Remaining tax of a lot owner get's returned after a sale (change of ownership). So the award amount isn't for sure untill the frame get's closed.
-    /// @param frameKey MLib.Frame's timestamp
-    /// @return award amount
-    function getRewardAmount(uint frameKey) external view returns (uint) {                         
-        return frames[frameKey].rewardFund; 
-    }
-
     /// @notice Get number of frames
     /// @return number frames
     function getNumberOfFrameKeys() external view returns (uint){
         return framesKeys.length;
     }
 
+    /// @notice Get frames state
+    /// @dev function is needed for the market getter contract
+    /// @return State 
     function getFrameState(uint frameKey) external view returns (MLib.SFrame){
         return frames[frameKey].state; 
     }
 
-
+    /// @notice Manually update average price
+    /// @dev only for testing purpouses 
+    /// @dev will be removed in the finall version
+    /// @param frameKey Framkey timestamp
+    /// @param avgPrice New average price 
     function UpdateAvgPrice(uint frameKey, uint avgPrice) external {
         frames[frameKey].state = MLib.SFrame.OPENED;
         frames[frameKey].priceAverage = avgPrice; 
@@ -198,11 +190,12 @@ contract Market {
         return lotKey;
     }
 
+
+
+    //TODO: Update this funcion to use tax per second and then just multiply everything
     function clcTax(uint frameKey, uint acquisitionPrice) public view returns (uint tax) {             
-        uint dFrame = (clcFrameTimestamp(block.timestamp) + (period)) - (block.timestamp); 
-        uint dFrameP = scalar * dFrame / period;
-        tax = acquisitionPrice * taxMarket / 100000;
-        tax = (tax*(clcFramesLeft(frameKey)) + (tax * dFrameP / scalar));
+        uint taxPerSecond = (scalar * acquisitionPrice * taxMarket / 100000) / period;
+        tax = (((frameKey+period) - block.timestamp) * taxPerSecond) / scalar;
         return tax;
     }
 
@@ -364,11 +357,11 @@ contract Market {
         settleLot(frameKey);
     }
 
-    /// @notice Withdraw any amount out of the contract. Only to be used in extreme cases!
-    /// @param amount Amount you want to withdraw
-    function emptyFunds(uint amount) external isFactoryOwner {  
-        accountingToken.transfer(factory.owner(), amount);
-    }
+    // /// @notice Withdraw any amount out of the contract. Only to be used in extreme cases!
+    // /// @param amount Amount you want to withdraw
+    // function emptyFunds(uint amount) external isFactoryOwner {  
+    //     accountingToken.transfer(factory.owner(), amount);
+    // }
 
 
 }
