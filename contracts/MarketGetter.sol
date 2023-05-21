@@ -97,7 +97,7 @@ contract MarketGetter {
     function getLots(Market market, uint frameKey_start,uint frameKey_end, uint page, uint perPage) external view returns (MLib.Lot[] memory lots, uint pagesLeft){
         lots = new MLib.Lot[](perPage);
         uint[] memory lotKeys;
-        //0 - counter; 1 - arracCounter, 2 - period
+        //0 - counter; 1 - arrayCounter, 2 - period
         uint[] memory uintVariables = new uint[](3);
 
         uintVariables[2] = market.period();

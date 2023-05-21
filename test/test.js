@@ -29,7 +29,7 @@ const hoursToSkip = 27;
 const bet = new BigN('1000e18');
 const dPrice = 10000000000000;
 const tReporting = 3600;
-const winningPairPrice = ethers.BigNumber.from('2602000000000000000000000000');
+const winningPairPrice = ethers.BigNumber.from('1819000000000000000000000000');
 const minTax = 77677; 
 let frameKey; 
 let lotKey;          
@@ -105,6 +105,9 @@ it('Buy lot', async function() {
     let b2 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[1].address));
     console.log(colors.green("Balance of user is: " + b2));
 });
+it("Shuoldn't be able to add referral twice", async function() {
+    await expect(this.market.connect(accounts[1]).addReferral(accounts[1].address, accounts[2].address, "test")).to.be.revertedWith("YOU ALREADY BOUGHT A LOT");
+});
 it('Approve lot purchase for 1st user frame now', async function() {
     frameKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+270000);
 
@@ -112,7 +115,7 @@ it('Approve lot purchase for 1st user frame now', async function() {
     let blockInfo1 = await ethers.provider.getBlock(blockNum1);
     let bTime = new Date(blockInfo1.timestamp*1000);
 
-    console.log(colors.bgWhite("Block time is: " + bTime))
+    console.log(("Block time is: " + bTime))
 
     let timestamp = (Date.now() / 1000 | 0);
     console.log("Time of lot purchase: " + timestamp);
@@ -233,12 +236,12 @@ it('Second account buys the same lot 1d later', async function() {
     console.log(colors.green("Allowance after is: " + allowance2));
 
     let b1 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[2].address));
-    console.log(colors.green("Balance of user is: " + b1));
+    console.log(colors.green("Balance of user "+ accounts[2].address.toString()  +" is: " + b1));
 
     await this.market.connect(accounts[2]).buyLot(frameKey, winningPairPrice, ethers.utils.parseEther('15'));
 
     let b2 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[2].address));
-    console.log(colors.green("Balance of user is: " + b2));
+    console.log(colors.green("Balance of user "+ accounts[2].address.toString()  +"  is: " + b2));
 
     let frame = await this.market.frames(frameKey);
     let reward = ethers.utils.formatEther(frame.rewardFund);
@@ -296,12 +299,12 @@ it('Get user lots', async function() {
     console.log(lots);
   });
 it('Update frame prices', async function() {
-    let secToSKip = (period * 3600 * 2) + (3600*20);
+    let secToSKip = (period * 3600 * 2) + (3600*30);
     await ethers.provider.send("evm_increaseTime", [secToSKip]);
     await ethers.provider.send("evm_mine");
 
     // let tts= hoursToSkip *2;
-    let tts= 10;
+    let tts= 40;
 
     for(let i=0;i<tts;i++){
       let blockNum1 = await ethers.provider.getBlockNumber();
@@ -318,7 +321,7 @@ it('Update frame prices', async function() {
       newFrameKey = await this.market.clcFrameTimestamp(blockInfo2.timestamp);
       console.log(colors.cyan("Current Frame is: " + newFrameKey));
 
-      let startPirceAccu = ethers.BigNumber.from("351376658422403395211142728202634126243");
+      let startPirceAccu = ethers.BigNumber.from("837782365421146770830558985076761598488902103");
       let priceAccu = startPirceAccu.add(ethers.BigNumber.from("10000000")).mul(i+1);
 
       //MANUAL
@@ -351,6 +354,9 @@ it('get frame reward amount and info', async function() {
     let frame = await this.marketGetter.getFrameStruct(this.market.address, frameKey);
     console.log(frame);
 
+    console.log("Accumulative price start:" + ethers.BigNumber.from(frame.oraclePrice0CumulativeStart).toString());
+    console.log("Accumulative price end:" + ethers.BigNumber.from(frame.oraclePrice0CumulativeEnd).toString());
+
     let noOfLots = await this.marketGetter.getLotsCount(this.market.address, frameKey);
     console.log("Number of lots: " + noOfLots);
 
@@ -382,7 +388,7 @@ it('Winner claims reward', async function() {
 
     //console.log("Time it took to run all test:" + (timeEnd - timeStart));
 
-    console.log(colors.bgWhite("Average price is: " + frame.priceAverage));
+    console.log(("Average price is: " + frame.priceAverage));
     //assert.equal(frame.state, 2);
     
     assert.equal(frame.rewardFund.toString(), userBDiff.toString());
@@ -394,9 +400,9 @@ it('Winner claims reward', async function() {
 // });
 it('Get frame average price', async function() {
     let frame = await this.market.frames(frameKey);
-    console.log(colors.bgWhite("Average price is: " + frame.priceAverage));
+    console.log(("Average price is: " + frame.priceAverage));
 });
-it('Get lot owner', async function() {
+it('Get lot owner of the winning lot', async function() {
     let lotKey = await this.market.clcLotKey(winningPairPrice);
     let lot = await this.market.lots(frameKey, lotKey);
     console.log(colors.bgGreen("Owner of " + lot.lotKey + " lot is: " + lot.lotOwner));
@@ -409,7 +415,7 @@ it('Get lot owner', async function() {
 it('Call calculate price', async function() {
     console.log("FrameKey: " + frameKey);
     let frame = await this.market.frames(frameKey);
-    console.log(colors.bgWhite("Average price is: " + frame.priceAverage));
+    console.log(colors.bgBlack("Average price is: " + frame.priceAverage));
     let avgPrice = await this.marketGetter.clcPrice(this.market.address, frameKey);
     console.log(avgPrice.toString());
 
@@ -445,6 +451,7 @@ it('Get Lots ', async function() {
     let lots = [];
     lots = await this.marketGetter.getLots(this.market.address, startframe,currentFrame, 0, 5);
     console.log(lots);
+    //Correctly print bigNumbers
 }); 
   
 

@@ -9,6 +9,8 @@ import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UQ112x112.sol";
+//Comment this out before deployment
+import "hardhat/console.sol";
 
 
 /// @title TWPM Market
@@ -50,7 +52,7 @@ contract Market {
     mapping(address => uint[]) public userFrames;
     
     //Mapping the Refferal struct to uint
-    mapping(uint => MLib.Referal) public referals;
+    mapping(address => MLib.Referal) public referals;
     //Mapping to check if the address has bought a lot
     mapping(address => bool) public hasBoughtLot;
 
@@ -163,15 +165,16 @@ contract Market {
     }
 
     /// @notice Add referal
-    /// @dev some info: https://solidity-by-example.org/hashing/
     /// @param ownerPublicKey Owner's public key
     /// @param referralPublicKey Referral's public key
     /// @param message Message
     function addReferral(address ownerPublicKey, address referralPublicKey, string memory message) external hasNotBoughtLot {
-        uint referalKey = uint(keccak256(abi.encodePacked(ownerPublicKey, referralPublicKey, message)));
-        referals[referalKey].ownerPublicKey = ownerPublicKey;
-        referals[referalKey].referralPublicKey = referralPublicKey;
-        referals[referalKey].message = message;
+        //some info on hashing: https://solidity-by-example.org/hashing/
+        // uint referalKey = uint(keccak256(abi.encodePacked(ownerPublicKey, referralPublicKey, message)));
+        referals[ownerPublicKey].ownerPublicKey = ownerPublicKey;
+        referals[ownerPublicKey].referralPublicKey = referralPublicKey;
+        referals[ownerPublicKey].message = message;
+        hasBoughtLot[msg.sender] = true;
     }
 
     /// @notice Manually update average price
@@ -231,6 +234,7 @@ contract Market {
         uint frameKey =  getOrCreateFrame(timestamp);        
         minTaxCheck(frameKey, acqPrice);                  
         uint lotKey = getOrCreateLot(frameKey, pairPrice);
+        // console.log("Buy lot: ", lotKey, " frameKey: ", frameKey);
         require(frameKey >= clcFrameTimestamp(block.timestamp), "LOT IN PAST");
         require(msg.sender != lots[frameKey][lotKey].lotOwner, "ALREADY OWNER");
 
@@ -361,7 +365,10 @@ contract Market {
         require(frames[frameKey].state == MLib.SFrame.CLOSED, "FRAME NOT CLOSED");    
         //Calcualte the winning lot key
         //uint avgPrice = FixedPoint.decode(frames[frameKey].priceAverage); 
+        // console.log("Average price: ", frames[frameKey].priceAverage);
         uint lotKeyWin = (clcLotKey(frames[frameKey].priceAverage));
+        // console.log("Frame : ", frameKey);
+        // console.log("lotKeyWin Owner: ", lots[frameKey][lotKeyWin].lotOwner);
         //Check if the lot is already settled
         require(lots[frameKey][lotKeyWin].state != MLib.SLot.SETTLED, "LOT ALREADY SETTLED");
         //Transfer winnings to last owner
@@ -380,11 +387,11 @@ contract Market {
         settleLot(frameKey);
     }
 
-    // /// @notice Withdraw any amount out of the contract. Only to be used in extreme cases!
-    // /// @param amount Amount you want to withdraw
-    // function emptyFunds(uint amount) external isFactoryOwner {  
-    //     accountingToken.transfer(factory.owner(), amount);
-    // }
+    /// @notice Withdraw any amount out of the contract. Only to be used in extreme cases!
+    /// @param amount Amount you want to withdraw
+    function emptyFunds(uint amount) external isFactoryOwner {  
+        accountingToken.transfer(factory.owner(), amount);
+    }
 
 
 }
