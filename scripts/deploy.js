@@ -44,7 +44,7 @@ async function main() {
   // We get the contract to deploy
   const MarkerFactory = await hre.ethers.getContractFactory("MarketFactory", );
   const factory = await MarkerFactory.deploy(addressUniswapFactory,{
-    gasPrice: 50000000000,
+    gasPrice: 500000000000,
     gasLimit: 12450000
 });
   await factory.deployed();

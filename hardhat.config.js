@@ -4,7 +4,7 @@ require("@atixlabs/hardhat-time-n-mine");
 //require("hardhat-gas-reporter");
 
 const fs = require('fs');
-const Rinkeby_PRIVATE_KEY = fs.readFileSync(".secret").toString().trim();
+const PRIVATE_KEY = fs.readFileSync(".secret").toString().trim();
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -25,17 +25,24 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 module.exports = { 
   solidity: "0.8.4",
   networks: {
-    rinkeby: {
-      url: 'https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
-      accounts: [`0x${Rinkeby_PRIVATE_KEY}`],
+    goerly: {
+      url: 'https://mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
+      accounts: [`0x${PRIVATE_KEY}`],
       gas: 12450000,
       gasPrice: 50000000000
     },
     BSCTestnet: {
       url: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
-      accounts: [`0x${Rinkeby_PRIVATE_KEY}`],
+      accounts: [`0x${PRIVATE_KEY}`],
       gas: 12450000,
       gasPrice: 50000000000
+    },
+    forking: {
+      // Using Alchemy
+      url: `https://polygon-mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716`, // url to RPC node, ${ALCHEMY_KEY} - must be your API key
+      // Using Infura
+      // url: `https://mainnet.infura.io/v3/${INFURA_KEY}`, // ${INFURA_KEY} - must be your API key
+      blockNumber: 25867882, // a specific block number with which you want to work
     },
   },
   etherscan: {

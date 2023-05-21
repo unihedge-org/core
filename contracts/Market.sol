@@ -48,6 +48,11 @@ contract Market {
     mapping(uint => mapping(uint => MLib.Lot)) public lots;
     mapping(uint => MLib.Frame) public frames;
     mapping(address => uint[]) public userFrames;
+    
+    //Mapping the Refferal struct to uint
+    mapping(uint => MLib.Referal) public referals;
+    //Mapping to check if the address has bought a lot
+    mapping(address => bool) public hasBoughtLot;
 
     uint[] public framesKeys;
 
@@ -71,6 +76,12 @@ contract Market {
 
     modifier isFactoryOwner() {
         require(msg.sender == factory.owner(), "NOT THE FACTORY OWNER");
+        _;
+    }
+
+    // Modifier to check if the address has not bought a lot
+    modifier hasNotBoughtLot() {
+        require(!hasBoughtLot[msg.sender], "YOU ALREADY BOUGHT A LOT.");
         _;
     }
 
@@ -149,6 +160,18 @@ contract Market {
     /// @return State 
     function getFrameState(uint frameKey) external view returns (MLib.SFrame){
         return frames[frameKey].state; 
+    }
+
+    /// @notice Add referal
+    /// @dev some info: https://solidity-by-example.org/hashing/
+    /// @param ownerPublicKey Owner's public key
+    /// @param referralPublicKey Referral's public key
+    /// @param message Message
+    function addReferral(address ownerPublicKey, address referralPublicKey, string memory message) external hasNotBoughtLot {
+        uint referalKey = uint(keccak256(abi.encodePacked(ownerPublicKey, referralPublicKey, message)));
+        referals[referalKey].ownerPublicKey = ownerPublicKey;
+        referals[referalKey].referralPublicKey = referralPublicKey;
+        referals[referalKey].message = message;
     }
 
     /// @notice Manually update average price

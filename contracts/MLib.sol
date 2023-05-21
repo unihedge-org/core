@@ -26,5 +26,11 @@ library MLib {
         uint acquisitionPrice;
         SLot state;
     }
+
+    struct Referal {
+        address ownerPublicKey;
+        address referralPublicKey;
+        string message;
+    }
     
 }

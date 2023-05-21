@@ -24,7 +24,7 @@ contract MarketGetter {
     /// @return Frame Frame struct
     function getFrameStruct(Market market, uint frameKey) public view returns (MLib.Frame memory){
         MLib.Frame memory frame;
-        uint tmp;
+        // uint tmp;
         (frame.frameKey,frame.oracleTimestampStart,frame.oracleTimestampEnd,,,,,,,) = market.frames(frameKey);
         (,,,frame.rewardFund,frame.priceAverage, frame.oraclePrice0CumulativeStart, frame.oraclePrice0CumulativeEnd,,,) = market.frames(frameKey);
         (,,,,,,, frame.oraclePrice1CumulativeStart, frame.oraclePrice1CumulativeEnd, frame.state) = market.frames(frameKey);

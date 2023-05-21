@@ -1,6 +1,6 @@
 //npx hardhat node --fork https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716
-//npx hardhat test ./test/test.js
-//npx hardhat node --fork https://polygon-mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716 --fork-block-number 25867882
+//npx hardhat test ./test/test.js --network localhost (be careful, did not work on node 19, had to downgrade to version 14)
+//npx hardhat node --fork https://polygon-mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716 --fork-block-number 42942130
 
 const { expect } = require("chai");
 const colors = require('colors');
@@ -44,7 +44,7 @@ describe("Market contract", function () {
   before(async function() {
     accounts = await ethers.getSigners();
     //console.log(accounts[5].address);
-
+    console.log("Deploying contracts...")
     const MarketFactoryContract = await ethers.getContractFactory("MarketFactory");
     this.MarketFactory = await MarketFactoryContract.deploy(addressUniswapV2Factory);
 
@@ -85,13 +85,14 @@ it('Approve lot purchase for 1st user', async function() {
 
     console.info("Amount to approve is: " + lotPrice);
 
-
-
-
     await this.accountingToken.connect(accounts[1]).approve(this.market.address, lotPrice);
 
     let allowance2 = await this.accountingToken.allowance(accounts[1].address, this.market.address);
     console.log(colors.green("Allowance after is: " + allowance2));
+});
+it('Call addRefferal function to add the referal info of the user', async function() {
+    //Call addRefferal function and add into the function accounts[1].address as the user address, accounts[2].address as the referal address, and "test" as the referal code
+    await this.market.connect(accounts[1]).addReferral(accounts[1].address, accounts[2].address, "test");
 });
 it('Buy lot', async function() {
     let b1 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[1].address));
@@ -300,7 +301,7 @@ it('Update frame prices', async function() {
     await ethers.provider.send("evm_mine");
 
     // let tts= hoursToSkip *2;
-    let tts= 5;
+    let tts= 10;
 
     for(let i=0;i<tts;i++){
       let blockNum1 = await ethers.provider.getBlockNumber();
@@ -343,6 +344,20 @@ it('Update frame prices', async function() {
 //     console.log(colors.bgWhite("Average price is: " + frame.priceAverage));
 //     assert.equal(frame.state, 2);
 // });
+it('get frame reward amount and info', async function() {
+    let reward = await this.marketGetter.getRewardAmount(this.market.address, frameKey);
+    console.log("Reward: " + reward);
+
+    let frame = await this.marketGetter.getFrameStruct(this.market.address, frameKey);
+    console.log(frame);
+
+    let noOfLots = await this.marketGetter.getLotsCount(this.market.address, frameKey);
+    console.log("Number of lots: " + noOfLots);
+
+    let framePairPrice = await this.marketGetter.clcPrice(this.market.address, frameKey);
+    console.log("Frame pair price: " + framePairPrice);
+});
+
 it('Winner claims reward', async function() {
     let ub1 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[2].address));
     let mb1 = ethers.BigNumber.from(await this.accountingToken.balanceOf(this.market.address));
