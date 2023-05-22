@@ -63,7 +63,7 @@ contract Market {
 
     constructor(MarketFactory _factory, IERC20 _token, IUniswapV2Pair _uniswapPair, uint _period, uint _initTimestamp, uint _taxMarket, uint _feeMarket, uint _dPrice, uint _tReporting, uint _minTax, bool _avgPriceSwitch) {
         accountingToken = _token;
-        ownerMarket = payable(msg.sender);
+        ownerMarket = tx.origin;
         period = _period;
         initTimestamp = _initTimestamp; 
         taxMarket = _taxMarket;
@@ -179,7 +179,7 @@ contract Market {
 
     /// @notice Manually update average price
     /// @dev only for testing purpouses 
-    /// @dev will be removed in the finall version
+    /// @dev will be removed in the final version
     /// @param frameKey Framkey timestamp
     /// @param avgPrice New average price 
     function UpdateAvgPrice(uint frameKey, uint avgPrice) external {

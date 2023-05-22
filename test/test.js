@@ -299,12 +299,12 @@ it('Get user lots', async function() {
     console.log(lots);
   });
 it('Update frame prices', async function() {
-    let secToSKip = (period * 3600 * 2) + (3600*30);
+    let secToSKip = (period * 3600 * 2) + (3600*50);
     await ethers.provider.send("evm_increaseTime", [secToSKip]);
     await ethers.provider.send("evm_mine");
 
     // let tts= hoursToSkip *2;
-    let tts= 40;
+    let tts= 50;
 
     for(let i=0;i<tts;i++){
       let blockNum1 = await ethers.provider.getBlockNumber();
