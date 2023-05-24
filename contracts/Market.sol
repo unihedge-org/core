@@ -6,6 +6,7 @@ import "./MarketFactory.sol";
 import "./MLib.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
+// import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol"
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UQ112x112.sol";
@@ -165,16 +166,15 @@ contract Market {
     }
 
     /// @notice Add referal
-    /// @param ownerPublicKey Owner's public key
     /// @param referralPublicKey Referral's public key
     /// @param message Message
-    function addReferral(address ownerPublicKey, address referralPublicKey, string memory message) external hasNotBoughtLot {
+    function addReferral(address referralPublicKey, string memory message) external hasNotBoughtLot {
         //some info on hashing: https://solidity-by-example.org/hashing/
         // uint referalKey = uint(keccak256(abi.encodePacked(ownerPublicKey, referralPublicKey, message)));
-        referals[ownerPublicKey].ownerPublicKey = ownerPublicKey;
-        referals[ownerPublicKey].referralPublicKey = referralPublicKey;
-        referals[ownerPublicKey].message = message;
-        hasBoughtLot[msg.sender] = true;
+        referals[msg.sender].ownerPublicKey = msg.sender;
+        referals[msg.sender].referralPublicKey = referralPublicKey;
+        referals[msg.sender].message = message;
+        
     }
 
     /// @notice Manually update average price
@@ -261,6 +261,8 @@ contract Market {
         lots[frameKey][lotKey].lotOwner = msg.sender;
         lots[frameKey][lotKey].acquisitionPrice = acqPrice;
         userFrames[msg.sender].push(frameKey);
+
+        hasBoughtLot[msg.sender] = true;
 
         updateFramePrices();
 

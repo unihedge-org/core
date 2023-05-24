@@ -29,7 +29,7 @@ const hoursToSkip = 27;
 const bet = new BigN('1000e18');
 const dPrice = 10000000000000;
 const tReporting = 3600;
-const winningPairPrice = ethers.BigNumber.from('1819000000000000000000000000');
+const winningPairPrice = ethers.BigNumber.from('1820000000000000000000000000');
 const minTax = 77677; 
 let frameKey; 
 let lotKey;          
@@ -74,7 +74,7 @@ describe("Market contract", function () {
 
     expect(marketCount).to.equal(1);
 });
-it('Approve lot purchase for 1st user', async function() {
+it('Approve lot purchase for 1st user', async function() { 
     frameKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+270000);
     startframe = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0));
 
@@ -92,7 +92,7 @@ it('Approve lot purchase for 1st user', async function() {
 });
 it('Call addRefferal function to add the referal info of the user', async function() {
     //Call addRefferal function and add into the function accounts[1].address as the user address, accounts[2].address as the referal address, and "test" as the referal code
-    await this.market.connect(accounts[1]).addReferral(accounts[1].address, accounts[2].address, "test");
+    await this.market.connect(accounts[1]).addReferral(accounts[2].address, "test");
 });
 it('Buy lot', async function() {
     let b1 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[1].address));
@@ -105,8 +105,8 @@ it('Buy lot', async function() {
     let b2 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[1].address));
     console.log(colors.green("Balance of user is: " + b2));
 });
-it("Shuoldn't be able to add referral twice", async function() {
-    await expect(this.market.connect(accounts[1]).addReferral(accounts[1].address, accounts[2].address, "test")).to.be.revertedWith("YOU ALREADY BOUGHT A LOT");
+it("Shouldn't be able to add referral twice", async function() {
+    await expect(this.market.connect(accounts[1]).addReferral(accounts[2].address, "test")).to.be.revertedWith("YOU ALREADY BOUGHT A LOT");
 });
 it('Approve lot purchase for 1st user frame now', async function() {
     frameKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+270000);
@@ -299,7 +299,7 @@ it('Get user lots', async function() {
     console.log(lots);
   });
 it('Update frame prices', async function() {
-    let secToSKip = (period * 3600 * 2) + (3600*50);
+    let secToSKip = (period * 3600 * 2) + (3600*20);
     await ethers.provider.send("evm_increaseTime", [secToSKip]);
     await ethers.provider.send("evm_mine");
 

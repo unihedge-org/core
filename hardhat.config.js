@@ -25,7 +25,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 module.exports = { 
   solidity: "0.8.4",
   networks: {
-    goerly: {
+    goerli: {
       url: 'https://mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
       accounts: [`0x${PRIVATE_KEY}`],
       gas: 12450000,
