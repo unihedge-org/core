@@ -10,13 +10,10 @@ const hre = require("hardhat");
 
 //----------------------------------------------------------------------------------------------
 let addressUniswapFactory = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
-let addressUniswapV2Pair = "0x03E6c12eF405AC3F642B9184eDed8E1322de1a9e";
-let addressDAIToken = "0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa";
-let tokenAddress = "0x218ff5C741891eF52D7B3C3a43C59E07d3C79Ddc";
+let addressUniswapV2Pair = "0x5dD9dec52a16d4d1Df10a66ac71d4731c9Dad984"; //WETH/DAI
+let addressDAIToken = "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844";
+let addressWETHoken = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6";
 
-let uniswapFactoryBSCT = "0x6725F303b657a9451d8BA641348b6761A6CC7a17";
-let daiBSCT = "0x8a9424745056Eb399FD19a0EC26A14316684e274";
-let uniswapV2PairBSCT = "0xf7609B69377dF3D91f77126A429f4DE523466240"; //DAI/ETH
 //----------------------------------------------------------------------------------------------
 
 
@@ -39,25 +36,22 @@ async function main() {
   //
   // If this script is run directly using `node` you may want to call compile
   // manually to make sure everything is compiled
-  // await hre.run('compile');
+  await hre.run('compile');
 
-  // We get the contract to deploy
+  //Print the account address
+  const accounts = await hre.ethers.getSigners();
+  console.log("Account address:", accounts[0].address);
+
+  // // We get the contract to deploy
   const MarkerFactory = await hre.ethers.getContractFactory("MarketFactory", );
-  const factory = await MarkerFactory.deploy(addressUniswapFactory,{
-    gasPrice: 500000000000,
-    gasLimit: 12450000
-});
-  await factory.deployed();
+  // const factory = await MarkerFactory.deploy(addressUniswapFactory,{});
+  // await factory.deployed();
 
-  console.log("Factory deployed to:", factory.address); 
-
-  // const DaiFactory = await hre.ethers.getContractFactory("Dai");
-  // const dai = await DaiFactory.deploy(97);
-  // await dai.deployed();
+  // console.log("Factory deployed to:", factory.address); 
 
   // console.log("Dai deployed to:", dai.address); 
 
-  //const factory = await MarkerFactory.attach('0xb9a0CE2186BE67a99C5337Cc96CfC0510978CBfe');
+  const factory = await MarkerFactory.attach('0xdbe926f96e2250d7C4901f118225566Dc654B969');
 
    const Market = await hre.ethers.getContractFactory("Market");
    const market = await factory.addMarket(addressDAIToken, addressUniswapV2Pair, period, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, priceSwitch);
@@ -68,12 +62,12 @@ async function main() {
   const marketAddress = await factory.marketsKeys(await factory.getMarketsCount() - 1);
   console.log("Market address:", marketAddress)
 
-  //Deploy market getter contract
-  const MarketGetter = await hre.ethers.getContractFactory("MarketGetter");
-  const marketGetter = await MarketGetter.deploy();
-  await marketGetter.deployed();
-  //Console log address
-  console.log("MarketGetter deployed to:", marketGetter.address);
+  // //Deploy market getter contract
+  // const MarketGetter = await hre.ethers.getContractFactory("MarketGetter");
+  // const marketGetter = await MarketGetter.deploy();
+  // await marketGetter.deployed();
+  // //Console log address
+  // console.log("MarketGetter deployed to:", marketGetter.address);
 
   }
 

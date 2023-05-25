@@ -26,7 +26,7 @@ module.exports = {
   solidity: "0.8.4",
   networks: {
     goerli: {
-      url: 'https://mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
+      url: 'https://goerli.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
       accounts: [`0x${PRIVATE_KEY}`],
       gas: 12450000,
       gasPrice: 50000000000
