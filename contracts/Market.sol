@@ -168,13 +168,12 @@ contract Market {
     /// @notice Add referal
     /// @param referralPublicKey Referral's public key
     /// @param message Message
-    function addReferral(address referralPublicKey, string memory message) external hasNotBoughtLot {
+    function addReferral(address referralPublicKey, string memory message) internal {
         //some info on hashing: https://solidity-by-example.org/hashing/
         // uint referalKey = uint(keccak256(abi.encodePacked(ownerPublicKey, referralPublicKey, message)));
         referals[msg.sender].ownerPublicKey = msg.sender;
         referals[msg.sender].referralPublicKey = referralPublicKey;
         referals[msg.sender].message = message;
-        
     }
 
     /// @notice Manually update average price
@@ -229,7 +228,11 @@ contract Market {
     /// @param timestamp MLib.Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct lot key) 
     /// @param acqPrice New sell price is required to calculate tax
-    function buyLot(uint timestamp, uint pairPrice, uint acqPrice) external {
+    function buyLot(uint timestamp, uint pairPrice, uint acqPrice, address referralPublicKey, string memory message) external {
+        //Add referal
+        if(referralPublicKey != address(0) && hasBoughtLot[msg.sender] == false){
+            addReferral(referralPublicKey, message);
+        }
         //Get frameKey and lotKey values
         uint frameKey =  getOrCreateFrame(timestamp);        
         minTaxCheck(frameKey, acqPrice);                  
