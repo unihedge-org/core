@@ -34,7 +34,6 @@ module.exports = {
     polygon: {
       url: 'https://polygon-mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
       accounts: [`0x${PRIVATE_KEY}`],
-      gasPrice: 400000000000
     },
     BSCTestnet: {
       url: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
