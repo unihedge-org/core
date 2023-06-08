@@ -21,38 +21,61 @@ async function main() {
   //
   // If this script is run directly using `node` you may want to call compile
   // manually to make sure everything is compiled
-  await hre.run('compile');
+  // await hre.run('compile');
 
   //Print the account address
   const accounts = await hre.ethers.getSigners();
   console.log("Account address:", accounts[0].address);
 
-  // // We get the contract to deploy
+  // We get the contract to deploy
   const MarkerFactory = await hre.ethers.getContractFactory("MarketFactory", );
-  const factory = await MarkerFactory.deploy(addressUniswapV2Factory,{});
-  await factory.deployed();
+  // Deploy factory, specify gas:
+  // const factory = await MarkerFactory.deploy(addressUniswapV2Factory, {
+  //   gasPrice: 300000000000
+  // });
+  // await factory.deployed();
 
-  console.log("Factory deployed to:", factory.address); 
 
-  // console.log("Dai deployed to:", dai.address); 
+  // console.log("Factory deployed to:", factory.address); 
 
-  // const factory = await MarkerFactory.attach('0xdbe926f96e2250d7C4901f118225566Dc654B969');
+  // // // console.log("Dai deployed to:", dai.address); 
 
-   const Market = await hre.ethers.getContractFactory("Market");
-   const market = await factory.addMarket(addressTokenDAI, addressUniswapV2Pair, period, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, priceSwitch);
-   await market.wait();
-  //console.log(market);
+  // const factory = await MarkerFactory.attach('0xE660B1173aaD602EDfdEf28d57Fe4Fb8478fAeeD');
 
-  //Get markets address
-  const marketAddress = await factory.marketsKeys(await factory.getMarketsCount() - 1);
-  console.log("Market address:", marketAddress)
+  //  const Market = await hre.ethers.getContractFactory("Market");
+  //  const market = await factory.addMarket(addressTokenDAI, addressUniswapV2Pair, period, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, avgPriceSwitch, {
+  //   gasPrice: 300000000000
+  //  });
+  //  await market.wait();
+  // //console.log(market);
 
-  // //Deploy market getter contract
-  // const MarketGetter = await hre.ethers.getContractFactory("MarketGetter");
-  // const marketGetter = await MarketGetter.deploy();
-  // await marketGetter.deployed();
-  // //Console log address
-  // console.log("MarketGetter deployed to:", marketGetter.address);
+  // //Get markets address
+  // const marketAddress = await factory.marketsKeys(await factory.getMarketsCount() - 1);
+  // console.log("Market address:", marketAddress)
+
+  //Deploy market getter contract
+  const MarketGetter = await hre.ethers.getContractFactory("MarketGetter");
+  const marketGetter = await MarketGetter.deploy({
+    gasPrice: 300000000000
+  });
+  await marketGetter.deployed();
+  //Console log address
+  console.log("MarketGetter deployed to:", marketGetter.address);
+
+  // Send 0 MATIC (ETH) to address 0x7d8fc3ccf41B0A9071994a8590e17009fe7BCe63
+  // console.log("Sending 0 MATIC to address 0x7d8fc3ccf41B0A9071994a8590e17009fe7BCe63")
+  // const providerAccount = accounts[0];
+  // const recipientAddress = "0x7d8fc3ccf41B0A9071994a8590e17009fe7BCe63";
+  // const zeroMATIC = ethers.utils.parseEther("0");
+  // const nonce = await providerAccount.getTransactionCount();
+  // const tx = await providerAccount.sendTransaction({
+  //   to: recipientAddress,
+  //   value: zeroMATIC,
+  //   gasPrice: 300000000000,
+  //   nonce: nonce,
+  // });
+  // await tx.wait();
+
 
   }
 

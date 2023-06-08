@@ -21,27 +21,15 @@ Node | v14.17.2
                 * mapping(address => MLib.Referal) public referals;
         * This function can only be called if user hasn't bought any lots
 
-* Deployed contracts on Goerli testnetwork
+* Deployed contracts on Polygon mainnet:
 
-    * Market Factory address (25. 5. 23): 0xdbe926f96e2250d7C4901f118225566Dc654B969
-    * Market Getter address (25. 5. 23): 0x10326A39caD42D314B583929A4b3A1A3366CDA4A
-    * Market address (25. 5. 23): 0x7fD0bAE1518b966f7dBAB634D8C868Fe809Ab3BF
-        * Accounting Token - DAI: 0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844
-        * Pair: 0x5dD9dec52a16d4d1Df10a66ac71d4731c9Dad984
-        * WETH: 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6
-        * DAI: 0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844
-        
-
-
-
-#### TODO:
-* Switch to Uniswap V3 contracts. 
-
-
-
-
-
-
+    * Market Factory address (08. 06. 23): 0xE660B1173aaD602EDfdEf28d57Fe4Fb8478fAeeD
+    * Market Getter address (08. 06. 23): 0x6eBc9E85179737C69dA2Be5007eaf84124af71BC
+    * Market address (08. 06. 23): 0x332D5863a16E92039e1Eef7D04883CdF5d23846e
+        * Accounting Token - DAI: 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063
+        * Pair: 0x6FF62bfb8c12109E8000935A6De54daD83a4f39f
+        * WETH: 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619
+        * DAI: 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063       
 
 
 

@@ -32,7 +32,11 @@ module.exports = {
       gasPrice: 50000000000
     },
     polygon: {
-      url: 'https://polygon-mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
+      // url: 'https://polygon-mainnet.chainnodes.org/da196e8f-51e4-40a3-a02a-1f359fa615a7',
+      url: 'https://polygon-mainnet.g.alchemy.com/v2/VkzZji9lTLBz-uNYD--fPwOf40VPo27s',
+      // url: 'https://polygon.llamarpc.com',
+      // url: 'https://rpc-mainnet.maticvigil.com',
+      // url: 'https://polygon-rpc.com/',
       accounts: [`0x${PRIVATE_KEY}`],
     },
     BSCTestnet: {

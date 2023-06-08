@@ -44,14 +44,14 @@ async function main() {
 
   // // We get the contract to deploy
   const MarkerFactory = await hre.ethers.getContractFactory("MarketFactory", );
-  // const factory = await MarkerFactory.deploy(addressUniswapFactory,{});
-  // await factory.deployed();
+  const factory = await MarkerFactory.deploy(addressUniswapFactory,{});
+  await factory.deployed();
 
   // console.log("Factory deployed to:", factory.address); 
 
   // console.log("Dai deployed to:", dai.address); 
 
-  const factory = await MarkerFactory.attach('0xdbe926f96e2250d7C4901f118225566Dc654B969');
+  // const factory = await MarkerFactory.attach('0xdbe926f96e2250d7C4901f118225566Dc654B969');
 
    const Market = await hre.ethers.getContractFactory("Market");
    const market = await factory.addMarket(addressDAIToken, addressUniswapV2Pair, period, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, priceSwitch);
