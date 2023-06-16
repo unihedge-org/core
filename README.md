@@ -31,13 +31,6 @@ Node | v14.17.2
         * WETH: 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619
         * DAI: 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063       
 
-
-Factory deployed to: 
-Market address: 
-MarketGetter deployed to: 
-
-
-
 * Deployed contracts on Goerli testnet:
 
     * Market Factory address (16. 06. 23): 0x664d692F2241f50beAA9f45870aBccD846e93F38
