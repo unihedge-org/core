@@ -47,7 +47,7 @@ async function main() {
   const factory = await MarkerFactory.deploy(addressUniswapFactory,{});
   await factory.deployed();
 
-  // console.log("Factory deployed to:", factory.address); 
+  console.log("Factory deployed to:", factory.address); 
 
   // console.log("Dai deployed to:", dai.address); 
 
@@ -62,12 +62,12 @@ async function main() {
   const marketAddress = await factory.marketsKeys(await factory.getMarketsCount() - 1);
   console.log("Market address:", marketAddress)
 
-  // //Deploy market getter contract
-  // const MarketGetter = await hre.ethers.getContractFactory("MarketGetter");
-  // const marketGetter = await MarketGetter.deploy();
-  // await marketGetter.deployed();
-  // //Console log address
-  // console.log("MarketGetter deployed to:", marketGetter.address);
+  //Deploy market getter contract
+  const MarketGetter = await hre.ethers.getContractFactory("MarketGetter");
+  const marketGetter = await MarketGetter.deploy();
+  await marketGetter.deployed();
+  //Console log address
+  console.log("MarketGetter deployed to:", marketGetter.address);
 
   }
 
