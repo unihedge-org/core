@@ -298,6 +298,10 @@ contract MarketGetter {
         return reward; 
     }
 
+    // function getUserAddresses(Market market) external view returns (address[] memory) {
+    //     return market.userAddresses();
+    // }
+
         /// @notice Calculate amount required to approve to buy a lot
     /// @param timestamp Timestamp that determins which frame it is
     /// @param pairPrice Value is trading pair's price (to get correct lot key) 

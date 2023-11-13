@@ -27,10 +27,16 @@ library MLib {
         SLot state;
     }
 
-    struct Referal {
-        address ownerPublicKey;
-        address referralPublicKey;
-        string message;
+    struct User {
+        uint commulativeTax;
+        address[] refferals;
+        address refferdBy;
     }
+
+    // struct Referal {
+    //     address ownerPublicKey;
+    //     address referralPublicKey;
+    //     string message;
+    // }
     
 }

@@ -52,10 +52,12 @@ contract Market {
     mapping(uint => MLib.Frame) public frames;
     mapping(address => uint[]) public userFrames;
     
-    //Mapping the Refferal struct to uint
-    mapping(address => MLib.Referal) public referals;
-    //Mapping to check if the address has bought a lot
-    mapping(address => bool) public hasBoughtLot;
+    //Mapping the User struct to the user's address
+    mapping(address => MLib.User) public users;
+    //Array of user addresses
+    address[] public userAddresses;
+    //Mapping to check if the address has bought a lot in this Market
+    // mapping(address => bool) public hasBoughtLot;
 
     uint[] public framesKeys;
 
@@ -82,12 +84,6 @@ contract Market {
         _;
     }
 
-    // Modifier to check if the address has not bought a lot
-    modifier hasNotBoughtLot() {
-        require(!hasBoughtLot[msg.sender], "YOU ALREADY BOUGHT A LOT.");
-        _;
-    }
-
     //Should it be private and another copy is used in marektGetter contract?....
     function hasValidPrices(uint frameKey) public view{
         //require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
@@ -111,7 +107,7 @@ contract Market {
     /// @return frame's timestamp (key)
     function clcFrameTimestamp(uint timestamp) public view returns (uint){
         if (timestamp <= initTimestamp) return initTimestamp;
-        return timestamp - ((timestamp - (initTimestamp)) % (period));
+        return timestamp - ((timestamp - initTimestamp) % (period));
     }
     
     /// @notice Calculate top boundary of a lot
@@ -165,15 +161,29 @@ contract Market {
         return frames[frameKey].state; 
     }
 
-    /// @notice Add referal
-    /// @param referralPublicKey Referral's public key
-    /// @param message Message
-    function addReferral(address referralPublicKey, string memory message) internal {
-        //some info on hashing: https://solidity-by-example.org/hashing/
-        // uint referalKey = uint(keccak256(abi.encodePacked(ownerPublicKey, referralPublicKey, message)));
-        referals[msg.sender].ownerPublicKey = msg.sender;
-        referals[msg.sender].referralPublicKey = referralPublicKey;
-        referals[msg.sender].message = message;
+    /// @notice Get all user's addresses
+    /// @return Array of user's addresses
+    function getUserAddresses() external view returns (address[] memory){
+        return userAddresses;
+    }
+
+    //TODO: Poglej si še 1x razlike med private, internal, external, public..
+    /// @notice Create User struct and add the address to the userAddresses array
+    /// @param newUser User's address
+    /// @param referredBy Referral's address. 0x0 if no referral
+    function createUser(address newUser, address referredBy) private {
+        users[newUser].commulativeTax = 0;
+        users[newUser].refferdBy = referredBy;
+        userAddresses.push(newUser);
+        //Check if referredBy is non-zero address
+        //If it is, add newUser address to the referredBy user
+        if (referredBy != address(0)) {
+            addReferral(referredBy, newUser);
+        }
+    }
+
+    function addReferral(address referredByKey, address refferalKey) private {
+        users[referredByKey].refferals.push(refferalKey);
     }
 
     /// @notice Manually update average price
@@ -228,11 +238,12 @@ contract Market {
     /// @param timestamp MLib.Frame's timestamp get's calculated from this value
     /// @param pairPrice Is trading pair's price (to get correct lot key) 
     /// @param acqPrice New sell price is required to calculate tax
-    function buyLot(uint timestamp, uint pairPrice, uint acqPrice, address referralPublicKey, string memory message) external {
-        //Add referal
-        if(referralPublicKey != address(0) && hasBoughtLot[msg.sender] == false){
-            addReferral(referralPublicKey, message);
+    function buyLot(uint timestamp, uint pairPrice, uint acqPrice, address referralPublicKey) external {
+        //Create new User if it doesn't exist
+        if(users[msg.sender].commulativeTax == 0){
+            createUser(msg.sender, referralPublicKey);
         }
+
         //Get frameKey and lotKey values
         uint frameKey =  getOrCreateFrame(timestamp);        
         minTaxCheck(frameKey, acqPrice);                  
@@ -249,6 +260,9 @@ contract Market {
         accountingToken.transferFrom(msg.sender, address(this), (lots[frameKey][lotKey].acquisitionPrice + tax));
         frames[frameKey].rewardFund = (frames[frameKey].rewardFund + tax);
 
+        //Update user's cummulativetax in user struct
+        users[msg.sender].commulativeTax = users[msg.sender].commulativeTax + tax;
+
         //Pay the current owner + return leftover tax
         if (lots[frameKey][lotKey].state == MLib.SLot.BOUGHT) {
             uint taxRetrn = clcTax(frameKey, lots[frameKey][lotKey].acquisitionPrice);
@@ -256,6 +270,9 @@ contract Market {
             accountingToken.transfer(lots[frameKey][lotKey].lotOwner, (taxRetrn + lots[frameKey][lotKey].acquisitionPrice));
             //update reward fund
             frames[frameKey].rewardFund = frames[frameKey].rewardFund - taxRetrn;
+
+            //update users cummulativetax in user struct
+            users[lots[frameKey][lotKey].lotOwner].commulativeTax = users[lots[frameKey][lotKey].lotOwner].commulativeTax - taxRetrn;
         }
         else {
             lots[frameKey][lotKey].state = MLib.SLot.BOUGHT;
@@ -264,8 +281,6 @@ contract Market {
         lots[frameKey][lotKey].lotOwner = msg.sender;
         lots[frameKey][lotKey].acquisitionPrice = acqPrice;
         userFrames[msg.sender].push(frameKey);
-
-        hasBoughtLot[msg.sender] = true;
 
         updateFramePrices();
 

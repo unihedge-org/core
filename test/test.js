@@ -1,6 +1,6 @@
 //npx hardhat node --fork https://rinkeby.infura.io/v3/fa45f0ccc7eb423e983a72671d038716
 //npx hardhat test ./test/test.js --network localhost (be careful, did not work on node 19, had to downgrade to version 14)
-//npx hardhat node --fork https://polygon-mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716 --fork-block-number 42942130
+//npx hardhat node --fork https://polygon-mainnet.infura.io/v3/fa45f0ccc7eb423e983a72671d038716 --fork-block-number 44446422
 
 const { expect } = require("chai");
 const colors = require('colors');
@@ -29,7 +29,7 @@ const hoursToSkip = 27;
 const bet = new BigN('1000e18');
 const dPrice = 10000000000000;
 const tReporting = 3600;
-const winningPairPrice = ethers.BigNumber.from('1820000000000000000000000000');
+const winningPairPrice = ethers.BigNumber.from('1849000000000000000000000000');
 const minTax = 77677; 
 let frameKey; 
 let lotKey;          
@@ -90,24 +90,24 @@ it('Approve lot purchase for 1st user', async function() {
     let allowance2 = await this.accountingToken.allowance(accounts[1].address, this.market.address);
     console.log(colors.green("Allowance after is: " + allowance2));
 });
-it('Call addRefferal function to add the referal info of the user', async function() {
-    //Call addRefferal function and add into the function accounts[1].address as the user address, accounts[2].address as the referal address, and "test" as the referal code
-    await this.market.connect(accounts[1]).addReferral(accounts[2].address, "test");
-});
+// it('Call addRefferal function to add the referal info of the user', async function() {
+//     //Call addRefferal function and add into the function accounts[1].address as the user address, accounts[2].address as the referal address, and "test" as the referal code
+//     await this.market.connect(accounts[1]).addReferral(accounts[2].address, "test");
+// });
 it('Buy lot', async function() {
     let b1 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[1].address));
     console.log(colors.green("Balance of user is: " + b1));
 
     console.log("FrameKey: " + frameKey);
 
-    await this.market.connect(accounts[1]).buyLot(frameKey, winningPairPrice, ethers.utils.parseEther('10'));
+    await this.market.connect(accounts[1]).buyLot(frameKey, winningPairPrice, ethers.utils.parseEther('10'), accounts[2].address, "message");
 
     let b2 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[1].address));
     console.log(colors.green("Balance of user is: " + b2));
 });
-it("Shouldn't be able to add referral twice", async function() {
-    await expect(this.market.connect(accounts[1]).addReferral(accounts[2].address, "test")).to.be.revertedWith("YOU ALREADY BOUGHT A LOT");
-});
+// it("Shouldn't be able to add referral twice", async function() {
+//     await expect(this.market.connect(accounts[1]).addReferral(accounts[2].address, "test")).to.be.revertedWith("YOU ALREADY BOUGHT A LOT");
+// });
 it('Approve lot purchase for 1st user frame now', async function() {
     frameKey = await this.market.clcFrameTimestamp((Date.now() / 1000 | 0)+270000);
 
@@ -158,7 +158,7 @@ it('Buy lot frame now', async function() {
 
     
 
-    await expect(this.market.connect(accounts[1]).buyLot(timestamp, winningPairPrice, ethers.utils.parseEther('10')))
+    await expect(this.market.connect(accounts[1]).buyLot(timestamp, winningPairPrice, ethers.utils.parseEther('10'), accounts[2].address, "message"))
       .to.emit(this.market, "LotUpdate");
     // let b2 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[1].address));
     // console.log(colors.green("Balance of user is: " + b2));
@@ -238,7 +238,7 @@ it('Second account buys the same lot 1d later', async function() {
     let b1 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[2].address));
     console.log(colors.green("Balance of user "+ accounts[2].address.toString()  +" is: " + b1));
 
-    await this.market.connect(accounts[2]).buyLot(frameKey, winningPairPrice, ethers.utils.parseEther('15'));
+    await this.market.connect(accounts[2]).buyLot(frameKey, winningPairPrice, ethers.utils.parseEther('15'), accounts[1].address, "message");
 
     let b2 = ethers.BigNumber.from(await this.accountingToken.balanceOf(accounts[2].address));
     console.log(colors.green("Balance of user "+ accounts[2].address.toString()  +"  is: " + b2));
@@ -276,7 +276,7 @@ it('Accounts buy non-winning lots', async function() {
         let priceRange = 6346134345+i*dPrice;
         const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApprove(this.market.address,frameKey, priceRange, ethers.utils.parseEther('100')));
         await this.accountingToken.connect(accounts[i]).approve(this.market.address, lotPrice);
-        await this.market.connect(accounts[i]).buyLot(frameKey, priceRange, ethers.utils.parseEther('100'));
+        await this.market.connect(accounts[i]).buyLot(frameKey, priceRange, ethers.utils.parseEther('100'), accounts[1].address, "message");
     }
 
     let reward = ethers.utils.formatEther(await this.marketGetter.getRewardAmount(this.market.address, frameKey));
@@ -288,7 +288,7 @@ it('Get user lots', async function() {
     let priceRange = 634613433453545+i*dPrice;
     const lotPrice = ethers.BigNumber.from(await this.marketGetter.connect(accounts[1]).clcAmountToApprove(this.market.address,frameKey, priceRange, ethers.utils.parseEther('10')));
     await this.accountingToken.connect(accounts[2]).approve(this.market.address, lotPrice);
-    await this.market.connect(accounts[2]).buyLot(frameKey, priceRange, ethers.utils.parseEther('10'));
+    await this.market.connect(accounts[2]).buyLot(frameKey, priceRange, ethers.utils.parseEther('10'), accounts[1].address, "message");
 
     let blockNum = await ethers.provider.getBlockNumber();
     let blockInfo = await ethers.provider.getBlock(blockNum);
