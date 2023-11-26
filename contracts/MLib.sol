@@ -28,9 +28,10 @@ library MLib {
     }
 
     struct User {
+        address userPublicKey;
         uint commulativeTax;
-        address[] refferals;
-        address refferdBy;
+        address[] referrals;
+        address referredBy;
     }
 
     // struct Referal {

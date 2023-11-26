@@ -37,6 +37,6 @@
     "hardhat-gas-reporter": "^1.0.6"
   },
   "scripts": {
-    "test": "npx hardhat test ./test/test.js  --network localhost"
+    "test": "npx hardhat test ./test/test.js  --network localhost "
   }
 }

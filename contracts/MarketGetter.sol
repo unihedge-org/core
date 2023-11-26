@@ -260,11 +260,10 @@ contract MarketGetter {
         uint[] memory lotKeys;
 
         for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
-                frameState = market.getFrameState(frameKey);
-                
+                frameState = market.getFrameState(frameKey);              
 
                 if (frameState == MLib.SFrame.OPENED) {
-                    //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
+                    //more bit tako ločeno za getLotKeys, ker ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
                     lotKeys = market.getLotKeys(frameKey);
                     for (uint j=0; j < lotKeys.length; j++) {
                         (,,lotOwner,,) = market.lots(frameKey, lotKeys[j]);
@@ -350,5 +349,68 @@ contract MarketGetter {
         else avgPrice = (FixedPoint.decode(FixedPoint.uq112x112(uint224((frame.oraclePrice1CumulativeEnd - frame.oraclePrice1CumulativeStart) / (timeDiff)))));
         avgPrice = avgPrice*scalar;
     }
+
+    function getUserStruct(Market market, address userPubKey) external view returns (MLib.User memory user) {
+        // Array of user addresses
+        (address pubKey, uint256 cTax, address refferdBy) = market.users(userPubKey);
+        address[] memory refferals = market.getUserReferrals(userPubKey);
+
+        //Define user as a Mlib.User struct
+        user = MLib.User({
+            userPublicKey: pubKey,
+            commulativeTax: cTax,
+            referrals: refferals,
+            referredBy: refferdBy
+        });
+
+        return user;
+    }
+
+    function getUserStructs(Market market, uint endIndex, uint startIndex) external view returns (MLib.User[] memory users) {
+        // Array of user addresses
+        address[] memory userAddresses = market.getUserAddresses();
+        uint length = endIndex-startIndex;
+        users = new MLib.User[](length);
+
+        for (uint i = startIndex; i < endIndex; i++) {
+            address user = userAddresses[i];
+            (address pubKey, uint256 cTax, address refferdBy) = market.users(user);
+            address[] memory refferals = market.getUserReferrals(user);
+
+            users[i-startIndex] = MLib.User({
+                userPublicKey: pubKey,
+                commulativeTax: cTax,
+                referrals: refferals,
+                referredBy: refferdBy
+            });
+        }
+
+        return users;
+    }
+
+
+    /// @notice Get user's addresses in a range defined by start index and end index
+    /// @param startIndex The starting index in the userAddresses array
+    /// @param endIndex The ending index in the userAddresses array
+    /// @return Array of user's addresses that fall within the provided range
+    function getUserAddressesPaginated(Market market, uint startIndex, uint endIndex) public view returns (address[] memory) {
+        address[] memory userAddresses = market.getUserAddresses();
+
+        require(endIndex <= userAddresses.length && startIndex <= endIndex, "Invalid index");
+
+        // Calculate the number of elements to return
+        uint length = endIndex - startIndex;
+
+        // Create a new array with the desired length 
+        address[] memory pagedUserAddresses = new address[](length);
+
+        // Populate the new array
+        for (uint i = startIndex; i < endIndex; i++) {
+            pagedUserAddresses[i-startIndex] = userAddresses[i];
+        }
+
+        return pagedUserAddresses;
+    }
+
 
 }

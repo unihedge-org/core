@@ -58,6 +58,9 @@ module.exports = {
     // Obtain one at https://bscscan.com/
     apiKey: 'GPH97NNZCW56HC34VARTFC94ZZZHWSUC4U'
   },
+  mocha: {
+    timeout: 100000000
+  },
   // gasReporter: {
   //   currency: 'EUR',
   //   gasPrice: 21

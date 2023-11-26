@@ -80,7 +80,7 @@ contract Market {
     }
 
     modifier isFactoryOwner() {
-        require(msg.sender == factory.owner(), "NOT THE FACTORY OWNER");
+        require(msg.sender == factory.owner(), "R0");
         _;
     }
 
@@ -89,17 +89,17 @@ contract Market {
         //require(frames[frameKey].state == SFrame.OPENED, "FRAME NOT OPENED");
         if (frames[frameKey].oraclePrice0CumulativeStart <= 0 || frames[frameKey].oraclePrice0CumulativeEnd <= 0 || frames[frameKey].oraclePrice1CumulativeStart <= 0 || frames[frameKey].oraclePrice1CumulativeEnd <= 0) {
             //frames[framekey].state = SFrame.INVALID;
-            revert("INVALID FRAME PRICE");
+            revert("R1");
         }
         if (frames[frameKey].oraclePrice0CumulativeStart == frames[frameKey].oraclePrice0CumulativeEnd || frames[frameKey].oraclePrice1CumulativeStart == frames[frameKey].oraclePrice1CumulativeEnd) {
             //frames[framekey].state = SFrame.INVALID;
-            revert("INVALID FRAME PRICE");
+            revert("R1");
         }
     }
 
     function minTaxCheck(uint frameKey, uint acqPrice) private view{
         uint tax = clcTax(frameKey, acqPrice);  //acqPrice * (taxMarket) / (100000);
-        require(tax >= minTax, "PRICE IS TOO LOW");
+        require(tax >= minTax, "R2");
     }
 
     /// @notice Calculate frames timestamp (beggining of frame)
@@ -167,13 +167,18 @@ contract Market {
         return userAddresses;
     }
 
+    function getUserReferrals(address userAddress) external view returns (address[] memory){
+        return users[userAddress].referrals;
+    }
+
     //TODO: Poglej si še 1x razlike med private, internal, external, public..
     /// @notice Create User struct and add the address to the userAddresses array
     /// @param newUser User's address
     /// @param referredBy Referral's address. 0x0 if no referral
     function createUser(address newUser, address referredBy) private {
+        users[newUser].userPublicKey = newUser;
         users[newUser].commulativeTax = 0;
-        users[newUser].refferdBy = referredBy;
+        users[newUser].referredBy = referredBy;
         userAddresses.push(newUser);
         //Check if referredBy is non-zero address
         //If it is, add newUser address to the referredBy user
@@ -182,8 +187,8 @@ contract Market {
         }
     }
 
-    function addReferral(address referredByKey, address refferalKey) private {
-        users[referredByKey].refferals.push(refferalKey);
+    function addReferral(address referredByKey, address referralKey) private {
+        users[referredByKey].referrals.push(referralKey);
     }
 
     /// @notice Manually update average price
@@ -204,7 +209,7 @@ contract Market {
         uint frameKey = clcFrameTimestamp(timestamp);
         //Check if frame exists
         if (frames[frameKey].state != MLib.SFrame.NULL) return frameKey;
-        require(frameKey >= clcFrameTimestamp(block.timestamp), "FRAME IN PAST");
+        require(frameKey >= clcFrameTimestamp(block.timestamp), "R3");
         //Add frame
         frames[frameKey].frameKey = frameKey;
         frames[frameKey].state = MLib.SFrame.OPENED;
@@ -225,8 +230,6 @@ contract Market {
         return lotKey;
     }
 
-
-
     //TODO: Update this funcion to use tax per second and then just multiply everything
     function clcTax(uint frameKey, uint acquisitionPrice) public view returns (uint tax) {             
         uint taxPerSecond = (scalar * acquisitionPrice * taxMarket / 100000) / period;
@@ -240,6 +243,8 @@ contract Market {
     /// @param acqPrice New sell price is required to calculate tax
     function buyLot(uint timestamp, uint pairPrice, uint acqPrice, address referralPublicKey) external {
         //Create new User if it doesn't exist
+        require(users[referralPublicKey].commulativeTax > 0 && referralPublicKey != msg.sender
+        || referralPublicKey == address(0), "R4");
         if(users[msg.sender].commulativeTax == 0){
             createUser(msg.sender, referralPublicKey);
         }
@@ -249,13 +254,13 @@ contract Market {
         minTaxCheck(frameKey, acqPrice);                  
         uint lotKey = getOrCreateLot(frameKey, pairPrice);
         // console.log("Buy lot: ", lotKey, " frameKey: ", frameKey);
-        require(frameKey >= clcFrameTimestamp(block.timestamp), "LOT IN PAST");
-        require(msg.sender != lots[frameKey][lotKey].lotOwner, "ALREADY OWNER");
+        require(frameKey >= clcFrameTimestamp(block.timestamp), "R5");
+        require(msg.sender != lots[frameKey][lotKey].lotOwner, "R6");
 
         uint tax = clcTax(frameKey, acqPrice);
 
         //Approved amount has to be at leat equal to price of the MLib.Lot(with tax)
-        require(accountingToken.allowance(msg.sender, address(this)) >= (lots[frameKey][lotKey].acquisitionPrice + tax), "APPROVED AMOUNT TOO SMALL");
+        require(accountingToken.allowance(msg.sender, address(this)) >= (lots[frameKey][lotKey].acquisitionPrice + tax), "R7");
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), (lots[frameKey][lotKey].acquisitionPrice + tax));
         frames[frameKey].rewardFund = (frames[frameKey].rewardFund + tax);
@@ -303,21 +308,27 @@ contract Market {
         uint frameKey = getOrCreateFrame(timestamp); 
         minTaxCheck(frameKey,acqPrice);
         uint lotKey = getOrCreateLot(frameKey, pairPrice); 
-        require(lots[frameKey][lotKey].lotOwner == msg.sender, "NOT LOT OWNER");
-        require(frameKey >= clcFrameTimestamp(block.timestamp), "LOT IN PAST FRAME");
+        require(lots[frameKey][lotKey].lotOwner == msg.sender, "R8");
+        require(frameKey >= clcFrameTimestamp(block.timestamp));
 
         uint taxNew = clcTax(frameKey, acqPrice);
         uint taxOld = clcTax(frameKey, lots[frameKey][lotKey].acquisitionPrice);
 
         if (taxNew > taxOld) {
-            require(accountingToken.allowance(msg.sender, address(this)) >= (taxNew - taxOld), "APPROVED AMOUNT TOO SMALL");
+            require(accountingToken.allowance(msg.sender, address(this)) >= (taxNew - taxOld));
             //Transfer complete tax amount to the frame rewardFund
             accountingToken.transferFrom(msg.sender, address(this), (taxNew - taxOld));
             frames[frameKey].rewardFund = frames[frameKey].rewardFund + (taxNew- taxOld);
+
+            //Update user's cummulativetax in user struct
+            users[msg.sender].commulativeTax = users[msg.sender].commulativeTax + (taxNew - taxOld);
         }
         else if (taxNew < taxOld) {
             accountingToken.transfer(msg.sender, taxOld - taxNew);
             frames[frameKey].rewardFund = frames[frameKey].rewardFund - (taxOld - taxNew);
+
+            //Update user's cummulativetax in user struct
+            users[msg.sender].commulativeTax = users[msg.sender].commulativeTax - (taxOld - taxNew);
         }
         lots[frameKey][lotKey].acquisitionPrice = acqPrice;
 
@@ -352,7 +363,7 @@ contract Market {
     /// @param frameKey MLib.Frame's timestamp
     function closeFrame(uint frameKey) private{
         hasValidPrices(frameKey);
-        require( (frameKey + period) <= block.timestamp, "FRAME END TIME NOT REACHED");
+        require( (frameKey + period) <= block.timestamp);
         frames[frameKey].state = MLib.SFrame.CLOSED;
         address factoryOwner = factory.owner();
         
@@ -382,7 +393,7 @@ contract Market {
     /// @param frameKey MLib.Frame's timestamp
     function settleLot(uint frameKey) private{  
         //Check if frame is closed
-        require(frames[frameKey].state == MLib.SFrame.CLOSED, "FRAME NOT CLOSED");    
+        require(frames[frameKey].state == MLib.SFrame.CLOSED);    
         //Calcualte the winning lot key
         //uint avgPrice = FixedPoint.decode(frames[frameKey].priceAverage); 
         // console.log("Average price: ", frames[frameKey].priceAverage);
@@ -390,9 +401,9 @@ contract Market {
         // console.log("Frame : ", frameKey);
         // console.log("lotKeyWin Owner: ", lots[frameKey][lotKeyWin].lotOwner);
         //Check if the lot is already settled
-        require(lots[frameKey][lotKeyWin].state != MLib.SLot.SETTLED, "LOT ALREADY SETTLED");
+        require(lots[frameKey][lotKeyWin].state != MLib.SLot.SETTLED, "R9");
         //Transfer winnings to last owner
-        require(lots[frameKey][lotKeyWin].lotOwner != 0x0000000000000000000000000000000000000000, "NO OWNER");
+        require(lots[frameKey][lotKeyWin].lotOwner != 0x0000000000000000000000000000000000000000, "R10");
         accountingToken.transfer(lots[frameKey][lotKeyWin].lotOwner, frames[frameKey].rewardFund);
         //State is changed to settled
         lots[frameKey][lotKeyWin].state = MLib.SLot.SETTLED;
