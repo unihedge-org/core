@@ -171,6 +171,7 @@ contract Market {
         return users[userAddress].referrals;
     }
 
+
     //TODO: Poglej si še 1x razlike med private, internal, external, public..
     /// @notice Create User struct and add the address to the userAddresses array
     /// @param newUser User's address

@@ -38,16 +38,13 @@ async function main() {
 
   // console.log("Factory deployed to:", factory.address); 
 
-  // // // console.log("Dai deployed to:", dai.address); 
-
-  // const factory = await MarkerFactory.attach('0xE660B1173aaD602EDfdEf28d57Fe4Fb8478fAeeD');
+  const factory = await MarkerFactory.attach('0x99E1d83617442A4C601Ae7771B5eC02D68a98AfE');
 
   //  const Market = await hre.ethers.getContractFactory("Market");
   //  const market = await factory.addMarket(addressTokenDAI, addressUniswapV2Pair, period, initTimestamp, marketTax, marketFee, dPrice, tReporting, minTax, avgPriceSwitch, {
   //   gasPrice: 300000000000
   //  });
   //  await market.wait();
-  // //console.log(market);
 
   // //Get markets address
   // const marketAddress = await factory.marketsKeys(await factory.getMarketsCount() - 1);
@@ -59,7 +56,7 @@ async function main() {
     gasPrice: 300000000000
   });
   await marketGetter.deployed();
-  //Console log address
+  // Console log address
   console.log("MarketGetter deployed to:", marketGetter.address);
 
   // Send 0 MATIC (ETH) to address 0x7d8fc3ccf41B0A9071994a8590e17009fe7BCe63

@@ -8,24 +8,31 @@ Node | v14.17.2
 ## **Market** contract functions
 
 * Recent updates:
-    * New function: addReferral(address referralPublicKey, string memory message)
-        * *referralPublicKey => PublicKey of the person that sent the referal link*
-        * *message => signed message(referralPublicKey) by the msg.sender (person who called the contract)*
-        * referral info is saved to:
-            * struct Referal {
-                    address ownerPublicKey;
-                    address referralPublicKey;
-                    string message;
-                }
-            * Each Referral struct is mapped onto user's address:
-                * mapping(address => MLib.Referal) public referals;
-        * This function can only be called if user hasn't bought any lots
+    * New struct:
+        ```solidity
+        struct User {
+            address userPublicKey;
+            uint commulativeTax;
+            address[] referrals;
+            address referredBy;
+        }
+        ```
+    * function createUser(address newUser, address referredBy)
+        * Get's called if a new address buys a lot
+    * function getUserStruct(Market market, address userPubKey)
+        * Part of marketGetter smart contract   
+    * function getUserAddresses()
+        * Returns array of all users that have their owen User struct
+        * So all users who bought a lot
+    * function getUserStructs(Market market, uint endIndex, uint endIndex)
+        * Part of marketGetter smart contract
+        * Returns n(=endIndex-endIndex ) of user structs
 
 * Deployed contracts on Polygon mainnet:
 
-    * Market Factory address (08. 06. 23): 0xE660B1173aaD602EDfdEf28d57Fe4Fb8478fAeeD
-    * Market Getter address (08. 06. 23): 0x6eBc9E85179737C69dA2Be5007eaf84124af71BC
-    * Market address (08. 06. 23): 0x332D5863a16E92039e1Eef7D04883CdF5d23846e
+    * Market Factory address (27. 11. 23): 0x99E1d83617442A4C601Ae7771B5eC02D68a98AfE
+    * Market Getter address (27. 11. 23): 0x93F84209212AFc496458CccA63d15aA63F40b0E6
+    * Market address (27. 11. 23): 0xd5Ce1687Ec1E864F206F3Aeb11a1746f4F7347ce
         * Accounting Token - DAI: 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063
         * Pair: 0x6FF62bfb8c12109E8000935A6De54daD83a4f39f
         * WETH: 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619
