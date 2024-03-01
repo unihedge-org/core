@@ -23,7 +23,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = { 
-  solidity: "0.8.4",
+  solidity: "0.7.0",
   networks: {
     goerli: {
       url: 'https://goerli.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
@@ -53,6 +53,12 @@ module.exports = {
       blockNumber: 25867882, // a specific block number with which you want to work
     },
   },
+  solc: {
+    optimizer: {
+      enabled: true,
+      runs: 200
+    },
+  },
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://bscscan.com/
@@ -65,5 +71,4 @@ module.exports = {
   //   currency: 'EUR',
   //   gasPrice: 21
   // },
-  solidity: "0.8.0"
 };

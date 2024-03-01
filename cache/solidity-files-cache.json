@@ -70,7 +70,7 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\node_modules\\@uniswap\\v2-periphery\\contracts\\libraries\\UniswapV2OracleLibrary.sol": {
-      "lastModificationDate": 1625395836728,
+      "lastModificationDate": 1670624059496,
       "contentHash": "6375842b01002cf7b8f7899b01c5e8c8",
       "sourceName": "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol",
       "solcConfig": {
@@ -107,8 +107,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\node_modules\\@uniswap\\lib\\contracts\\libraries\\FixedPoint.sol": {
-      "lastModificationDate": 1641496985264,
-      "contentHash": "dc596f83d7c5841f61b8c8b244ff59e9",
+      "lastModificationDate": 1705959405664,
+      "contentHash": "da9f5348577de8fe4cfbe8e76cc454cf",
       "sourceName": "@uniswap/lib/contracts/libraries/FixedPoint.sol",
       "solcConfig": {
         "version": "0.8.0",
@@ -132,7 +132,11 @@
           }
         }
       },
-      "imports": [],
+      "imports": [
+        "./FullMath.sol",
+        "./Babylonian.sol",
+        "./BitMath.sol"
+      ],
       "versionPragmas": [
         ">=0.4.0"
       ],
@@ -240,45 +244,6 @@
       ],
       "artifacts": [
         "IUniswapV2Factory"
-      ]
-    },
-    "D:\\prog\\UniHedge\\core\\contracts\\priceOracles.sol": {
-      "lastModificationDate": 1635185138267,
-      "contentHash": "4cd775b8e3da7b400f3a69b5a09ffc26",
-      "sourceName": "contracts/priceOracles.sol",
-      "solcConfig": {
-        "version": "0.8.0",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol",
-        "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol",
-        "@uniswap/lib/contracts/libraries/FixedPoint.sol",
-        "@openzeppelin/contracts/utils/math/SafeMath.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "priceOracles"
       ]
     },
     "D:\\prog\\UniHedge\\core\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Metadata.sol": {
@@ -426,8 +391,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\Market.sol": {
-      "lastModificationDate": 1701106293246,
-      "contentHash": "50ffdfa3db40f1e1c7dbb711549aa9ec",
+      "lastModificationDate": 1708452652962,
+      "contentHash": "03cfc128ed248321c353076af35b902b",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
         "version": "0.8.0",
@@ -458,8 +423,7 @@
         "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol",
         "@uniswap/lib/contracts/libraries/FixedPoint.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@uniswap/v2-periphery/contracts/libraries/UQ112x112.sol",
-        "hardhat/console.sol"
+        "@uniswap/v2-periphery/contracts/libraries/UQ112x112.sol"
       ],
       "versionPragmas": [
         "^0.8.0"
@@ -469,8 +433,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\MarketFactory.sol": {
-      "lastModificationDate": 1684346806888,
-      "contentHash": "0267e68c30bc76a4b94a337b6527391e",
+      "lastModificationDate": 1706357820573,
+      "contentHash": "115e87f5e916afdbc71003cc799000b9",
       "sourceName": "contracts/MarketFactory.sol",
       "solcConfig": {
         "version": "0.8.0",
@@ -496,7 +460,6 @@
       },
       "imports": [
         "./Market.sol",
-        "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol",
         "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol"
       ],
@@ -576,8 +539,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\MarketGetter.sol": {
-      "lastModificationDate": 1701106290758,
-      "contentHash": "c8e18927a883d4e1cedf4c14c4c955bf",
+      "lastModificationDate": 1708452804279,
+      "contentHash": "5fd0df0c24542fb26cceb102603aefb5",
       "sourceName": "contracts/MarketGetter.sol",
       "solcConfig": {
         "version": "0.8.0",
@@ -619,8 +582,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\MLib.sol": {
-      "lastModificationDate": 1700862253005,
-      "contentHash": "13f08fd4f4a60b9035e2206b2afd9abd",
+      "lastModificationDate": 1708451970431,
+      "contentHash": "9478f00b723854ea4350b079cef7d619",
       "sourceName": "contracts/MLib.sol",
       "solcConfig": {
         "version": "0.8.0",
@@ -650,6 +613,108 @@
       ],
       "artifacts": [
         "MLib"
+      ]
+    },
+    "D:\\prog\\UniHedge\\core\\node_modules\\@uniswap\\lib\\contracts\\libraries\\FullMath.sol": {
+      "lastModificationDate": 1706352726078,
+      "contentHash": "3555f6d30e7dedcba722f01261b23718",
+      "sourceName": "@uniswap/lib/contracts/libraries/FullMath.sol",
+      "solcConfig": {
+        "version": "0.8.0",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.0"
+      ],
+      "artifacts": [
+        "FullMath"
+      ]
+    },
+    "D:\\prog\\UniHedge\\core\\node_modules\\@uniswap\\lib\\contracts\\libraries\\Babylonian.sol": {
+      "lastModificationDate": 1705956415738,
+      "contentHash": "3f7a9d2b13eebc20350a1cc42ed09b16",
+      "sourceName": "@uniswap/lib/contracts/libraries/Babylonian.sol",
+      "solcConfig": {
+        "version": "0.8.0",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.0"
+      ],
+      "artifacts": [
+        "Babylonian"
+      ]
+    },
+    "D:\\prog\\UniHedge\\core\\node_modules\\@uniswap\\lib\\contracts\\libraries\\BitMath.sol": {
+      "lastModificationDate": 1705959450349,
+      "contentHash": "05e1b16688034a91568f9fd14da09b18",
+      "sourceName": "@uniswap/lib/contracts/libraries/BitMath.sol",
+      "solcConfig": {
+        "version": "0.8.0",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.5.0"
+      ],
+      "artifacts": [
+        "BitMath"
       ]
     }
   }
