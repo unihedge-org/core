@@ -302,7 +302,7 @@ contract Market {
         //Compare new tax and fee with old tax and fee
         if (taxNew > taxOld) {
             //Approved amount has to be at least equal to price of tax + fee
-            require(accountingToken.allowance(msg.sender, address(this)) >= taxNew - taxOld + fee, "Allowance to spend set too low");
+            require(accountingToken.allowance(msg.sender, address(this)) >= taxNew - taxOld, "Allowance to spend set too low");
             //Transfer tax amount to the market contract
             accountingToken.transferFrom(msg.sender, address(this), taxNew - taxOld + fee);
             //Update lot
@@ -317,6 +317,10 @@ contract Market {
         }
 
         return updateLot(lot, msg.sender, acquisitionPrice, taxNew, taxOld - taxNew);
+        uint tax = clcTax(lot.frameKey, acquisitionPrice);
+        //Tax has to be greater than 0
+        require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
+        //Calculate fee amount
 
     }
     
