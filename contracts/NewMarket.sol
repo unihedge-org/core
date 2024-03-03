@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 //pragma experimental ABIEncoderV2;
-pragma abicoder v2;
+pragma experimental ABIEncoderV2;
 
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
+import "@openzeppelin/contracts/math/SafeMath.sol"; //SafeMath needed for solidity versions lower than 0.8.0
+
 
 /// @author UniHedge
 /// @dev All function calls are currently implemented without side effects
 contract Market {
+    using SafeMath for uint;
     //Length of a frame in seconds (1 day)
     uint public period = 86400; //64b
     //Market begin timestamp 1.1.2024
@@ -69,7 +72,6 @@ contract Market {
         uint timestamp;
         address owner;
         uint acquisitionPrice;
-        uint feeCharged;
         uint taxCharged;
         uint taxRefunded;
     }
@@ -155,7 +157,7 @@ contract Market {
         return frames[frameKey];
     }
 
-    function createLot(Frame memory frame, uint rate, address _owner, uint acquisitionPrice, uint feeCharged, uint taxCharged) internal returns (Lot memory){
+    function createLot(Frame memory frame, uint rate, address _owner, uint acquisitionPrice, uint taxCharged) internal returns (Lot memory){
         //Reject if lot already exists
         uint lotKey = clcLotKey(rate);
         require(lots[frame.frameKey][lotKey].lotKey == 0, "Lot already exists");
@@ -164,7 +166,7 @@ contract Market {
         //Reject if taxCharged less than 0
         require(taxCharged > 0, "Tax charged has to be greater than 0");
         //Create lot
-        LotState memory state = LotState(block.timestamp, _owner, acquisitionPrice, feeCharged, taxCharged, 0);
+        LotState memory state = LotState(block.timestamp, _owner, acquisitionPrice, taxCharged, 0);
         LotState[] memory states = new LotState[](1);
         states[0] = state;
         Lot memory lot = Lot(frame.frameKey, lotKey, states);
@@ -175,13 +177,13 @@ contract Market {
         return lot;
     }
 
-    function updateLot(Lot memory lot, address _owner, uint acquisitionPrice, uint feeCharged, uint taxCharged, uint taxRefunded) internal returns (Lot memory){
+    function updateLot(Lot memory lot, address _owner, uint acquisitionPrice, uint taxCharged, uint taxRefunded) internal returns (Lot memory){
         //Reject if lot doesn't exist
         require(lot.lotKey != 0, "Lot doesn't exist");
         //Reject if acquisitionPrice less than 0
         require(acquisitionPrice > 0, "Acquisition price has to be greater than 0");
         //Update lot
-        LotState memory state = LotState(block.timestamp, _owner, acquisitionPrice, feeCharged, taxCharged, taxRefunded);
+        LotState memory state = LotState(block.timestamp, _owner, acquisitionPrice, taxCharged, taxRefunded);
         lots[lot.frameKey][lot.lotKey].states.push(state);
         return lot;
     }
@@ -240,16 +242,32 @@ contract Market {
             emit LotUpdate(lot);
             return lot;
         }
-        //If lot is updated no owner change
+        
         if (frame.frameKey != 0) {
-           
-        }
-        //If lot is updated with owner change
-        if (frame.frameKey != 0) {
-            
+            uint lotKey = clcLotKey(rate);
+            //Get Lot
+            Lot memory lot = getLot(frame.frameKey, lotKey);
+            //Get last LotState from Lot
+            LotState memory currentLotState = lot.states[lot.states.length - 1];
+
+            //If lot is updated no owner change
+            if (msg.sender == currentLotState.owner) {
+                lot = purchaseLotUpdatePrice(lot, acquisitionPrice);
+                emit LotUpdate(lot);
+                return lot;
+            }
+
+            //If lot is updated with owner change
+            if(msg.sender != currentLotState.owner){
+                lot = purchaseLotOwnerChange(lot, msg.sender, acquisitionPrice);
+                emit LotUpdate(lot);
+                return lot;
+            }
+                
+           return lot;
         }
         
-        return null;
+        // return lot;
     }
 
     function purchaseLotFresh(Frame memory frame, uint lotKey, uint acquisitionPrice) internal returns (Lot memory){
@@ -266,11 +284,40 @@ contract Market {
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), tax + fee);
         //Create new lot
-        return createLot(frame, lotKey, msg.sender, acquisitionPrice, fee, tax);
+        return createLot(frame, lotKey, msg.sender, acquisitionPrice, tax);
     }
 
-    function purchaseLotUpdatePrice(Lot memory lot, uint acquisitionPrice) internal {
-        
+    function purchaseLotUpdatePrice(Lot memory lot, uint acquisitionPrice) internal returns (Lot memory){
+        //Check if new price is different from the current price
+        require(acquisitionPrice != lot.states[lot.states.length - 1].acquisitionPrice, "Price has to be different");
+        //Calculate tax amount
+        uint taxNew = clcTax(lot.frameKey, acquisitionPrice);
+        uint taxOld = clcTax(lot.frameKey, lot.states[lot.states.length - 1].acquisitionPrice);
+        //Tax has to be greater than 0
+        require(taxNew > 0, "Tax has to be greater than 0. Increase the acquisition price");
+        //Calculate fee amount
+        uint fee = clcFee(lot.frameKey, acquisitionPrice);
+        //Fee has to be greater than 0
+        require(fee > 0, "Fee has to be greater than 0. Increase the acquisition price");
+        //Compare new tax and fee with old tax and fee
+        if (taxNew > taxOld) {
+            //Approved amount has to be at least equal to price of tax + fee
+            require(accountingToken.allowance(msg.sender, address(this)) >= taxNew - taxOld + fee, "Allowance to spend set too low");
+            //Transfer tax amount to the market contract
+            accountingToken.transferFrom(msg.sender, address(this), taxNew - taxOld + fee);
+            //Update lot
+        }
+        else {
+            //TODO: Check this stuff in tests
+            //Approved amount has to be at least equal to price of fee
+            if (fee > taxOld - taxNew) require(accountingToken.allowance(msg.sender, address(this)) >= fee-(taxOld-taxNew), "Allowance to spend set too low");
+            //Transfer tax amount to the market contract
+            accountingToken.transfer(msg.sender, taxOld - taxNew - fee);
+            //Update lot
+        }
+
+        return updateLot(lot, msg.sender, acquisitionPrice, taxNew, taxOld - taxNew);
+
     }
     
     function purchaseLotOwnerChange(Lot memory lot, address _owner, uint acquisitionPrice) internal {
@@ -279,7 +326,7 @@ contract Market {
 
     function setFrameRate(uint frameKey) public {
         //Frame has to be in state CLOSE
-        uint rate = clcFrameRate(frameKey);
+        uint rate = clcRateAvg(frameKey);
         //Frame must exist
         require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
         //Update frame
@@ -287,29 +334,41 @@ contract Market {
         emit FrameUpdate(frames[frameKey]);
     }
 
-    function clcFrameRate(uint frameKey) public view returns (uint) {
-        //Frame has to be in the past
-        require(frameKey + period <= block.timestamp, "Frame has to be in the past");
-        uint32 t1 = block.timestamp - frameKey - tReporting;
-        uint32 t2 = block.timestamp - frameKey;
+    function clcRateAvg(uint timestamp) public view returns(uint){
+        uint32 t1 = uint32(block.timestamp - timestamp + tReporting);
+        uint32 t2 = uint32(block.timestamp - timestamp);
+
+        // Create a dynamically-sized array for observe
+        uint32[] memory timeIntervals = new uint32[](2);
+        timeIntervals[0] = t1;
+        timeIntervals[1] = t2;
 
         // Assuming observe returns cumulative price values directly
-        (int56[] memory tickCumulatives,) = uniswapPool.observe([t1, t2]);
+        (int56[] memory tickCumulatives,) = uniswapPool.observe(timeIntervals);
 
         // Calculate the tick difference and time elapsed
-        int56 tickCumulativeDelta = tickCumulatives[1] - tickCumulatives[0];
-        uint32 timeElapsed = t2 - t1; // Ensure this calculation makes sense in your context
+        uint tickCumulativeDelta = uint(tickCumulatives[1]) - uint(tickCumulatives[0]);
+        uint timeElapsed = uint(t1) - uint(t2); // Ensure this calculation makes sense in your context
 
         // Calculate the average tick
-        int24 averageTick = int24(tickCumulativeDelta / int56(timeElapsed));
+        uint averageTick = tickCumulativeDelta.div(timeElapsed);
 
-        // Calculate the average price
-        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(averageTick);
+        // Calculate the sqrtPriceX96 (Calculates sqrt(1.0001^tick) * 2^96) from the average tick with a fixed point Q64.96
+        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(int24(averageTick));
 
-        // Convert to 18 decimal precision
-        uint priceAverage = uint(sqrtPriceX96).mul(uint(sqrtPriceX96)).mul(1e18) >> (96 * 2);
+        // Step 1: Convert sqrtPriceX96 back to a regular price format by dividing by 2^96
+        // This reduces its magnitude, helping avoid overflow in subsequent steps
+        uint price = uint(sqrtPriceX96).div(2**48);
 
-        return priceAverage;
+        // Step 2: Square the price to get price squared (in regular format)
+        // Since 'price' is significantly smaller than 'sqrtPriceX96', this reduces the risk of overflow
+        uint256 priceSquared = price.mul(price);
+
+        // Step 3: Adjust for 18 decimal places if necessary
+        // Depending on your needs, this step may adjust 'priceSquared' to represent the final value in 18 decimals
+        uint256 priceIn18Decimals = priceSquared.mul(1e18).div(2**96);
+
+        return priceIn18Decimals;
     }
 
     function settleFrame(Frame memory frame) private {
@@ -324,30 +383,31 @@ contract Market {
         require(getStateLot(lotWon) == SLot.WON, "No winning lot in this frame");
 
         //Transfer winnings to last owner
-        accountingToken.transfer(lotWon.lotOwner, clcRewardFund(frame));
-        frame.rewardClaimedBy = lotWon.owner;
+        LotState memory currentLotState = lotWon.states[lotWon.states.length - 1]; //last lot state
+        accountingToken.transfer(currentLotState.owner, clcRewardFund(frame));
+        frame.rewardClaimedBy = currentLotState.owner;
 
         emit LotUpdate(lotWon);
         emit FrameUpdate(frame);
     }
 
-    function clcUnClaimableFunds() public view returns (uint){
-        uint unClaimableFunds = 0;
-        for (uint i = 0; i < framesKeys.length; i++) {
-            Frame memory frame = frames[framesKeys[i]];
-            //Frame has to be RATED
-            if (getStateFrame(frame) == SFrame.RATED) {
-            //Frame must not have lot that won
-                Lot memory lotWon = lots[frame.frameKey][clcLotKey(frame.rate)][lots[frame.frameKey][clcLotKey(frame.rate)].length];
-                if (getStateLot(lotWon) != SLot.WON)
-                    unClaimableFunds += clcRewardFund(frame);
-            }
-        }
-        return unClaimableFunds;
-    }
+    // function clcUnClaimableFunds() public view returns (uint){
+    //     uint unClaimableFunds = 0;
+    //     for (uint i = 0; i < framesKeys.length; i++) {
+    //         Frame memory frame = frames[framesKeys[i]];
+    //         //Frame has to be RATED
+    //         if (getStateFrame(frame) == SFrame.RATED) {
+    //         //Frame must not have lot that won
+    //             Lot memory lotWon = lots[frame.frameKey][clcLotKey(frame.rate)][lots[frame.frameKey][clcLotKey(frame.rate)].length];
+    //             if (getStateLot(lotWon) != SLot.WON)
+    //                 unClaimableFunds += clcRewardFund(frame);
+    //         }
+    //     }
+    //     return unClaimableFunds;
+    // }
 
     function withdrawAccountingToken(uint amount) external {
         require(msg.sender == owner, "Only owner can withdraw accounting token");
-        accountingToken.transfer(owner, accountingToken.balanceOf(address(this)));
+        accountingToken.transfer(owner, amount);
     }
 }
