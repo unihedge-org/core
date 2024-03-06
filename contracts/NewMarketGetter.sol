@@ -11,4 +11,11 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 contract MarketGetter {
     using SafeMath for uint;
 
+    function getFrameStruct(Market market, uint frameKey) public view returns (Market.Frame memory){
+        Market.Frame memory frame;
+        // uint tmp;
+        (frame.frameKey,frame.rate,frame.rewardClaimedBy) = market.frames(frameKey);
+        return frame;
+    }
+
 }

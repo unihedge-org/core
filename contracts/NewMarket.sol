@@ -89,6 +89,19 @@ contract Market {
 
     event LotUpdate(Lot lot);
 
+    //User struct for referral system
+    struct User {
+        address userPublicKey;
+        uint commulativeTax;
+        address[] referrals;
+        address referredBy;
+    }
+
+    //Mapping the User struct to the user's address
+    mapping(address => User) public users;
+    //Array of user addresses
+    address[] public userAddresses;
+
     constructor() {
         owner = msg.sender;
     }
@@ -101,10 +114,10 @@ contract Market {
         if (frame.rewardClaimedBy != address(0)) return SFrame.SETTLED;
         //OPENED If frameKey+period is in the future, return SFrame.OPENED
         if (block.timestamp < frame.frameKey + period) return SFrame.OPENED;
+        // //If there is no lot that won, return SFrame.UNCLAIMABLE
+        // if (frame.rate > 0 && getStateLot(frameKey, clcLotKey(frame.rate)) == SLot.NULL) return SFrame.UNCLAIMABLE;
         //RATED if average price is set, return SFrame.RATED
         if (frame.rate > 0) return SFrame.RATED;
-        //If there is no lot that won, return SFrame.UNCLAIMABLE
-        if (frame.rate > 0 && getStateLot(frameKey, clcLotKey(frame.rate)) == SLot.NULL) return SFrame.UNCLAIMABLE;
         //CLOSED if no other condition is met, return SFrame.CLOSED
         return SFrame.CLOSED;
     }
@@ -142,10 +155,27 @@ contract Market {
         return (frames[frameKey]);
     }
 
+    //For market getter
+    function getFrameLotKeys(uint frameKey) public view returns (uint[] memory){
+        return frames[frameKey].lotKeys;
+    }
+
     function getLot(uint frameKey, uint lotKey) public view returns (Lot memory){
         //Reject if lot doesn't exist
         require(lots[frameKey][lotKey].lotKey != 0, "Lot doesn't exist");
         return lots[frameKey][lotKey];
+    }
+
+    function createUser(address newUser, address referredBy) private {
+        users[newUser].userPublicKey = newUser;
+        users[newUser].commulativeTax = 0;
+        users[newUser].referredBy = referredBy;
+        userAddresses.push(newUser);
+        //Check if referredBy is non-zero address
+        //If it is a real address, add newUser address to the referredBy user
+        if (referredBy != address(0)) {
+            users[referredBy].referrals.push(newUser);
+        }
     }
 
     function createFrame(uint timestamp) internal returns (Frame memory){
@@ -200,7 +230,7 @@ contract Market {
     function overrideFrameRate(Frame memory frame, uint avgPrice) external {
         //Only owner can update frame close price
         require(msg.sender == owner, "Only owner can update frame close price");
-        //Frame must exists
+        //Frame must exist
         require(frame.frameKey != 0, "Frame doesn't exist");
         //Frame must not be in CLAIMED state
         require(frame.rewardClaimedBy == address(0), "Frame reward was already claimed");
@@ -235,7 +265,7 @@ contract Market {
     }
 
 
-    function purchaseLot(uint timestamp, uint rate, uint acquisitionPrice) external returns (Lot memory){
+    function purchaseLot(uint timestamp, uint rate, uint acquisitionPrice, address referralPublicKey) external returns (Lot memory){
         //Calculate frame key
         uint frameKey = clcFrameKey(timestamp);
         //Get frame
@@ -304,7 +334,7 @@ contract Market {
             accountingToken.transferFrom(msg.sender, address(this), taxNew - taxOld);
         }
         else {
-            //Transfer tax amount to owner
+            //Transfer tax difference to owner
             accountingToken.transfer(msg.sender, taxOld - taxNew);
         }
 
@@ -325,7 +355,7 @@ contract Market {
         accountingToken.transfer(lot.states[lot.states.length - 1].owner, lot.states[lot.states.length - 1].acquisitionPrice + taxOld - tax);
 
         //updateLot with new owner
-        return updateLot(lot, _owner, acquisitionPrice, tax, 0);
+        return updateLot(lot, _owner, acquisitionPrice, tax, taxOld);
     }
 
     function setFrameRate(uint frameKey) public {
@@ -375,15 +405,15 @@ contract Market {
         return priceIn18Decimals;
     }
 
-    function settleFrame(uint frameKey) private {
-        //Get frame
-        Frame storage frame = frames[frameKey];
+    function settleFrame(Frame memory frame) private {
+        
         //Reject if frame is not in state RATED
-        require(getStateFrame(frameKey) == SFrame.RATED, "Frame does not have a close rate set");
+        require(getStateFrame(frame.frameKey) == SFrame.RATED, "Frame does not have a close rate set");
+
         //Calculate the winning lot key based on the frame's close rate
         uint lotKeyWon = clcLotKey(frame.rate);
         //Reject if lot doesn't exist
-        require(getStateLot(frameKey, lotKeyWon) == SLot.WON, "Lot that won doesn't exist");
+        require(getStateLot(frame.frameKey, lotKeyWon) == SLot.WON, "Lot doesn't exist");
 
         //Calculate reward fund for the frame
         uint rewardFundPure = clcRewardFund(frame);
@@ -396,7 +426,7 @@ contract Market {
         accountingToken.transfer(owner, fee);
 
         //Get the winning lot
-        Lot memory lotWon = lots[frameKey][lotKeyWon];
+        Lot memory lotWon = lots[frame.frameKey][lotKeyWon];
         LotState memory winningLotState = lotWon.states[lotWon.states.length - 1]; //last lot state
         accountingToken.transfer(winningLotState.owner, rewardFund);
         frame.rewardClaimedBy = winningLotState.owner;
@@ -410,7 +440,7 @@ contract Market {
         for (uint i = 0; i < framesKeys.length; i++) {
             Frame memory frame = frames[framesKeys[i]];
             //Frame has to be RATED
-            if (getStateFrame(frame.frameKey) == SFrame.UNCLAIMABLE) {
+            if (getStateFrame(frame.frameKey) == SFrame.RATED) {
             //Frame must not have lot that won
                 Lot memory lotWon = lots[frame.frameKey][clcLotKey(frame.rate)];
                 if (getStateLot(frame.frameKey, lotWon.lotKey) != SLot.WON)
