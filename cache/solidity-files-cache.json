@@ -541,8 +541,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\NewMarket.sol": {
-      "lastModificationDate": 1709374618552,
-      "contentHash": "54e206997c8f39fd5412bb9b93b19ad9",
+      "lastModificationDate": 1709664492417,
+      "contentHash": "74959064793b61feabb7bb8bfe6300be",
       "sourceName": "contracts/NewMarket.sol",
       "solcConfig": {
         "version": "0.7.0",
@@ -890,6 +890,44 @@
       ],
       "artifacts": [
         "IUniswapV3PoolEvents"
+      ]
+    },
+    "D:\\prog\\UniHedge\\core\\contracts\\NewMarketGetter.sol": {
+      "lastModificationDate": 1709664131058,
+      "contentHash": "4219116cb4376d35eebda704914c55fd",
+      "sourceName": "contracts/NewMarketGetter.sol",
+      "solcConfig": {
+        "version": "0.7.0",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./NewMarket.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/math/SafeMath.sol"
+      ],
+      "versionPragmas": [
+        "^0.7.0"
+      ],
+      "artifacts": [
+        "MarketGetter"
       ]
     }
   }

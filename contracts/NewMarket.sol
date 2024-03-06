@@ -17,8 +17,8 @@ contract Market {
     uint public period = 86400; //64b
     //Market begin timestamp 1.1.2024
     uint public initTimestamp = 1704124800; //64b
-    //Protocol fee 0.05% per period writen with 18 decimals
-    uint public feeProtocol = 50000000000000000; //256b
+    //Protocol fee 0.05% writen with 18 decimals
+    uint public feeProtocol = 500000000000000; //256b
     //Settle interval for average price calculation in seconds (10 minutes)
     uint public tReporting = 600;
     //Uniswap pool
@@ -26,7 +26,7 @@ contract Market {
     //Range of a lot in the format of tokens decimals 100 and 18 decimals
     uint public dPrice = 1e20;
     //Tax on lots in the market 0.5% per period write with 18 decimals
-    uint public taxMarket = 500000000000000000; //256b
+    uint public taxMarket = 5000000000000000; //256b
     //ERC20 token used for buying lots in this contract
     IERC20 public accountingToken = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); //256b
     //Owner of this market
@@ -40,8 +40,9 @@ contract Market {
     *   CLOSED - Frame is closed and ready for rate calculation
     *   RATED - Frame close rate was set
     *   SETTLED - Frame reward was claimed
+    *   UNCLAIMABLE - Frame has no lot that won
     */
-    enum SFrame {NULL, OPENED, CLOSED, RATED, SETTLED}
+    enum SFrame {NULL, OPENED, CLOSED, RATED, SETTLED, UNCLAIMABLE}
 
     struct Frame {
         uint frameKey;
@@ -92,7 +93,8 @@ contract Market {
         owner = msg.sender;
     }
 
-    function getStateFrame(Frame memory frame) public view returns (SFrame){
+    function getStateFrame(uint frameKey) public view returns (SFrame){
+        Frame memory frame = frames[frameKey];
         //NULL If frame doesn't exist, return SFrame.NULL
         if (frame.frameKey == 0) return SFrame.NULL;
         //CLAIMED If reward is claimed, return SFrame.CLAIMED
@@ -101,18 +103,21 @@ contract Market {
         if (block.timestamp < frame.frameKey + period) return SFrame.OPENED;
         //RATED if average price is set, return SFrame.RATED
         if (frame.rate > 0) return SFrame.RATED;
+        //If there is no lot that won, return SFrame.UNCLAIMABLE
+        if (frame.rate > 0 && getStateLot(frameKey, clcLotKey(frame.rate)) == SLot.NULL) return SFrame.UNCLAIMABLE;
         //CLOSED if no other condition is met, return SFrame.CLOSED
         return SFrame.CLOSED;
     }
 
 
-    function getStateLot(Lot memory lot) public view returns (SLot){
+    function getStateLot(uint frameKey, uint lotKey) public view returns (SLot){
+        Lot memory lot = lots[frameKey][lotKey];
         //NULL If lot doesn't exist, return SLot.NULL
         if (lot.lotKey == 0) return SLot.NULL;
         //If frame state is null, return SLot.NULL
-        if (getStateFrame(frames[lot.frameKey]) == SFrame.NULL) return SLot.NULL;
+        if (getStateFrame(frameKey) == SFrame.NULL) return SLot.NULL;
         //If frame state is OPENED or CLOSED, return SLot.TAKEN
-        if (getStateFrame(frames[lot.frameKey]) == SFrame.OPENED || getStateFrame(frames[lot.frameKey]) == SFrame.CLOSED) return SLot.TAKEN;
+        if (getStateFrame(frameKey) == SFrame.OPENED || getStateFrame(frameKey) == SFrame.CLOSED) return SLot.TAKEN;
         //Frame state is RATED decide if lot state is WON or LOST
         //WON if frame average price is in interval of lot key and lotKey+dPrice
         if (frames[lot.frameKey].rate >= lot.lotKey && frames[lot.frameKey].rate < lot.lotKey + dPrice) return SLot.WON;
@@ -204,18 +209,18 @@ contract Market {
 
     //Calculate amount of tax to be collected from the owner of the lot
     function clcTax(uint frameKey, uint acquisitionPrice) public view returns (uint tax) {
-        uint taxPerSecond = taxMarket * acquisitionPrice / period;
+        uint taxPerSecond = taxMarket.mul(acquisitionPrice).div(1e18) / period;
         return ((frameKey + period) - block.timestamp) * taxPerSecond;
     }
 
-    //Calculate protocol fee to be collected from the owner of the lot
-    function clcFee(uint frameKey, uint acquisitionPrice) public view returns (uint fee) {
-        uint feePerSecond = feeProtocol * acquisitionPrice / period;
-        return ((frameKey + period) - block.timestamp) * feePerSecond;
+    function clcFee(uint rewardFund) public view returns (uint fee) {
+        //Multiply reward fund by protocol fee, 18 decimals
+        fee = rewardFund.mul(feeProtocol).div(1e18);
+        return fee;
     }
 
     //Calculate reward fund for the frame from lots
-    function clcRewardFund(Frame memory frame) public view returns (uint) {
+    function clcRewardFund(Frame memory frame) internal view returns (uint) {
         uint rewardFund = 0;
         for (uint i = 0; i < frame.lotKeys.length; i++) {
             Lot memory lot = lots[frame.frameKey][frame.lotKeys[i]];
@@ -250,7 +255,7 @@ contract Market {
             //Get last LotState from Lot
             LotState memory currentLotState = lot.states[lot.states.length - 1];
 
-            //If lot is updated no owner change
+            //If lot is updated with no owner change
             if (msg.sender == currentLotState.owner) {
                 lot = purchaseLotUpdatePrice(lot, acquisitionPrice);
                 emit LotUpdate(lot);
@@ -275,14 +280,10 @@ contract Market {
         uint tax = clcTax(frame.frameKey, acquisitionPrice);
         //Tax has to be greater than 0
         require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
-        //Calculate fee amount
-        uint fee = clcFee(frame.frameKey, acquisitionPrice);
-        //Fee has to be greater than 0
-        require(fee > 0, "Fee has to be greater than 0. Increase the acquisition price");
         //Approved amount has to be at least equal to price of the
-        require(accountingToken.allowance(msg.sender, address(this)) >= tax + fee, "Allowance to spend set too low");
+        require(accountingToken.allowance(msg.sender, address(this)) >= tax, "Allowance to spend set too low");
         //Transfer tax amount to the market contract
-        accountingToken.transferFrom(msg.sender, address(this), tax + fee);
+        accountingToken.transferFrom(msg.sender, address(this), tax);
         //Create new lot
         return createLot(frame, lotKey, msg.sender, acquisitionPrice, tax);
     }
@@ -295,37 +296,36 @@ contract Market {
         uint taxOld = clcTax(lot.frameKey, lot.states[lot.states.length - 1].acquisitionPrice);
         //Tax has to be greater than 0
         require(taxNew > 0, "Tax has to be greater than 0. Increase the acquisition price");
-        //Calculate fee amount
-        uint fee = clcFee(lot.frameKey, acquisitionPrice);
-        //Fee has to be greater than 0
-        require(fee > 0, "Fee has to be greater than 0. Increase the acquisition price");
         //Compare new tax and fee with old tax and fee
         if (taxNew > taxOld) {
-            //Approved amount has to be at least equal to price of tax + fee
+            //Approved amount has to be at least equal to price of tax
             require(accountingToken.allowance(msg.sender, address(this)) >= taxNew - taxOld, "Allowance to spend set too low");
-            //Transfer tax amount to the market contract
-            accountingToken.transferFrom(msg.sender, address(this), taxNew - taxOld + fee);
-            //Update lot
+            //Transfer tax difference to the market contract
+            accountingToken.transferFrom(msg.sender, address(this), taxNew - taxOld);
         }
         else {
-            //TODO: Check this stuff in tests
-            //Approved amount has to be at least equal to price of fee
-            if (fee > taxOld - taxNew) require(accountingToken.allowance(msg.sender, address(this)) >= fee-(taxOld-taxNew), "Allowance to spend set too low");
-            //Transfer tax amount to the market contract
-            accountingToken.transfer(msg.sender, taxOld - taxNew - fee);
-            //Update lot
+            //Transfer tax amount to owner
+            accountingToken.transfer(msg.sender, taxOld - taxNew);
         }
 
         return updateLot(lot, msg.sender, acquisitionPrice, taxNew, taxOld - taxNew);
+    }
+    
+    function purchaseLotOwnerChange(Lot memory lot, address _owner, uint acquisitionPrice) internal returns (Lot memory){
         uint tax = clcTax(lot.frameKey, acquisitionPrice);
         //Tax has to be greater than 0
         require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
-        //Calculate fee amount
+        //Approved amount has to be at least equal to price of tax + acquisitionPrice
+        require(accountingToken.allowance(msg.sender, address(this)) >= tax + acquisitionPrice, "Allowance to spend set too low");
+        //Transfer tax and acquisition price to the market contract
+        accountingToken.transferFrom(msg.sender, address(this), tax + acquisitionPrice);
+        //Calculate old owner tax
+        uint taxOld = clcTax(lot.frameKey, lot.states[lot.states.length - 1].acquisitionPrice);
+        //Pay the current owner + return leftover tax
+        accountingToken.transfer(lot.states[lot.states.length - 1].owner, lot.states[lot.states.length - 1].acquisitionPrice + taxOld - tax);
 
-    }
-    
-    function purchaseLotOwnerChange(Lot memory lot, address _owner, uint acquisitionPrice) internal {
-        
+        //updateLot with new owner
+        return updateLot(lot, _owner, acquisitionPrice, tax, 0);
     }
 
     function setFrameRate(uint frameKey) public {
@@ -375,40 +375,50 @@ contract Market {
         return priceIn18Decimals;
     }
 
-    function settleFrame(Frame memory frame) private {
-        //Reject of frame don't exist
-        require(frame.frameKey != 0, "Frame doesn't exist");
+    function settleFrame(uint frameKey) private {
+        //Get frame
+        Frame storage frame = frames[frameKey];
         //Reject if frame is not in state RATED
-        require(getStateFrame(frame) == SFrame.RATED, "Frame does not have a close rate set");
+        require(getStateFrame(frameKey) == SFrame.RATED, "Frame does not have a close rate set");
         //Calculate the winning lot key based on the frame's close rate
         uint lotKeyWon = clcLotKey(frame.rate);
-        Lot memory lotWon = lots[frame.frameKey][lotKeyWon];
-        //Reject if lot is in state LOST
-        require(getStateLot(lotWon) == SLot.WON, "No winning lot in this frame");
+        //Reject if lot doesn't exist
+        require(getStateLot(frameKey, lotKeyWon) == SLot.WON, "Lot that won doesn't exist");
 
-        //Transfer winnings to last owner
-        LotState memory currentLotState = lotWon.states[lotWon.states.length - 1]; //last lot state
-        accountingToken.transfer(currentLotState.owner, clcRewardFund(frame));
-        frame.rewardClaimedBy = currentLotState.owner;
+        //Calculate reward fund for the frame
+        uint rewardFundPure = clcRewardFund(frame);
+        //Calculate protocol fee
+        uint fee = clcFee(rewardFundPure);
+        //Calculate reward fund for the frame after fee
+        uint rewardFund = rewardFundPure - fee;
+
+        //Transfer fee to the market owner
+        accountingToken.transfer(owner, fee);
+
+        //Get the winning lot
+        Lot memory lotWon = lots[frameKey][lotKeyWon];
+        LotState memory winningLotState = lotWon.states[lotWon.states.length - 1]; //last lot state
+        accountingToken.transfer(winningLotState.owner, rewardFund);
+        frame.rewardClaimedBy = winningLotState.owner;
 
         emit LotUpdate(lotWon);
         emit FrameUpdate(frame);
     }
 
-    // function clcUnClaimableFunds() public view returns (uint){
-    //     uint unClaimableFunds = 0;
-    //     for (uint i = 0; i < framesKeys.length; i++) {
-    //         Frame memory frame = frames[framesKeys[i]];
-    //         //Frame has to be RATED
-    //         if (getStateFrame(frame) == SFrame.RATED) {
-    //         //Frame must not have lot that won
-    //             Lot memory lotWon = lots[frame.frameKey][clcLotKey(frame.rate)][lots[frame.frameKey][clcLotKey(frame.rate)].length];
-    //             if (getStateLot(lotWon) != SLot.WON)
-    //                 unClaimableFunds += clcRewardFund(frame);
-    //         }
-    //     }
-    //     return unClaimableFunds;
-    // }
+    function clcUnClaimableFunds() public view returns (uint){
+        uint unClaimableFunds = 0;
+        for (uint i = 0; i < framesKeys.length; i++) {
+            Frame memory frame = frames[framesKeys[i]];
+            //Frame has to be RATED
+            if (getStateFrame(frame.frameKey) == SFrame.UNCLAIMABLE) {
+            //Frame must not have lot that won
+                Lot memory lotWon = lots[frame.frameKey][clcLotKey(frame.rate)];
+                if (getStateLot(frame.frameKey, lotWon.lotKey) != SLot.WON)
+                    unClaimableFunds += clcRewardFund(frame);
+            }
+        }
+        return unClaimableFunds;
+    }
 
     function withdrawAccountingToken(uint amount) external {
         require(msg.sender == owner, "Only owner can withdraw accounting token");
