@@ -23,7 +23,28 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = { 
-  solidity: "0.7.0",
+  solidity: {
+    compilers: [
+      {
+        version: "0.8.0",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          },
+        },
+      },
+      {
+        version: "0.8.20", // Add this compiler version for OpenZeppelin contracts
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          },
+        },
+      },
+    ]
+  },
   networks: {
     goerli: {
       url: 'https://goerli.infura.io/v3/fa45f0ccc7eb423e983a72671d038716',
@@ -52,6 +73,14 @@ module.exports = {
       // url: `https://mainnet.infura.io/v3/${INFURA_KEY}`, // ${INFURA_KEY} - must be your API key
       blockNumber: 25867882, // a specific block number with which you want to work
     },
+    hardhat: {
+      forking: {
+        url: "https://polygon-mainnet.g.alchemy.com/v2/B5BcNEAt4dYLjJBtEKZj6iC6x1apTiZI",
+        blockNumber: 54813088,
+        loggingEnabled: true
+      }
+    }
+    
   },
   solc: {
     optimizer: {
