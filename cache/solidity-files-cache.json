@@ -294,8 +294,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\Market.sol": {
-      "lastModificationDate": 1711388164824,
-      "contentHash": "263de7511789bca70251d581cd473492",
+      "lastModificationDate": 1711631104900,
+      "contentHash": "a57aeb2ca634e7045c2e20e14a31086d",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -333,38 +333,6 @@
         "Market"
       ]
     },
-    "D:\\prog\\UniHedge\\core\\contracts\\MarketFactory.sol": {
-      "lastModificationDate": 1709239815008,
-      "contentHash": "398bf2d5ab957c58337bca39170cbdb3",
-      "sourceName": "contracts/MarketFactory.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [],
-      "artifacts": []
-    },
     "D:\\prog\\UniHedge\\core\\node_modules\\@uniswap\\v2-periphery\\contracts\\libraries\\UQ112x112.sol": {
       "lastModificationDate": 1638998878289,
       "contentHash": "59d93f5f40ffdc3d8cdf9f1c8d5ea8e9",
@@ -400,8 +368,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\MarketGetter.sol": {
-      "lastModificationDate": 1711300297562,
-      "contentHash": "1fb56b4e557f63046b042fd757c60eb9",
+      "lastModificationDate": 1711634367869,
+      "contentHash": "76ca84a2ca64ec44124bc1a4aa18d3e8",
       "sourceName": "contracts/MarketGetter.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -438,38 +406,6 @@
       "artifacts": [
         "MarketGetter"
       ]
-    },
-    "D:\\prog\\UniHedge\\core\\contracts\\MLib.sol": {
-      "lastModificationDate": 1709239841814,
-      "contentHash": "e1c9e56b165690e9f9c1e08b5ec5b5ef",
-      "sourceName": "contracts/MLib.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [],
-      "artifacts": []
     },
     "D:\\prog\\UniHedge\\core\\node_modules\\@uniswap\\lib\\contracts\\libraries\\FullMath.sol": {
       "lastModificationDate": 1706352726078,
@@ -867,108 +803,6 @@
         "IUniswapV3PoolEvents"
       ]
     },
-    "D:\\prog\\UniHedge\\core\\contracts\\OldMarket.sol": {
-      "lastModificationDate": 1710182770928,
-      "contentHash": "5b07244d68fa002d8884ae4197898f3f",
-      "sourceName": "contracts/OldMarket.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [],
-      "artifacts": []
-    },
-    "D:\\prog\\UniHedge\\core\\contracts\\Token.sol": {
-      "lastModificationDate": 1711293756092,
-      "contentHash": "0a73a96c9a9237a44c5af55a9be172eb",
-      "sourceName": "contracts/Token.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/token/ERC20/ERC20.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "Token"
-      ]
-    },
-    "D:\\prog\\UniHedge\\core\\contracts\\OldMarketGetter.sol": {
-      "lastModificationDate": 1710270961675,
-      "contentHash": "b9ec817bb80a1969cde3db7ab3f8eb63",
-      "sourceName": "contracts/OldMarketGetter.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [],
-      "artifacts": []
-    },
     "D:\\prog\\UniHedge\\core\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Metadata.sol": {
       "lastModificationDate": 1711298923763,
       "contentHash": "4c02fa6f7ae7b6c289cef80424f0c875",
@@ -1044,38 +878,6 @@
         "IERC20Errors",
         "IERC721Errors"
       ]
-    },
-    "D:\\prog\\UniHedge\\core\\contracts\\Market2Old.sol": {
-      "lastModificationDate": 1711299564227,
-      "contentHash": "322345d19d4241a141cfcac386a32b0f",
-      "sourceName": "contracts/Market2Old.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [],
-      "artifacts": []
     }
   }
 }

@@ -155,7 +155,6 @@ contract Market {
     }
 
     function getFrameLotKeys(uint frameKey) public view returns (uint[] memory){
-        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
         return frames[frameKey].lotKeys;
     }
 
@@ -177,7 +176,7 @@ contract Market {
         require(frames[frameKey].frameKey == 0, "Frame already exists");
         //Create frame
         //Check if frame is in the future for at leas 1 period
-        require(frameKey >= block.timestamp + period, "Can't create frame in the past");
+        require(frameKey + period >= block.timestamp, "Frame has to be in the future");
         //Add frame
         frames[frameKey].frameKey = frameKey;
         framesKeys.push(frameKey);
@@ -266,7 +265,7 @@ contract Market {
         console.log("SOL: balance of sender:", accountingToken.balanceOf(msg.sender));
         console.log("SOL: Allowance to spend:", accountingToken.allowance(msg.sender, address(this)));
         console.log("SOL: tax:", tax);
-        require(accountingToken.allowance(msg.sender, address(this)) >= tax + acquisitionPrice, "Allowance to spend set too low");
+        require(accountingToken.allowance(msg.sender, address(this)) >= tax, "Allowance to spend set too low");
 
         //Reject if lot already exists
         require(lots[frameKey][lotKey].lotKey == 0, "Lot already exists");
@@ -321,7 +320,9 @@ contract Market {
         //Tax has to be greater than 0
         require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
         //Approved amount has to be at least equal to price of the
-        require(accountingToken.allowance(msg.sender, address(this)) >= tax + acquisitionPrice, "Allowance to spend set too low");
+        //Get last acqusiotion price + tax
+        uint lastAcquisitionPrice = lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice;
+        require(accountingToken.allowance(msg.sender, address(this)) >= tax + lastAcquisitionPrice, "Allowance to spend set too low");
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), tax);
         //Add new lot state
@@ -439,48 +440,48 @@ contract Market {
         emit FrameUpdate(frames[frameKey]);
     }
 
-    function clcFrameRate(uint frameKey) public view returns (uint) {
-        //Frame has to be in closed state
-        require(frameKey + period <= block.timestamp, "Frame has to be in the past");
+//     function clcFrameRate(uint frameKey) public view returns (uint) {
+//         //Frame has to be in closed state
+//         require(frameKey + period <= block.timestamp, "Frame has to be in the past");
 
-//        // Calculate the tick difference and time elapsed
-//        int56 tickCumulativeDelta = tickCumulatives[1] - tickCumulatives[0];
-//        uint32 timeElapsed = t2 - t1; // Ensure this calculation makes sense in your context
-//
-//        // Calculate the average tick
-//        int24 averageTick = int24(tickCumulativeDelta / int56(timeElapsed));
-//
-//        // Calculate the average price
-//        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(averageTick);
-//
-//        // Convert to 18 decimal precision
-//        uint priceAverage = uint(sqrtPriceX96).mul(uint(sqrtPriceX96)).mul(1e18) >> (96 * 2);
-//
-//        return priceAverage;
-//        // Calculate the tick difference and time elapsed
-//        uint tickCumulativeDelta = uint(tickCumulatives[1]).sub(uint(tickCumulatives[0]));
-//        uint timeElapsed = uint(t2).sub(uint(t1));
-//        console.log("tickCumulativeDelta:", tickCumulativeDelta);
-//        console.log("timeElapsed:", timeElapsed);
-//
-//        // Calculate the average tick
-//        uint averageTick = tickCumulativeDelta.div(timeElapsed);
-//        console.log("averageTick:", averageTick);
-//
-//        // Calculate the sqrtPriceX96 from the average tick
-//        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(int24(averageTick));
-//        console.log("sqrtPriceX96:", sqrtPriceX96);
-//
-//        uint price = uint(sqrtPriceX96).div(2**48); // Reducing the size to prevent overflow when squaring
-//        price = price.mul(price); // Square the price
-//
-//        price = price.mul(1e18).div(2**96); // Adjust back to 18 decimal places
-//
-//        return price;
-        return 0;
+// //        // Calculate the tick difference and time elapsed
+// //        int56 tickCumulativeDelta = tickCumulatives[1] - tickCumulatives[0];
+// //        uint32 timeElapsed = t2 - t1; // Ensure this calculation makes sense in your context
+// //
+// //        // Calculate the average tick
+// //        int24 averageTick = int24(tickCumulativeDelta / int56(timeElapsed));
+// //
+// //        // Calculate the average price
+// //        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(averageTick);
+// //
+// //        // Convert to 18 decimal precision
+// //        uint priceAverage = uint(sqrtPriceX96).mul(uint(sqrtPriceX96)).mul(1e18) >> (96 * 2);
+// //
+// //        return priceAverage;
+// //        // Calculate the tick difference and time elapsed
+// //        uint tickCumulativeDelta = uint(tickCumulatives[1]).sub(uint(tickCumulatives[0]));
+// //        uint timeElapsed = uint(t2).sub(uint(t1));
+// //        console.log("tickCumulativeDelta:", tickCumulativeDelta);
+// //        console.log("timeElapsed:", timeElapsed);
+// //
+// //        // Calculate the average tick
+// //        uint averageTick = tickCumulativeDelta.div(timeElapsed);
+// //        console.log("averageTick:", averageTick);
+// //
+// //        // Calculate the sqrtPriceX96 from the average tick
+// //        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(int24(averageTick));
+// //        console.log("sqrtPriceX96:", sqrtPriceX96);
+// //
+// //        uint price = uint(sqrtPriceX96).div(2**48); // Reducing the size to prevent overflow when squaring
+// //        price = price.mul(price); // Square the price
+// //
+// //        price = price.mul(1e18).div(2**96); // Adjust back to 18 decimal places
+// //
+// //        return price;
+//         return 0;
 
 
-    }
+//     }
 
     function settleFrame(uint frameKey) public returns (uint){
         //Reject of frame don't exist
@@ -506,29 +507,32 @@ contract Market {
         accountingToken.transfer(lotWon.states[lotWon.states.length-1].owner, frames[frameKey].rewardSettle);
         frames[frameKey].claimedBy = lotWon.states[lotWon.states.length-1].owner;
 
+        //Transfer protocol fee to the market owner
+        accountingToken.transfer(owner, frames[frameKey].feeSettle);
+
         emit LotUpdate(lotWon);
         emit FrameUpdate(frames[frameKey]);
 
         return frames[frameKey].rewardSettle;
     }
-//
-//    function clcUnClaimableFunds() public view returns (uint){
-//        uint unClaimableFunds = 0;
-//        for (uint i = 0; i < framesKeys.length; i++) {
-//            Frame memory frame = frames[framesKeys[i]];
-//            //Frame has to be RATED
-//            if (getStateFrame(frame) == SFrame.RATED) {
-//            //Frame must not have lot that won
-//                Lot memory lotWon = lots[frame.frameKey][clcLotKey(frame.rate)][lots[frame.frameKey][clcLotKey(frame.rate)].length];
-//                if (getStateLot(lotWon) != SLot.WON)
-//                    unClaimableFunds += clcRewardFund(frame);
-//            }
-//        }
-//        return unClaimableFunds;
-//    }
-//
-//    function withdrawAccountingToken(uint amount) external {
-//        require(msg.sender == owner, "Only owner can withdraw accounting token");
-//        accountingToken.transfer(owner, accountingToken.balanceOf(address(this)));
-//    }
+
+    function clcUnClaimableFunds() public view returns (uint){
+        uint unClaimableFunds = 0;
+        for (uint i = 0; i < framesKeys.length; i++) {
+            Frame memory frame = frames[framesKeys[i]];
+            //Frame has to be RATED
+            if (getStateFrame(frame.frameKey) == SFrame.RATED) {
+            //Frame must not have lot that won
+                Lot memory lotWon = lots[frame.frameKey][clcLotKey(frame.rate)];
+                if (getStateLot(frame.frameKey, lotWon.lotKey) != SLot.WON)
+                    unClaimableFunds += clcRewardFund(frame.frameKey);
+            }
+        }
+        return unClaimableFunds;
+    }
+
+   function withdrawAccountingToken(uint amount) external {
+       require(msg.sender == owner, "Only owner can withdraw accounting token");
+       accountingToken.transfer(owner, amount);
+   }
 }

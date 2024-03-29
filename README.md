@@ -5,6 +5,9 @@ Solidity  | ^0.8.0 (solc-js)
 Node | v14.17.2
 
 
+Market: 0x0B0ce68385a39907BcbAb7327EDCA4eFABA092d1
+MarketGetter: 0xA921B22291d8468A71e610f79F42441ce492Df7a
+
 ## **Market** contract functions
 
 * Recent updates:

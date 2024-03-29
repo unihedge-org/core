@@ -64,19 +64,29 @@ contract MarketGetter {
     function getOpenFrameKeys(Market market, uint startFrame, uint numOfFrames) external view returns (uint[] memory openFrames){
         openFrames = new uint[](numOfFrames);
 
+        uint counter = 0;
+
         Market.Frame memory frame;
 
         for(uint i = 0; i <= numOfFrames; i++) {
             uint frameKey = startFrame+(market.period()*i);
             frame = getFrameStruct(market, frameKey);
-            if(market.getStateFrame(frame.frameKey) == Market.SFrame.OPENED || market.getStateFrame(frame.frameKey) == Market.SFrame.RATED){
-                openFrames[i] = frameKey;
+            console.log("SOL: frame.frameKey: %s", frame.frameKey);
+            Market.SFrame frameState = market.getStateFrame(frame.frameKey);
+            if(frameState == Market.SFrame.OPENED || frameState == Market.SFrame.RATED){
+                console.log("SOL: frame is open");
+                openFrames[counter] = frameKey;
+                counter++;
             }
         }
+
+        return openFrames;
     }
 
 
     function getLots(Market market, uint frameKey_start,uint frameKey_end, uint page, uint perPage) external view returns (Market.Lot[] memory lots, uint pagesLeft){
+        console.log("getLots");
+        require(frameKey_start <= frameKey_end, "frameKey_start must be smaller or equal to frameKey_end");
         lots = new Market.Lot[](perPage);
 
         uint[] memory lotKeys;
@@ -84,15 +94,18 @@ contract MarketGetter {
         uint[] memory uintVariables = new uint[](3);
 
         uintVariables[2] = market.period();
-
-            for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
-                lotKeys = market.getFrameLotKeys (frameKey);
-                for (uint j=0; j < lotKeys.length; j++) {                   
-                    if(uintVariables[0] >= (page*perPage) && (uintVariables[0] < (page+1)*perPage) ) {
-                        lots[uintVariables[1]]= (getLotStruct(market, frameKey, lotKeys[j]));
-                        uintVariables[1]= uintVariables[1] + 1;
-                    }
-                    uintVariables[0]= uintVariables[0] + 1;
+        console.log("SOL: Starting loop");
+        for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
+            //
+            console.log("frameKey: %s", frameKey);
+            lotKeys = market.getFrameLotKeys (frameKey);
+            for (uint j=0; j < lotKeys.length; j++) {
+                console.log("lotKey: %s", lotKeys[j]);                   
+                if(uintVariables[0] >= (page*perPage) && (uintVariables[0] < (page+1)*perPage) ) {
+                    lots[uintVariables[1]]= (getLotStruct(market, frameKey, lotKeys[j]));
+                    uintVariables[1]= uintVariables[1] + 1;
+                }
+                uintVariables[0]= uintVariables[0] + 1;
             }
         }
 
@@ -102,11 +115,11 @@ contract MarketGetter {
         }
         else pagesLeft=0;
 
-        return(lots, pagesLeft);
+        // return(lots, pagesLeft);
 
     }
 
-        /// @notice Get users lots in the specified time frame
+    /// @notice Get users lots in the specified time frame
     /// @dev There were a lot of problems with the limit of 16 local variables
     /// @dev had to use 'tricks' with arrays that hold multiple variables to avoid stack too deep problem
     /// @param market Market's address
@@ -320,8 +333,10 @@ contract MarketGetter {
         console.log("SOL: clcAmountToApprove");
         uint frameKey = market.clcFrameKey(timestamp); 
         console.log("SOL: frameKey: %s", frameKey);
+        console.log("SOL: block.timestamp: %s", block.timestamp);
+        console.log("SOL: market.period(): %s", market.period());
         //Check if the lot is in a current or future frame, otherwise the calculation results in an overflow/underflow.
-        require(frameKey >= market.clcFrameKey(block.timestamp), "THIS LOT IS IN A PAST FRAME");        
+        require(frameKey + market.period() >= block.timestamp, "Frame has to be in the future");        
         uint lotKey = market.clcLotKey(pairPrice);
         console.log("SOL: lotKey: %s", lotKey);
         uint tax = market.clcTax(frameKey, acqPrice);
