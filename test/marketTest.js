@@ -29,9 +29,6 @@ describe("Testing market contract", function () {
         contractTokenDai = await ethers.getContractAt(IERC20.abi, "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", owner);
         contractTokenWMatic = await ethers.getContractAt(IERC20.abi, "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", owner);
 
-        const TokenContract = await ethers.getContractFactory("Token");
-        accountingToken = await TokenContract.connect(accounts[0]).deploy();
-
         const MarketGetterContract = await ethers.getContractFactory("MarketGetter");
         contractMarketGetter = await MarketGetterContract.deploy();
     });
