@@ -1,13 +1,14 @@
-const {expect} = require("chai");
-const {ethers} = require("hardhat");
-const colors = require('colors');
-const {Route, Trade, TokenAmount, TradeType} = require('@uniswap/sdk');
-const IERC20 = require('@openzeppelin/contracts/build/contracts/ERC20.json');
-const ISwapRouter = require('@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json');
-const { time } =  require("@nomicfoundation/hardhat-network-helpers");
+import { expect } from "chai";
+import pkg from 'hardhat';
+const { ethers } = pkg;
+import IERC20 from '@openzeppelin/contracts/build/contracts/ERC20.json' assert { type: 'json' };
+import ISwapRouter from '@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json' assert { type: 'json' };
+import { time } from "@nomicfoundation/hardhat-network-helpers";
+
 
 describe("Testing market contract", function () {
-    let swapRouter, owner, daiContract, wMaticContract;
+    let swapRouter, owner , frameKey, startframe;
+    let accounts = [];
     const uniswapPoolAddressWETHDai = "0x67a9FE12fa6082D9D0203c84C6c56D3c4B269F28"; // Uniswap pool address
     const uniswapPoolAddressWMaticDai = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
     const uniswapRouterAddress = "0xE592427A0AEce92De3Edee1F18E0157C05861564"; // Uniswap router address
@@ -15,8 +16,10 @@ describe("Testing market contract", function () {
     const wMaticAddress = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"// Correct DAI address needed
     let contractMarket={};
     let contractMarketGetter={};
-    let accountingToken={};
-    const winningPairPrice = ethers.BigNumber.from('3471674728396359164646');
+    let contractSwapRouter={};
+    let contractTokenDai={};
+    let contractTokenWMatic={};
+    var winningPairPrice;
     //Define dPrice as an emty big number
     let dPrice = ethers.BigNumber.from('0');
 
@@ -44,6 +47,8 @@ describe("Testing market contract", function () {
         //load await contractMarket.dPrice(); in to dPrice as a big number
         dPrice = await contractMarket.dPrice();
         console.log("dPrice is: ", dPrice.toString());
+
+        winningPairPrice = await contractMarket.clcRate();
     });
         it('Swap WMatic for DAI 1st user', async () => {
             const params = {
@@ -59,31 +64,15 @@ describe("Testing market contract", function () {
             let tx =    await contractSwapRouter.connect(accounts[1]).exactInputSingle(params, {value: params.amountIn});
             await tx.wait();
             const daiBalanceAfterSwap = await contractTokenDai.connect(accounts[1]).balanceOf(accounts[1].address);
-            expect(daiBalanceAfterSwap).to.be.gt(1);
+            // Assuming daiBalanceAfterSwap is a BigNumber
+    	    expect(daiBalanceAfterSwap.gt(ethers.utils.parseEther("1"))).to.be.true;
 
         });
 
-        it('Swap WMatic for DAI 2nd user', async () => {
-            const params = {
-                tokenIn: contractTokenWMatic.address,
-                tokenOut: contractTokenDai.address,
-                fee: 3000,
-                recipient: accounts[2].address,
-                deadline: Math.floor(Date.now() / 1000) + 60 * 10,
-                amountIn: ethers.utils.parseEther("10"),
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0,
-            };
-            let tx = await contractSwapRouter.connect(accounts[2]).exactInputSingle(params, {value: params.amountIn});
-            await tx.wait();
-            const daiBalanceAfterSwap = await contractTokenDai.connect(accounts[2]).balanceOf(accounts[2].address);
-            expect(daiBalanceAfterSwap).to.be.gt(1);
-
-        });
 
         //Swap for the rest of the 10 accounts
-        for (let i = 3; i < 15; i++) {
-            it('Swap WMatic for DAI 2nd user', async () => {
+        for (let i = 1; i < 15; i++) {
+            it('Swap WMatic for DAI for multiple users', async () => {
                 const params = {
                     tokenIn: contractTokenWMatic.address,
                     tokenOut: contractTokenDai.address,
@@ -97,7 +86,9 @@ describe("Testing market contract", function () {
                 let tx = await contractSwapRouter.connect(accounts[i]).exactInputSingle(params, {value: params.amountIn});
                 await tx.wait();
                 const daiBalanceAfterSwap = await contractTokenDai.connect(accounts[i]).balanceOf(accounts[i].address);
-                expect(daiBalanceAfterSwap).to.be.gt(1);
+                // Assuming daiBalanceAfterSwap is a BigNumber
+                expect(daiBalanceAfterSwap.gt(ethers.utils.parseEther("1"))).to.be.true;
+
             });
         }
     it('Approve lot purchase for 1st user', async function() { 
@@ -105,7 +96,7 @@ describe("Testing market contract", function () {
         startframe = await contractMarket.clcFrameKey((Date.now() / 1000 | 0));
     
         let allowance1 = await contractTokenDai.allowance(accounts[1].address, contractMarket.address);
-        console.log(colors.green("Allowance before is: " + allowance1.toString())); 
+        console.log(("Allowance before is: " + allowance1.toString())); 
     
         const lotPrice = ethers.BigNumber.from(await contractMarketGetter.connect(accounts[1]).clcAmountToApprove(contractMarket.address, frameKey, winningPairPrice, ethers.utils.parseEther('1')));
     
@@ -114,7 +105,7 @@ describe("Testing market contract", function () {
         await contractTokenDai.connect(accounts[1]).approve(contractMarket.address, lotPrice);
     
         let allowance2 = await contractTokenDai.allowance(accounts[1].address, contractMarket.address);
-        console.log(colors.green("Allowance after is: " + allowance2));
+        console.log(("Allowance after is: " + allowance2));
     });
     it('1st user buys a lot', async function() {
         let startingBalance = await contractTokenDai.balanceOf(accounts[1].address);
@@ -154,7 +145,7 @@ describe("Testing market contract", function () {
         console.log("Tax Charged:", taxCharged.toString());
         console.log("Tax Refunded:", taxRefunded.toString());
         //expect acquisition price to be 1000000000000
-        expect(acquisitionPrice).to.equal(ethers.utils.parseEther('1.0'));
+        expect(acquisitionPrice.eq(ethers.utils.parseEther('1.0'))).to.be.true;
         //expect owner to be accounts[1].address
         expect(owner).to.equal(accounts[1].address);
         //expect accounts[1].address to have balance equal to 1000000000000
@@ -187,16 +178,16 @@ describe("Testing market contract", function () {
         console.log("Tax Refunded:", taxRefunded.toString());
 
         //Expect acquisition price to be 1000000000000 and owner to be accounts[2].address
-        expect(acquisitionPrice).to.equal(ethers.utils.parseEther('1'));
+        expect(acquisitionPrice.eq(ethers.utils.parseEther('1.0'))).to.be.true;
         expect(owner).to.equal(accounts[2].address);
         expect(states.length).to.equal(2);
     });
-    it('Calculate reward amount of the frame', async function() {   
-        let rewardAmount = await contractMarketGetter.getRewardAmount(contractMarket.address, frameKey);
-        console.log("Reward amount is: ", rewardAmount.toString());
-        //Parse into ether
-        console.log("Reward amount in ether is: ", ethers.utils.formatEther(rewardAmount));
-    });
+    // it('Calculate reward amount of the frame', async function() {   
+    //     let rewardAmount = await contractMarketGetter.getRewardAmount(contractMarket.address, frameKey);
+    //     console.log("Reward amount is: ", rewardAmount.toString());
+    //     //Parse into ether
+    //     console.log("Reward amount in ether is: ", ethers.utils.formatEther(rewardAmount));
+    // });
     it('Random users buy lots in the same frame', async function() {
         for (let i = 3; i < 15; i++) {
             console.log("User ", i, " buys lot");
@@ -209,6 +200,7 @@ describe("Testing market contract", function () {
         }
     });
     it('Calculate reward amount of the frame', async function() {   
+        let rewardAmountMarket = await contractMarket.clcRewardFund(frameKey);
         let rewardAmount = await contractMarketGetter.getRewardAmount(contractMarket.address, frameKey);
         console.log("Reward amount is: ", rewardAmount.toString());
         //Parse into ether

@@ -1,45 +1,16 @@
 {
-  "name": "tradeWager",
-  "version": "1.0.0",
-  "dependencies": {
-    "@atixlabs/hardhat-time-n-mine": "0.0.5",
-    "@ensdomains/ens": "^0.4.5",
-    "@hq20/fixidity": "0.1.0-alpha.2",
-    "@nomiclabs/hardhat-truffle5": "^2.0.2",
-    "@nomiclabs/hardhat-web3": "^2.0.0",
-    "@openzeppelin/contracts": "^5.0.2",
-    "@truffle/hdwallet-provider": "^1.2.0",
-    "@uniswap/lib": "^4.0.1-alpha",
-    "@uniswap/sdk": "^3.0.3",
-    "@uniswap/v2-core": "^1.0.1",
-    "@uniswap/v2-periphery": "^1.1.0-beta.0",
-    "@uniswap/v3-core": "^1.0.1",
-    "@uniswap/v3-periphery": "^1.4.3",
-    "axios": "^0.21.0",
-    "bignumber.js": "^9.0.1",
-    "chai": "^4.3.1",
-    "colors": "^1.4.0",
-    "consola": "^2.15.3",
-    "hardhat-deploy-ethers": "^0.3.0-beta.11",
-    "npx": "^10.2.2",
-    "truffle-assertions": "^0.9.2",
-    "web3": "^1.2.9"
-  },
+  "name": "unihedge",
+  "type": "module",
   "devDependencies": {
     "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
-    "@nomiclabs/hardhat-ethers": "^2.2.3",
-    "@nomiclabs/hardhat-etherscan": "^2.1.7",
-    "@nomiclabs/hardhat-waffle": "^2.0.6",
-    "@openzeppelin/test-helpers": "^0.5.10",
-    "eth-gas-reporter": "^0.2.23",
-    "ethereum-waffle": "^3.4.0",
-    "ethers": "^5.7.2",
-    "hardhat": "^2.22.2",
-    "hardhat-console": "^1.0.0",
-    "hardhat-deploy": "^0.9.4",
-    "hardhat-gas-reporter": "^1.0.6"
+    "hardhat": "^2.22.2"
   },
-  "scripts": {
-    "test": "npx hardhat test ./test/test.js  --network localhost "
+  "dependencies": {
+    "@nomiclabs/hardhat-waffle": "^2.0.6",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@uniswap/v3-core": "^1.0.1",
+    "@uniswap/v3-periphery": "^1.4.4",
+    "chai": "^5.1.0",
+    "hardhat-gas-reporter": "^2.1.1"
   }
 }
