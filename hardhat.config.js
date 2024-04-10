@@ -76,8 +76,15 @@ module.exports = {
     hardhat: {
       forking: {
         url: "https://polygon-mainnet.g.alchemy.com/v2/B5BcNEAt4dYLjJBtEKZj6iC6x1apTiZI",
-        blockNumber: 54813088,
+        // blockNumber: 54813088,
         loggingEnabled: true
+      },
+      chains: {
+        137: {
+          hardforkHistory: {
+            london: 23850000
+          }
+        }
       }
     }
     

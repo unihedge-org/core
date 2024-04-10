@@ -1,55 +1,22 @@
 Software | Version
 ------------- | -------------
-Hardhat  | 2.6.4
-Solidity  | ^0.8.0 (solc-js)
-Node | v14.17.2
-
-
-Market: 0x0B0ce68385a39907BcbAb7327EDCA4eFABA092d1
-MarketGetter: 0xA921B22291d8468A71e610f79F42441ce492Df7a
+Hardhat  | 2.22.2
+Solidity  | 0.8.0 (solc-js)
+Node | v20.11.1
+npm | 10.2.4
 
 ## **Market** contract functions
 
-* Recent updates:
-    * New struct:
-        ```solidity
-        struct User {
-            address userPublicKey;
-            uint commulativeTax;
-            address[] referrals;
-            address referredBy;
-        }
-        ```
-    * function createUser(address newUser, address referredBy)
-        * Get's called if a new address buys a lot
-    * function getUserStruct(Market market, address userPubKey)
-        * Part of marketGetter smart contract   
-    * function getUserAddresses()
-        * Returns array of all users that have their owen User struct
-        * So all users who bought a lot
-    * function getUserStructs(Market market, uint endIndex, uint endIndex)
-        * Part of marketGetter smart contract
-        * Returns n(=endIndex-endIndex ) of user structs
-
 * Deployed contracts on Polygon mainnet:
 
-    * Market Factory address (27. 11. 23): 0x99E1d83617442A4C601Ae7771B5eC02D68a98AfE
-    * Market Getter address (27. 11. 23): 0x93F84209212AFc496458CccA63d15aA63F40b0E6
-    * Market address (27. 11. 23): 0xd5Ce1687Ec1E864F206F3Aeb11a1746f4F7347ce
-        * Accounting Token - DAI: 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063
-        * Pair: 0x6FF62bfb8c12109E8000935A6De54daD83a4f39f
-        * WETH: 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619
-        * DAI: 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063       
+    * Market Getter address: [0xA921B22291d8468A71e610f79F42441ce492Df7a](https://polygonscan.com/address/0xA921B22291d8468A71e610f79F42441ce492Df7a)
+    * Market address: [0x0B0ce68385a39907BcbAb7327EDCA4eFABA092d1](https://polygonscan.com/address/0x0B0ce68385a39907BcbAb7327EDCA4eFABA092d1)
+        * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
-* Deployed contracts on Goerli testnet:
 
-    * Market Factory address (16. 06. 23): 0x664d692F2241f50beAA9f45870aBccD846e93F38
-    * Market Getter address (16. 06. 23): 0xdD146Ec5e8D60b128A951725ab0D2A8ea317F8eE
-    * Market address (16. 06. 23): 0x3e2fAdfC46957a05Df4C3e0cbc40Ca0804391F89
-        * Accounting Token - DAI: 0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844
-        * Pair: 0x5dD9dec52a16d4d1Df10a66ac71d4731c9Dad984
-        * WETH: 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6
-        * DAI: 0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844      
+
+## Transaction fees
+* Set Frame Rate: [0.021271387854123456 MATIC](https://polygonscan.com/tx/0xa94618edbc1149304a1a99fca82da961ec577b824da5ac7c30117914013b4815)
 
 
 

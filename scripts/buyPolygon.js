@@ -1,7 +1,7 @@
 //npx hardhat --network xxx run ./Scripts/deploy.js   
 
 const hre = require("hardhat");
-
+const {expect} = require("chai");
 const fs = require('fs');
 const daiABI = JSON.parse(fs.readFileSync('dai.json', 'utf8'));
 //----------------------------------------------------------------------------------------------
@@ -12,14 +12,9 @@ let addressDAIToken = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
 
 //----------------------------------------------------------------------
 const startTimestamp = Date.now() / 1000 | 0;
-const initTimestamp = startTimestamp - (startTimestamp % 3600);
-const period = 3600;
-const marketFee = 100; // %/1000
-const marketTax = 1000;
-// const dPrice = ethers.BigNumber.from('10000000000000000000000000000');
-const tReporting = 900;
-const minTax = 0;
-const priceSwitch = false;        
+
+const dPriceDif = 2; //ex. -2 means current rate minus 2*dPrice
+     
 //----------------------------------------------------------------------
 
 
@@ -50,11 +45,21 @@ async function main() {
     let dPrice = await market.dPrice();
 
     console.log("Current dPrice: " + dPrice.toString());
+    expect(dPrice).to.be.gt(0);
 
-    let pairPrice = ethers.BigNumber.from('3369674728396359164646').add(dPrice);
+    let pairPrice = await market.clcRate();
+    expect(pairPrice).to.be.gt(0);
+    console.log("Pair price: " + pairPrice);
+    //add dPrice to pairPrice
+
+    pairPrice = pairPrice.add(dPrice.mul(dPriceDif));
+
+    console.log("Pair price: " + pairPrice);
+    console.log("Difference:" + pairPrice.sub(dPrice));
+
     // let frameKey = await market.clcFrameTimestamp((Date.now() / 1000 | 0) + 432000); // 5 days
     //Frame key 3 days in future
-    let frameKey = await market.clcFrameKey((Date.now() / 1000 | 0) + 86400); // 3 days contractMarket.address, frameKey, winningPairPrice, ethers.utils.parseEther('1')
+    let frameKey = await market.clcFrameKey((Date.now() / 1000 | 0)); // 3 days contractMarket.address, frameKey, winningPairPrice, ethers.utils.parseEther('1')
     const lotPrice = ethers.BigNumber.from(await marketGetter.connect(accounts[0]).clcAmountToApprove(market.address, frameKey, pairPrice, ethers.utils.parseEther('0.001')));
     console.log("Amount to approve: " + lotPrice);
 
@@ -75,33 +80,6 @@ async function main() {
 
       console.log("Transaction hash: " + transaction.hash);
       console.log("Lot bought");
-
-    // console.log("Transaction hash: " + transaction.hash);
-    // console.log("Lot bought");
-
-    //Get user lots
-    // let curentFrame = await market.connect(accounts[0]).clcFrameTimestamp(Date.now() / 1000 | 0);
-    
-    // //Frame 4 days in future
-    // let frameKey2 = await market.clcFrameTimestamp((Date.now() / 1000 | 0)+432000); //5 days
-
-
-    // let userLots = await marketGetter.connect(accounts[0]).getLotsUser(market.address, accounts[0].address, 0, curentFrame, frameKey2, 0, 2);
-    // console.log(userLots[0])
-    // //frameKey is a bigNumber so we need to convert it to string, use ethers.utils.formatEther
-    // console.log(userLots[0][0]['frameKey'].toString());
-    // //Num of lots
-    // console.log("Num of all lots: " + userLots[0].length);
-
-    // let userFrames = await marketGetter.connect(accounts[0]).getFramesUser(market.address, accounts[0].address, curentFrame, frameKey2, 0, 2);
-    // console.log(userFrames[0]);
-    // //Num of frames
-    // console.log("Num of frames: " + userFrames[0].length);
-
-
-    // let getNumOfLots = await marketGetter.connect(accounts[0]).getLotsCount(market.address, frameKey);
-    // console.log("Num of lots in frame " + frameKey +": " + getNumOfLots);
-
   
 }
 // We recommend this pattern to be able to use async/await everywhere

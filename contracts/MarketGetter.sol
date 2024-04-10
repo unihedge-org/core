@@ -328,24 +328,16 @@ contract MarketGetter {
     /// @param timestamp Timestamp that determins which frame it is
     /// @param pairPrice Value is trading pair's price (to get correct lot key) 
     /// @param acqPrice New sell price is required to calculate tax
-    /// @return cmpltAmnt complete price of a lot
-    function clcAmountToApprove(Market market, uint timestamp, uint pairPrice, uint acqPrice) external view returns (uint cmpltAmnt) {    
-        console.log("SOL: clcAmountToApprove");
+    /// @return approvalAmnt complete price of a lot
+    function clcAmountToApprove(Market market, uint timestamp, uint pairPrice, uint acqPrice) external view returns (uint approvalAmnt) {    
         uint frameKey = market.clcFrameKey(timestamp); 
-        console.log("SOL: frameKey: %s", frameKey);
-        console.log("SOL: block.timestamp: %s", block.timestamp);
-        console.log("SOL: market.period(): %s", market.period());
         //Check if the lot is in a current or future frame, otherwise the calculation results in an overflow/underflow.
         require(frameKey + market.period() >= block.timestamp, "Frame has to be in the future");        
         uint lotKey = market.clcLotKey(pairPrice);
-        console.log("SOL: lotKey: %s", lotKey);
         uint tax = market.clcTax(frameKey, acqPrice);
-        console.log("SOL: tax: %s", tax);
         Market.Lot memory lot = getLotStruct(market, frameKey, lotKey);
-        console.log("SOL: lot.states[lot.states.length - 1].acquisitionPrice: %s", lot.states[lot.states.length - 1].acquisitionPrice);
-        cmpltAmnt = lot.states[lot.states.length - 1].acquisitionPrice + tax;
-        console.log("SOL: cmpltAmnt: %s", cmpltAmnt);
-        return cmpltAmnt;
+        approvalAmnt = lot.states[lot.states.length - 1].acquisitionPrice + tax;
+        return approvalAmnt;
     }
 
     /// @notice Calculate amount required to change lot's price.
