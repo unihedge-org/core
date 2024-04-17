@@ -3,8 +3,8 @@
   "version": "0.0.4",
   "type": "module",
   "files": [
-    "arifacts/contracts/Market.sol/Market.json",
-    "arifacts/contracts/MarketGetter.sol/MarketGetter.json"
+    "artifacts/contracts/Market.sol/Market.json",
+    "artifacts/contracts/MarketGetter.sol/MarketGetter.json"
   ],
   "main": "abiIndex.js",
   "scripts": {
