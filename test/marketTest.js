@@ -247,6 +247,13 @@ describe("Testing market contract", function () {
         //Winner address should be accounts[1].address
         expect(frame[3]).to.equal(accounts[2].address);
     });
-
+    it('calculate rate of frame 1712678400', async function() {
+        let frameKey = 1712678400;
+        await contractMarket.setFrameRate(frameKey);
+        
+        //Get frame struct
+        let frame = await contractMarketGetter.getFrameStruct(contractMarket.address, frameKey);
+        console.log("Frame rate is: ", frame[1].toString());
+    });
 
 });

@@ -1,6 +1,14 @@
 {
-  "name": "unihedge",
+  "name": "@unihedge-org/core",
   "type": "module",
+  "files": [
+    "arifacts/contracts/**/*.json"
+  ],
+  "main": "abiIndex.js",
+  "repository": {
+    "type": "git",
+    "url": "git+"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
     "hardhat": "^2.22.2"
@@ -12,5 +20,7 @@
     "@uniswap/v3-periphery": "^1.4.4",
     "chai": "^5.1.0",
     "hardhat-gas-reporter": "^2.1.1"
-  }
+  },
+  "publishConfig": {
+    "@unihedge-org:registry": "https://npm.pkg.github.com/"}
 }

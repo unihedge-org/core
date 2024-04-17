@@ -1,9 +1,8 @@
 //npx hardhat --network xxx run ./Scripts/deploy.js   
+import hre from 'hardhat';
+import { promises as fs } from 'fs';
+const daiABI = JSON.parse(await fs.readFile('dai.json', 'utf8'));
 
-const hre = require("hardhat");
-const {expect, use} = require("chai");
-const fs = require('fs');
-const daiABI = JSON.parse(fs.readFileSync('dai.json', 'utf8'));
 //----------------------------------------------------------------------------------------------
 const addressDAIToken = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
 const addressMarket = "0x0B0ce68385a39907BcbAb7327EDCA4eFABA092d1";
@@ -45,7 +44,7 @@ async function main() {
     const timeStampStart = (Date.now() / 1000 | 0) - 864000;
     //calculte frameKey from timestamp
     const frameKeyStart = await market.clcFrameKey(timeStampStart);
-    //Calculate timestamp timeStampEnd, 7 days from current time
+    //Calculate timestamp timeStampEnd, 10 days from current time
     const timeStampEnd = (Date.now() / 1000 | 0) + 864000;
     //calculte frameKey from timestamp
     const frameKeyEnd = await market.clcFrameKey(timeStampEnd);
@@ -54,13 +53,18 @@ async function main() {
     //Get User Lots
     let lots = await marketGetter.getLotsUser(market.address, accounts[0].address, 0, frameKeyStart, frameKeyEnd, 0, 30);
     let lotsUser = lots[0].filter(lot => lot[0].gt(0))
-    console.log("User lots: ", lotsUser[0].toString());
+    console.log("User lots: ", lotsUser.length);
+
+    //Filter out all frameKey lotsUser[i][0]
+    let frameKeys = lotsUser.map(lot => lot[0]);
+    //Order them by frameKey value
+    frameKeys.sort((a, b) => a - b);
 
     //Settle frame lotsUser[lotsUser.length-1][0]
-    let frameKey = lotsUser[lotsUser.length-1][0];
-
+    let frameKey = frameKeys[frameKeys.length-1];
+    console.log("\x1b[33m%s\x1b[0m", "Frame key: ", frameKey.toString());
     //Get frame struct
-    let frame = await marketGetter.getFrameStruct(market.address, frameKey);  
+    let frame = await marketGetter.getFrameStruct(market.address, 1712678400);  
     console.log("Frame struct: ", frame);
 
         

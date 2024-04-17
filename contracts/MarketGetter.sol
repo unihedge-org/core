@@ -146,17 +146,6 @@ contract MarketGetter {
         if (mode <= 1) {
             for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
                 frameState = market.getStateFrame(frameKey);
-                if (frameState == Market.SFrame.OPENED) {
-                    console.log("frame is open");
-                } else if (frameState == Market.SFrame.CLOSED) {
-                    console.log("frame is closed");
-                } else if (frameState == Market.SFrame.SETTLED) {
-                    console.log("frame is settled");
-                } else if (frameState == Market.SFrame.RATED) {
-                    console.log("frame is rated");
-                } else if (frameState == Market.SFrame.NULL) {
-                    console.log("frame is null");
-                }
 
                 if (frameState == Market.SFrame.OPENED) {
                     //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
@@ -184,17 +173,7 @@ contract MarketGetter {
                         if(mode == 2 || mode == 0) {
                             for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
                                 frameState = market.getStateFrame(frameKey);
-                                if (frameState == Market.SFrame.OPENED) {
-                                    console.log("SOL: frame is open");
-                                } else if (frameState == Market.SFrame.CLOSED) {
-                                    console.log("SOL: frame is closed");
-                                } else if (frameState == Market.SFrame.SETTLED) {
-                                    console.log("SOL: frame is settled");
-                                } else if (frameState == Market.SFrame.RATED) {
-                                    console.log("SOL: frame is rated");
-                                } else if (frameState == Market.SFrame.NULL) {
-                                    console.log("SOL: frame is null");
-                                }
+
                                 if (frameState == Market.SFrame.CLOSED || frameState == Market.SFrame.SETTLED || frameState == Market.SFrame.RATED) {
                                     //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
                                     lotKeys = market.getFrameLotKeys(frameKey);

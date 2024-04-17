@@ -1,9 +1,9 @@
 //npx hardhat --network xxx run ./Scripts/deploy.js   
 
-const hre = require("hardhat");
-const {expect, use} = require("chai");
-const fs = require('fs');
-const daiABI = JSON.parse(fs.readFileSync('dai.json', 'utf8'));
+import hre from 'hardhat';
+import { promises as fs } from 'fs';
+const daiABI = JSON.parse(await fs.readFile('dai.json', 'utf8'));
+
 //----------------------------------------------------------------------------------------------
 const addressDAIToken = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
 const addressMarket = "0x0B0ce68385a39907BcbAb7327EDCA4eFABA092d1";
@@ -56,14 +56,31 @@ async function main() {
     let lotsUser = lots[0].filter(lot => lot[0].gt(0))
     console.log("User lots: ", lotsUser[0].toString());
 
-    //Settle frame lotsUser[lotsUser.length-1][0]
-    let frameKey = lotsUser[lotsUser.length-1][0];
+    //Filter lots in the past
+    let currentTime = (Date.now() / 1000 | 0);
+
+    let frameKeys = lotsUser.map(lot => lot[0]);
+
+    //Unique frameKeys
+    frameKeys = frameKeys.filter((value, index, self) => 
+      index === self.findIndex((t) => 
+        t.toString() === value.toString()
+      )
+    );  
+
+    //Get framekeys with values lower than current time
+    frameKeys = frameKeys.filter(frameKey => frameKey.toNumber() < currentTime);
+
+    
+    let frameKey = frameKeys[3];
 
     //Set frame Rate and settle frame
-    let transactionSetFrameRate = await market.connect(accounts[0]).setFrameRate(frameKey);
-    await transactionSetFrameRate.wait();
-    console.log("Frame: ", frameKey.toString(), " frame rate transaction hash: ", transactionSetFrameRate.hash);
+    // console.log("\x1b[35m%s\x1b[0m", "Setting frame rate of frame: ", frameKey.toString());
+    // let transactionSetFrameRate = await market.connect(accounts[0]).setFrameRate(frameKey.toNumber());
+    // await transactionSetFrameRate.wait();
+    // console.log("Frame: ", frameKey.toString(), " frame rate transaction hash: ", transactionSetFrameRate.hash);
 
+    console.log("\x1b[35m%s\x1b[0m", "Settling frame: ", frameKey.toString());
     let transaction = await market.connect(accounts[0]).settleFrame(frameKey);
     await transaction.wait();
     console.log("Frame: ", frameKey.toString(), " settlement transaction hash: ", transaction.hash);
