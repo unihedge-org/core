@@ -1,5 +1,8 @@
-import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Function to read and parse a JSON file to get the ABI
 function getContractABI(filePath) {
