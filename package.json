@@ -1,26 +1,22 @@
 {
   "name": "@unihedge-org/core",
+  "version": "0.0.1",
   "type": "module",
   "files": [
     "arifacts/contracts/**/*.json"
   ],
   "main": "abiIndex.js",
+  "scripts": {
+    "release": "standard-version && git push --follow-tags && npm publish"
+  },
   "repository": {
     "type": "git",
-    "url": "git+"
-  },
-  "devDependencies": {
-    "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
-    "hardhat": "^2.22.2"
-  },
-  "dependencies": {
-    "@nomiclabs/hardhat-waffle": "^2.0.6",
-    "@openzeppelin/contracts": "^5.0.2",
-    "@uniswap/v3-core": "^1.0.1",
-    "@uniswap/v3-periphery": "^1.4.4",
-    "chai": "^5.1.0",
-    "hardhat-gas-reporter": "^2.1.1"
+    "url": "https://github.com/unihedge-org/core"
   },
   "publishConfig": {
-    "@unihedge-org:registry": "https://npm.pkg.github.com/"}
+    "@unihedge-org:registry": "https://npm.pkg.github.com/"
+  },
+  "devDependencies": {
+    "standard-version": "^9.5.0"
+  }
 }
