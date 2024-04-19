@@ -506,6 +506,7 @@ contract Market {
 
         accountingToken.transfer(lotWon.states[lotWon.states.length-1].owner, frames[frameKey].rewardSettle);
         frames[frameKey].claimedBy = lotWon.states[lotWon.states.length-1].owner;
+        frames[frameKey].rateSettle = frames[frameKey].rate;
 
         //Transfer protocol fee to the market owner
         accountingToken.transfer(owner, frames[frameKey].feeSettle);
