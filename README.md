@@ -5,6 +5,9 @@ Solidity  | 0.8.0 (solc-js)
 Node | v20.11.1
 npm | 10.2.4
 
+### Latest updates:
+* settleRate now updates in the settleFrame function. 
+
 ## **Market** contract functions
 
 * Deployed contracts on Polygon mainnet:
