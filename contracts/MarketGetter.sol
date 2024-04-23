@@ -15,7 +15,7 @@ contract MarketGetter {
     function getFrameStruct(Market market, uint frameKey) public view returns (Market.Frame memory){
         Market.Frame memory frame;
         // uint tmp;
-        (frame.frameKey,frame.rate,frame.claimedBy, frame.rateSettle, frame.feeSettle, frame.rewardSettle) = market.frames(frameKey);
+        (frame.frameKey,frame.rate,frame.claimedBy, frame.rateSettle, frame.feeSettle, frame.rewardSettle, frame.feeReferral) = market.frames(frameKey);
         frame.lotKeys = market.getFrameLotKeys(frameKey);
         return frame;
     }

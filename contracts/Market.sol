@@ -14,21 +14,22 @@ contract Market {
     uint public period = 86400; //64b
     //Market begin timestamp 1.1.2024 [seconds]
     uint public initTimestamp = 1704124800; //64b
-    //Protocol fee 0.05% per period [wei] writen with 18 decimals
-    uint256 public feeProtocol = 50000000000000000; //256b
+    //Protocol fee 3.00% per frame [wei] writen with 18 decimals = 0.03
+    uint256 public feeProtocol = 30000000000000000; //256b
     //Settle interval for average price calculation in [seconds] (10 minutes)
     uint public tSettle = 600;
     //Uniswap pool
     IUniswapV3Pool public uniswapPool = IUniswapV3Pool(0x67a9FE12fa6082D9D0203c84C6c56D3c4B269F28);
     //Range of a lot [wei ETH/USD]
     uint256 public dPrice = 1e20;
-    //Tax on lots in the market 0.5% per period [wei]
-    uint256 public taxMarket = 5000000000000000; //256b
+    //Tax on lots in the market 1% per period [wei] = 0.01
+    uint256 public taxMarket = 10000000000000000; //256b
     //ERC20 token used for buying lots in this contract
     IERC20 public accountingToken = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); //256b
     //Owner of this market
     address public owner; //256b
-
+    // Referral fee 0.5% written with 18 decimals. = 0.005
+    uint256 public referralPct = 5000000000000000;
     /*
     *   Frame enum
 
@@ -52,6 +53,8 @@ contract Market {
         uint feeSettle;
         //Reward fund for the frame sum of all taxes charged minus all taxes refunded minus protocol fee
         uint rewardSettle;
+        //Referral fee charged at the settle stage of the frame
+        uint feeReferral;
     }
 
     //Frames
@@ -59,14 +62,6 @@ contract Market {
     uint[] public framesKeys;
 
     event FrameUpdate(Frame frame);
-
-    //TODO referral system
-    struct User {
-        address userPublicKey;
-        uint commulativeTax;
-        address[] referrals;
-        address referredBy;
-    }
 
     /* Lot enum
     *   NULL - Lot is not created
@@ -77,7 +72,16 @@ contract Market {
 
     enum SLot {NULL, TAKEN, WON, LOST}
 
-    //TODO dont forget to add referral logic
+    struct User {
+        bool exists;
+        address referredBy;
+        // Mapping that stores total amount of reward for each frameKey
+        mapping(uint => uint) rewards;
+        // Mapping that stores frame keys of frames that reward was collected from
+        mapping(uint => bool) collected;
+    }
+    // Mapping that stores users by their address
+    mapping(address => User) public users;
 
     struct LotState {
         //Block number
@@ -228,6 +232,173 @@ contract Market {
         return rewardFund;
     }
 
+    //Function for creating user on referral contract
+    function createUser(address referrer) internal {
+        // Check if referral exists
+        require(!users[msg.sender].exists, "User already exists");
+        // Check if msg.sender address is empty
+        require(msg.sender != address(0), "Referral address is empty");
+        // Check if referrer address is empty
+        if (referrer == address(0)) {
+            // Create user on referral contract
+            users[msg.sender].exists = true;
+            users[msg.sender].referredBy = referrer;
+            return;
+        }
+        // Check if referrer exists
+        require(users[referrer].exists, "Referrer does not exist");
+        // Create user on referral contract
+        users[msg.sender].exists = true;
+        users[msg.sender].referredBy = referrer;
+    }
+
+    //Function for trading lots with referral
+    function tradeLotReferral(uint timestamp, uint rate, uint acquisitionPrice, address referrer) external {
+        //Calculate frame key
+        uint frameKey = clcFrameKey(timestamp);
+        //Calculate lot key
+        uint lotKey = clcLotKey(rate);
+
+        //If lot doesn't exist, create new lot
+        if (lots[frameKey][lotKey].lotKey == 0) {
+            //If Frame doesn't exist, create new frame
+            if (frames[frameKey].frameKey == 0) {
+                createFrame(timestamp);
+
+            }
+            purchaseLotReferral(frameKey, lotKey, acquisitionPrice, referrer);
+            return;
+        }
+        //If lot owner is same update price
+        if (lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner == msg.sender) {
+            revaluateLotReferral(frameKey, lotKey, acquisitionPrice, referrer);
+            return;
+        }
+        //Lot is sold to new owner
+        resaleLotReferral(frameKey, lotKey, acquisitionPrice, referrer);
+        //Trigger event
+        emit LotUpdate(lots[frameKey][lotKey]);
+    }
+
+    function purchaseLotReferral(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
+        //Calculate tax amount
+        uint tax = clcTax(frameKey, acquisitionPrice);
+        //Tax has to be greater than 0
+        require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
+        //Approved amount has to be at least equal to tax
+        //Log balance of token of sender
+        console.log("SOL: balance of sender:", accountingToken.balanceOf(msg.sender));
+        console.log("SOL: Allowance to spend:", accountingToken.allowance(msg.sender, address(this)));
+        console.log("SOL: tax:", tax);
+        require(accountingToken.allowance(msg.sender, address(this)) >= tax, "Allowance to spend set too low");
+
+        //Reject if lot already exists
+        require(lots[frameKey][lotKey].lotKey == 0, "Lot already exists");
+        //Create lot
+        LotState memory state = LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, tax, 0);
+
+        Lot storage lot = lots[frameKey][lotKey];
+        lot.frameKey = frameKey;
+        lot.lotKey = lotKey;
+        lot.states.push(state);
+
+        //Add lot to lots
+        lots[frameKey][lotKey] = lot;
+
+        //Add lot to frame
+        frames[frameKey].lotKeys.push(lot.lotKey);
+
+        //Transfer tax amount to the market contract
+        accountingToken.transferFrom(msg.sender, address(this), tax);
+        // If user exists skip otherwise create user
+        if (!users[msg.sender].exists) {
+            createUser(referrer);
+        }
+        // If referrer exists increase reward and fee
+        if (users[users[msg.sender].referredBy].exists) {
+            increaseRewardAndFee(users[msg.sender].referredBy, tax, frameKey);
+        }
+
+    }
+
+    function revaluateLotReferral(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
+        //Calculate tax with old acquisitionPrice
+        uint tax1 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
+        //console.log("tax1:", tax1);
+        //Calculate tax with new acquisitionPrice
+        uint tax2 = clcTax(frameKey, acquisitionPrice);
+        //console.log("tax2:", tax2);
+        //If tax1 is greater than tax2, refund the difference
+        if (tax1 > tax2) {
+            //Calculate tax difference
+            uint taxRefund = tax1 - tax2;
+            //Transfer tax difference to the lot owner
+            accountingToken.transfer(lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, taxRefund);
+            //Add new lot state
+            lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, 0, taxRefund));
+            // If user exists skip otherwise create user
+            if (!users[msg.sender].exists) {
+                createUser(referrer);
+            }
+            // If referrer exists decrease reward and fee
+            if (users[users[msg.sender].referredBy].exists) {
+                decreaseRewardAndFee(users[msg.sender].referredBy, taxRefund, frameKey);
+            }
+        } else {
+            //If tax2 is greater than tax1, charge the difference
+            uint taxCharge = tax2 - tax1;
+            //console.log("taxCharge:", taxCharge);
+            require(accountingToken.allowance(msg.sender, address(this)) >= taxCharge, "Allowance to spend set too low");
+            //Transfer tax difference to the market contract
+            accountingToken.transferFrom(msg.sender, address(this), taxCharge);
+            //Add new lot state
+            lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, taxCharge, 0));
+            // If user exists skip otherwise create user
+            if (!users[msg.sender].exists) {
+                createUser(referrer);
+            }
+            // If referrer exists increase reward and fee
+            if (users[users[msg.sender].referredBy].exists) {
+
+                increaseRewardAndFee(users[msg.sender].referredBy, taxCharge, frameKey);
+            }
+        }
+    }
+
+    function resaleLotReferral(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
+        //Calculate tax amount
+        uint tax = clcTax(frameKey, acquisitionPrice);
+        //Tax has to be greater than 0
+        require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
+        //Approved amount has to be at least equal to price of the
+        //Get last acquisition price + tax
+        uint lastAcquisitionPrice = lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice;
+        require(accountingToken.allowance(msg.sender, address(this)) >= tax + lastAcquisitionPrice, "Allowance to spend set too low");
+        //Transfer tax amount to the market contract
+        accountingToken.transferFrom(msg.sender, address(this), tax);
+        // Transfer from new owner lastAcquisitionPrice to the previous owner
+        accountingToken.transferFrom(msg.sender, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, lastAcquisitionPrice);
+        // Transfer the remaining tax to previous owner
+        uint taxRefund = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
+        accountingToken.transfer(lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, taxRefund);
+        // If user exists skip otherwise create user
+        if (!users[msg.sender].exists) {
+            createUser(referrer);
+        }
+        // If referrer exists increase reward and fee
+        if (users[users[msg.sender].referredBy].exists) {
+            increaseRewardAndFee(users[msg.sender].referredBy, tax, frameKey);
+        }
+        // If previous owner referrer exists decrease reward and fee by taxRefund
+        if (users[users[lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner].referredBy].exists) {
+            decreaseRewardAndFee(users[lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner].referredBy, taxRefund, frameKey);
+        }
+        // Update previous lot state
+        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, lastAcquisitionPrice, 0, taxRefund));
+        //Add new lot state
+        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, tax, 0));
+    }
+
     function tradeLot(uint timestamp, uint rate, uint acquisitionPrice) external {
         //Calculate frame key
         uint frameKey = clcFrameKey(timestamp);
@@ -250,7 +421,8 @@ contract Market {
             return;
         }
         //Lot is sold to new owner
-        resaleLot(frameKey, lotKey, msg.sender, acquisitionPrice);
+        resaleLot(frameKey, lotKey, acquisitionPrice);
+
         //Trigger event
         emit LotUpdate(lots[frameKey][lotKey]);
     }
@@ -314,7 +486,7 @@ contract Market {
         }
     }
 
-    function resaleLot(uint frameKey, uint lotKey, address _owner, uint acquisitionPrice) internal {
+    function resaleLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
         //Calculate tax amount
         uint tax = clcTax(frameKey, acquisitionPrice);
         //Tax has to be greater than 0
@@ -325,8 +497,16 @@ contract Market {
         require(accountingToken.allowance(msg.sender, address(this)) >= tax + lastAcquisitionPrice, "Allowance to spend set too low");
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), tax);
+        // Transfer from new owner lastAcquisitionPrice to the previous owner
+        accountingToken.transferFrom(msg.sender, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, lastAcquisitionPrice);
+        // Transfer the remaining tax to previous owner
+        uint taxRefund = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
+        accountingToken.transfer(lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, taxRefund);
+        // Update previous lot state
+        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, lastAcquisitionPrice, 0, taxRefund));
         //Add new lot state
-        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, _owner, acquisitionPrice, tax, 0));
+        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, tax, 0));
+
     }
 
 //    function setFrameRate(uint frameKey) public {
@@ -494,19 +674,15 @@ contract Market {
         //Reject if lot is in state LOST
         //TODO if no owner set this to market contract owner
         require(getStateLot(frameKey, lotKeyWon) == SLot.WON, "No winning lot in this frame");
-
         //Transfer winnings to last owner
         //total reward fund
         uint rewardFund = clcRewardFund(frameKey);
         //Calculate protocol fee
         uint fee = rewardFund * feeProtocol / 1e18;
-
         frames[frameKey].feeSettle = fee;
-        frames[frameKey].rewardSettle = rewardFund - fee;
-
+        frames[frameKey].rewardSettle = rewardFund - fee - frames[frameKey].feeReferral;
         accountingToken.transfer(lotWon.states[lotWon.states.length-1].owner, frames[frameKey].rewardSettle);
         frames[frameKey].claimedBy = lotWon.states[lotWon.states.length-1].owner;
-
         //Transfer protocol fee to the market owner
         accountingToken.transfer(owner, frames[frameKey].feeSettle);
 
@@ -535,4 +711,94 @@ contract Market {
        require(msg.sender == owner, "Only owner can withdraw accounting token");
        accountingToken.transfer(owner, amount);
    }
+
+    // REFERRAL PART
+
+    // Function that checks if a user already exists
+    function userExists(address user) public view returns(bool) {
+        return users[user].exists;
+    }
+
+    // Function that return referredBy address
+    function referredBy(address user) public view returns(address) {
+        return users[user].referredBy;
+    }
+
+    // Function that return user reward from frameKey
+    function getUserReward(address user, uint frameKey) public view returns(uint) {
+        require(users[user].exists, "User does not exist");
+
+        return users[user].rewards[frameKey];
+    }
+
+    // Function that increase reward for user and referral fee for frame
+    function increaseRewardAndFee(address user, uint tax, uint frameKey) internal {
+        require(users[user].exists, "User does not exist");
+        uint feeReward = tax * referralPct / 1e18;
+        users[user].rewards[frameKey] += feeReward;
+        frames[frameKey].feeReferral += feeReward;
+    }
+    // Function that decrease reward for user and referral fee for frame
+    function decreaseRewardAndFee(address user, uint tax,  uint frameKey) internal {
+        require(users[user].exists, "User does not exist");
+        uint feeReward = tax * referralPct / 1e18;
+        users[user].rewards[frameKey] -= feeReward;
+        frames[frameKey].feeReferral -= feeReward;
+    }
+
+    // Function that return uncollected referral rewards for user
+    function getUncollectedRewards() public view returns(uint) {
+        require(users[msg.sender].exists, "User does not exist");
+        // Find all settled frames
+        uint[] memory settledFramesKeys = new uint[](framesKeys.length);
+        // Set length indicator for settledFramesKeys
+        uint settledFrameLength = 0;
+        for (uint i = 0; i < framesKeys.length; i++) {
+            if (getStateFrame(framesKeys[i]) == SFrame.SETTLED) {
+                settledFramesKeys[settledFrameLength] = framesKeys[i];
+                settledFrameLength++;
+            }
+        }
+        // Require that there exist settled frames
+        require(settledFrameLength > 0, "No settled frames");
+        // Set reward to 0
+        uint reward = 0;
+        // Loop from firstUncollectedIndexFrameKey to settledFrameLength to add reward
+        for (uint j = 0; j < settledFrameLength; j++) {
+            // Check if reward was already collected for this frame
+            if (users[msg.sender].collected[settledFramesKeys[j]] == false) {
+                reward += users[msg.sender].rewards[settledFramesKeys[j]];
+            }
+        }
+        return reward;
+    }
+
+    // Function for claiming referral rewards from last collected frame till now
+    function claimReferralRewards() public {
+        require(users[msg.sender].exists, "User does not exist");
+        // Find all settled frames
+        uint[] memory settledFramesKeys = new uint[](framesKeys.length);
+        // Set length indicator for settledFramesKeys
+        uint settledFrameLength = 0;
+        for (uint i = 0; i < framesKeys.length; i++) {
+            if (getStateFrame(framesKeys[i]) == SFrame.SETTLED) {
+                settledFramesKeys[settledFrameLength] = framesKeys[i];
+                settledFrameLength++;
+            }
+        }
+        // Require that there exist settled frames
+        require(settledFrameLength > 0, "No settled frames");
+        // Set reward to 0
+        uint reward = 0;
+        // Loop from firstUncollectedIndexFrameKey to settledFrameLength to add reward
+        for (uint j = 0; j < settledFrameLength; j++) {
+            // Check if reward was already collected for this frame
+            if (users[msg.sender].collected[settledFramesKeys[j]] == false) {
+                reward += users[msg.sender].rewards[settledFramesKeys[j]];
+                users[msg.sender].collected[settledFramesKeys[j]] = true;
+            }
+        }
+        require(reward > 0, "No rewards to claim");
+        accountingToken.transfer(msg.sender, reward);
+    }
 }

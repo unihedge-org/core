@@ -170,6 +170,8 @@ describe("Resale lot", function () {
             expect(lot.states[1].owner).to.be.eq(addr2.address);
 
             // expect(lot.states[1].taxCharged).to.be.eq(353144965275517650n);
+
+            // TODO Test for balance of previous owner
         });
     })
 });

@@ -75,17 +75,12 @@ networks: {
   },
   hardhat: {
     forking: {
-      url: "https://polygon-mainnet.g.alchemy.com/v2/B5BcNEAt4dYLjJBtEKZj6iC6x1apTiZI",
-      loggingEnabled: true
+      url: "https://polygon-mainnet.g.alchemy.com/v2/HOuEiUeos_N-jgiTKTQQ5yg2ZN-gkjGF",
+      blockNumber: 54098710
+      //Timestamp of this block is 1709207880 and date is 2024-02-29 12:58:00
     },
-    chains: {
-      137: {
-        hardforkHistory: {
-          london: 23850000
-        }
-      }
-    }
-  }
+    chainId: 137
+  },
 },
 solc: {
   optimizer: {
