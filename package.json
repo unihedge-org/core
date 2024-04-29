@@ -1,7 +1,7 @@
 {
   "name": "@unihedge-org/core",
   "version": "0.0.6",
-  "type": "module",
+  "type": "commonjs",
   "files": [
     "artifacts/contracts/Market.sol/Market.json",
     "artifacts/contracts/MarketGetter.sol/MarketGetter.json"
@@ -27,7 +27,8 @@
     "@openzeppelin/contracts": "^5.0.2",
     "@uniswap/v3-core": "^1.0.1",
     "@uniswap/v3-periphery": "^1.4.4",
-    "chai": "^5.1.0",
+    "chai": "^4.4.1",
+    "dotenv": "^16.4.5",
     "hardhat-gas-reporter": "^2.1.1"
   }
 }

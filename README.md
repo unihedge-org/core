@@ -6,7 +6,7 @@ Node | v20.11.1
 npm | 10.2.4
 
 ### Latest updates:
-* settleRate now updates in the settleFrame function. 
+* settleRate now updates in the settleFrame function. (19. 4. 2024)
 
 ## **Market** contract functions
 
@@ -17,7 +17,7 @@ npm | 10.2.4
         * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
 
-
+TODO: Sprobat vse funkcije kolko stanejo cca.
 ## Transaction fees
 * Set Frame Rate: [0.021271387854123456 MATIC](https://polygonscan.com/tx/0xa94618edbc1149304a1a99fca82da961ec577b824da5ac7c30117914013b4815)
 
