@@ -252,7 +252,7 @@ contract Market {
     }
 
     //Function for trading lots with referral
-    function tradeLotReferral(uint timestamp, uint rate, uint acquisitionPrice, address referrer) external {
+    function tradeLot(uint timestamp, uint rate, uint acquisitionPrice, address referrer) external {
         //Calculate frame key
         uint frameKey = clcFrameKey(timestamp);
         //Calculate lot key
@@ -282,6 +282,8 @@ contract Market {
     function purchaseLotReferral(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
         //Calculate tax amount
         uint tax = clcTax(frameKey, acquisitionPrice);
+        // console.log("SOL: tax:", tax);
+        // console.log("SOL: Approved amount:", accountingToken.allowance(msg.sender, address(this)));
         //Tax has to be greater than 0
         require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
         //Approved amount has to be at least equal to tax
