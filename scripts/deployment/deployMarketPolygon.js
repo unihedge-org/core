@@ -1,6 +1,3 @@
-// import pkg from 'hardhat';
-// const { ethers } = pkg;
-
 const initTimestamp = 1645027200;
 
 async function main() {

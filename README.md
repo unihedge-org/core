@@ -1,20 +1,28 @@
+# Unihedge core contracts
+## Deployed contracts on Polygon mainnet:
+
+* Market Getter address: [0x3D22cf7B927fe1a4Ed547BFC0C403A8eC2c5Edf7](https://polygonscan.com/address/0x3D22cf7B927fe1a4Ed547BFC0C403A8eC2c5Edf7)
+
+* Market address: [0x0b23E24e43c013016fED6D56E8D1671cde1c956c](https://polygonscan.com/address/0x0b23E24e43c013016fED6D56E8D1671cde1c956c)
+    * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
+
+## Latest updates:
+* referral address field added in tradeLot function
+* settleRate is now updated in settleFrame function
+* In case of no winner, reward fund gets trasnfered to market owner
+* New testing structure (more details in ./test folder)
+* .secret switched with .env in hardhat config
+
+
+## Software version for developement
 Software | Version
 ------------- | -------------
-Hardhat  | 2.22.2
+Hardhat  | 2.22.3
 Solidity  | 0.8.0 (solc-js)
-Node | v20.11.1
-npm | 10.2.4
+Node | v18.17.0
+npm | 9.6.7
 
-### Latest updates:
-* settleRate now updates in the settleFrame function. (19. 4. 2024)
 
-## **Market** contract functions
-
-* Deployed contracts on Polygon mainnet:
-
-    * Market Getter address: [0xA921B22291d8468A71e610f79F42441ce492Df7a](https://polygonscan.com/address/0xA921B22291d8468A71e610f79F42441ce492Df7a)
-    * Market address: [0x0B0ce68385a39907BcbAb7327EDCA4eFABA092d1](https://polygonscan.com/address/0x0B0ce68385a39907BcbAb7327EDCA4eFABA092d1)
-        * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
 
 

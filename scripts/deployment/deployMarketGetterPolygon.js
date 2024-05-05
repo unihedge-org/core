@@ -1,5 +1,3 @@
-const hre = require("hardhat");
-
 const initTimestamp = 1645027200;
 
 async function main() {
