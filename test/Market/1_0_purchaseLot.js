@@ -16,6 +16,10 @@ describe("Purchase one random empty lot", function () {
         accounts = await ethers.getSigners();
         owner = accounts[0];
 
+        //Get current block number
+        const block = await ethers.provider.getBlock('latest');
+        console.log("\x1b[33m%s\x1b[0m", "   Current block: ", block.number);
+
         //Contracts are loaded from addresses
         daiContract = await ethers.getContractAt(IERC20.abi, daiAddress, owner);
         wMaticContract = await ethers.getContractAt(IERC20.abi, wMaticAddress, owner);    

@@ -4,14 +4,9 @@ require("@nomiclabs/hardhat-waffle");
 //Import dotenv
 require("dotenv/config");
 
-console.log("Private Key:", process.env.PRIVATE_KEY ? "Loaded" : "Not Found");
-console.log("Alchemy Polygon Key:", process.env.ALCHEMY_POLYGON_API_KEY ? "Loaded" : "Not Found");
-console.log("Quicknode Polygon Key:", process.env.QUICKNODE_POLYGON_API_KEY ? "Loaded" : "Not Found");
-
-//Load the private key from .secret
-const fs = require('fs');
-const privateKey = fs.readFileSync(".secret").toString().trim();
-
+// console.log("Private Key:", process.env.PRIVATE_KEY ? "Loaded" : "Not Found");
+// console.log("Alchemy Polygon Key:", process.env.ALCHEMY_POLYGON_API_KEY ? "Loaded" : "Not Found");
+// console.log("Quicknode Polygon Key:", process.env.QUICKNODE_POLYGON_API_KEY ? "Loaded" : "Not Found");
 
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
@@ -44,7 +39,7 @@ module.exports = {
   },
 networks: {
   polygon: {
-    url: `https://polygon-mainnet.g.alchemy.com/v2/B5BcNEAt4dYLjJBtEKZj6iC6x1apTiZI`,
+    url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
     accounts: [`0x${process.env.PRIVATE_KEY}`],
     loggingEnabled: true,
   },
@@ -52,7 +47,8 @@ networks: {
     forking: {
       url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
       // url: `https://lingering-winter-spree.matic.quiknode.pro/${process.env.QUICKNODE_POLYGON_API_KEY}`,
-      loggingEnabled: true
+      loggingEnabled: true,
+      blockNumber: 56612874
     },
     chains: {
       137: {
@@ -72,7 +68,7 @@ solc: {
 etherscan: {
   // Your API key for Etherscan
   // Obtain one at https://bscscan.com/
-  apiKey: 'GPH97NNZCW56HC34VARTFC94ZZZHWSUC4U'
+  apiKey: `${process.env.ETHERSCAN_API_KEY}`
 },
 mocha: {
   timeout: 100000000

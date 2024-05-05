@@ -151,8 +151,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\Market.sol": {
-      "lastModificationDate": 1714735546994,
-      "contentHash": "c3babb4708ef209fa4438d979bb6bea8",
+      "lastModificationDate": 1714927053722,
+      "contentHash": "fd429361ab2e5ce0af7a9a4d18227622",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
         "version": "0.8.20",

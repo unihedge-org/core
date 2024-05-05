@@ -522,13 +522,16 @@ contract Market {
             accountingToken.transfer(lotWon.states[lotWon.states.length - 1].owner, frames[frameKey].rewardSettle);
             frames[frameKey].claimedBy = lotWon.states[lotWon.states.length - 1].owner;
 
+            //transfer protocol fee to owner
             accountingToken.transfer(owner, frames[frameKey].feeSettle);
 
         } else {
+            //transfer protocol fee + reward fund to owner
             accountingToken.transfer(owner, frames[frameKey].rewardSettle + frames[frameKey].feeSettle);
             frames[frameKey].claimedBy = owner;
         }
-        //Transfer protocol fee to the market owner
+
+        frames[frameKey].rateSettle = frames[frameKey].rate;
         
         emit LotUpdate(lotWon);
         emit FrameUpdate(frames[frameKey]);
