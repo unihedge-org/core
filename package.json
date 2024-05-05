@@ -1,6 +1,6 @@
 {
   "name": "@unihedge-org/core",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "type": "commonjs",
   "files": [
     "artifacts/contracts/Market.sol/Market.json",
