@@ -1,175 +1,163 @@
-const {expect} = require("chai");
-const {ethers} = require("hardhat");
-const {Route, Trade, TokenAmount, TradeType} = require('@uniswap/sdk');
-const IERC20 = require('@openzeppelin/contracts/build/contracts/ERC20.json');
-const ISwapRouter = require('@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json');
-const { time } =  require("@nomicfoundation/hardhat-network-helpers");
-const { BigNumber } = require("ethers")
+const { expect, ethers, IERC20, ISwapRouter, fs } = require('../Helpers/imports');
+const {swapTokenForUsers} = require("../Helpers/functions.js");
 
+/*
+Random user buys a random lot in the range of 1 to 100 times dPrice
+*/
 describe("Resale lot", function () {
-    let contractMarket, contractSwapRouter, contractTokenDai, contractTokenWMatic, owner, addr1, addr2;
+    let accounts, owner, user, user2, daiContract, wMaticContract, contractMarket, swapRouter, frameKey, dPrice ,acqPrice, tax;
+    const daiAddress = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
+    const wMaticAddress = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"// Correct DAI address needed
+    const uniswapRouterAddress = "0xE592427A0AEce92De3Edee1F18E0157C05861564"; // Uniswap router address
+    let pairPrice = ethers.BigNumber.from("0")
 
     before(async function () {
-        [owner, addr1, addr2] = await ethers.getSigners();
+        accounts = await ethers.getSigners();
+        owner = accounts[0];
+
+        //Get current block number
+        const block = await ethers.provider.getBlock('latest');
+        console.log("\x1b[33m%s\x1b[0m", "   Current block: ", block.number);
+
+        //Contracts are loaded from addresses
+        daiContract = await ethers.getContractAt(IERC20.abi, daiAddress, owner);
+        wMaticContract = await ethers.getContractAt(IERC20.abi, wMaticAddress, owner);    
+        swapRouter = await ethers.getContractAt(ISwapRouter.abi, uniswapRouterAddress, owner);
+        contractSwapRouter = await ethers.getContractAt(ISwapRouter.abi, "0xE592427A0AEce92De3Edee1F18E0157C05861564", owner);
+        
+        //users, tokenIn, tokenOut, amountInEther, contractSwapRouter
+        await swapTokenForUsers(accounts.slice(0,5),wMaticContract, daiContract, 100, contractSwapRouter);
+        //Check if DAI balance is greater than 0
+        let balance = await daiContract.balanceOf(owner.address);
+        console.log("\x1b[33m%s\x1b[0m", "   DAI balance: ", ethers.utils.formatUnits(balance, 18), " DAI");
+        expect(balance).to.be.gt(0);
+    });
+    it('Deploy Market contract', async function () {
         const Market = await ethers.getContractFactory("Market");
         contractMarket = await Market.deploy();
+        //Expect owner to be first account
+        expect(await contractMarket.owner()).to.equal(accounts[0].address);
+        //Expect period to be 1 day in seconds
+        expect(await contractMarket.period()).to.equal(86400);
 
-        contractSwapRouter = await ethers.getContractAt(ISwapRouter.abi, "0xE592427A0AEce92De3Edee1F18E0157C05861564", owner);
-        contractTokenDai = await ethers.getContractAt(IERC20.abi, "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", owner);
-        contractTokenWMatic = await ethers.getContractAt(IERC20.abi, "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", owner);
+        //get dPrice
+        dPrice = await contractMarket.dPrice();
+        console.log("\x1b[33m%s\x1b[0m", "   dPrice: ", ethers.utils.formatUnits(dPrice, 18), " DAI");
+        expect(dPrice).to.be.gt(0);
     });
+    it("Approve DAI to spend", async function () {
+        //Select random account
+        user = accounts[Math.floor(Math.random() * 4) + 1];
 
-    describe("Deployment", function () {
-        it("Deploy Market contract", async function () {
-            expect(await contractMarket.owner()).to.equal(owner.address);
-        });
-    })
+        frameKey = await contractMarket.clcFrameKey((Date.now() / 1000 | 0)+270000);
 
-    describe("Swap for DAI", function () {
+        //Get timestamp of today at 17 h
+        const now = new Date();  
+        //summer time, fix so it's always gmt time
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0, 0);
+        //Convert to seconds
+        const timestamp = today.getTime() / 1000 | 0;
 
-        it('Swap WMatic for DAI 1st user', async () => {
-            const params = {
-                tokenIn: contractTokenWMatic.address,
-                tokenOut: contractTokenDai.address,
-                fee: 3000,
-                recipient: addr1.address,
-                deadline: Math.floor(Date.now() / 1000) + 60 * 10,
-                amountIn: ethers.utils.parseEther("10"),
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0,
-            };
-            let tx = await contractSwapRouter.connect(addr1).exactInputSingle(params, {value: params.amountIn});
-            await tx.wait();
-            const daiBalanceAfterSwap = await contractTokenDai.connect(addr1).balanceOf(addr1.address);
-            expect(daiBalanceAfterSwap).to.be.gt(1);
+        expect(frameKey).to.be.gt(timestamp);
+        expect(frameKey).to.be.lt(timestamp+270000);
 
-        });
+        //Select random pair price in range of 1 to 100 times dPrice
+        pairPrice = ethers.BigNumber.from(Math.floor(Math.random() * 100) + 1);
+        pairPrice = pairPrice.mul(dPrice);
 
-        it('Swap WMatic for DAI 2nd user', async () => {
-            const params = {
-                tokenIn: contractTokenWMatic.address,
-                tokenOut: contractTokenDai.address,
-                fee: 3000,
-                recipient: addr2.address,
-                deadline: Math.floor(Date.now() / 1000) + 60 * 10,
-                amountIn: ethers.utils.parseEther("10"),
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0,
-            };
-            let tx = await contractSwapRouter.connect(addr2).exactInputSingle(params, {value: params.amountIn});
-            await tx.wait();
-            const daiBalanceAfterSwap = await contractTokenDai.connect(addr2).balanceOf(addr2.address);
-            expect(daiBalanceAfterSwap).to.be.gt(1);
+        //Acqusition price in DAI:
+        acqPrice = ethers.utils.parseUnits("15", 18);
+        //Calculate approval amount
+        tax = await contractMarket.clcTax(frameKey, acqPrice);
+        //Print tax in blue
+        console.log("\x1b[36m%s\x1b[0m", "   Tax: ", ethers.utils.formatUnits(tax, 18), " DAI");
 
-        });
+        //Approve DAI to spend
+        await daiContract.connect(user).approve(contractMarket.address, tax);
+        //Check allowance
+        let allowance = await daiContract.allowance(user.address, contractMarket.address);
+        console.log("\x1b[33m%s\x1b[0m", "   Allowance: ", ethers.utils.formatUnits(allowance, 18), " DAI");
+        expect(allowance).to.equal(tax);
     });
+    it("Purchase lot", async function () {
+        //get users current DAI balance
+        let balanceBefore = await daiContract.balanceOf(user.address);
+        //get current block
+        const block = await ethers.provider.getBlock('latest');
+        //Purchase lot 
+        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, "0x0000000000000000000000000000000000000000", 
+            {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
+        );
+        //get users new DAI balance
+        let balanceAfter = await daiContract.balanceOf(user.address);
+        //expect statement to check if balance is same as tax
+        console.log("\x1b[33m%s\x1b[0m", "   DAI Difference: ", ethers.utils.formatUnits(balanceBefore.sub(balanceAfter), 18), " DAI");
 
-    describe("Purchase lot", async () => {
-        it("Set allowance to spend DAI user 1", async function () {
-            //timestamp should be one day ahead of the current time, calculate with Date.
-            let timestamp = (Date.now() / 1000 | 0)+270000;
-            
-            let acquisitionPrice = ethers.utils.parseUnits("1000", 18); // DAI
-            let rate = ethers.utils.parseUnits("1000", 18); // ETH/DAI
+        //Get Lot and check if it exists
+        let lot = await contractMarket.getLot(frameKey, pairPrice);
+        expect(lot.frameKey).to.equal(frameKey);
+        expect(lot.lotKey).to.equal(pairPrice);
 
-            let frameKey = await contractMarket.clcFrameKey(timestamp);
-            // expect(frameKey).to.be.eq(1709568000);
+        //Get lot states and check if they are correct
+        let lotStates = await contractMarket.getLotStates(frameKey, pairPrice);
 
-            //Calculate tax for approve to spend DAI (it is higher than tax at payment because of time difference between approve and payment)
-            //duration [second] = (frameKey + period)  - block.timestamp = 1709568000 [second] + 86400 - 1709211482 [second] = 442917 [second]
-            //taxPerSecond [wei %]= taxMarket / period = 5000000000000000 [wei %] / (86400 [second]) = 57870370370 [wei % /second]
-            //tax-approved = duration [seconds] * taxPerSecond [wei %] * acquisitionPrice [wei DAI] /1e18= 442917 * 57870370370 * 10000000000000000000 / 1000000000000000000= 256317708331692900
+        expect(lotStates[0].owner).to.equal(user.address);
+        expect(lotStates[0].acquisitionPrice).to.equal(acqPrice);
+        expect(lotStates[0].taxCharged).to.equal(balanceBefore.sub(balanceAfter));
+        expect(lotStates[0].taxRefunded).to.equal(0);
+        expect(lotStates.length).to.equal(1);
+    });
+    it('second user approves dai for purchase', async function () {
+        //Select random account that is not user
+        user2 = accounts[Math.floor(Math.random() * 4) + 1];
+        while(user2.address == user.address){
+            user2 = accounts[Math.floor(Math.random() * 4) + 1];
+        }
 
-            let tax = await contractMarket.connect(addr1).clcTax(BigNumber.from(frameKey), BigNumber.from(acquisitionPrice));
-            // console.log("\x1b[36m%s\x1b[0m", "    Tax: ", ethers.formatEther(tax.toString()), " DAI");
-            // expect(tax).to.be.eq(256317708331692900n);
+        tax = await contractMarket.clcTax(frameKey, acqPrice);
 
-            await contractTokenDai.connect(addr1).approve(contractMarket.address, tax);
-            let allowance = await contractTokenDai.allowance(addr1.address, contractMarket.address);
-            expect(allowance).to.be.eq(tax);
-        })
+        let lotStates = await contractMarket.getLotStates(frameKey, pairPrice);
+        let acquisitionPrice = lotStates[0].acquisitionPrice
+        //Convert to big
+        
 
-        it("Purchase lot user 1", async function () {
-            //Mine 30 blocks with hardhat
-            await time.increase(30);
+        //Approve DAI to spend
+        await daiContract.connect(user2).approve(contractMarket.address, tax.add(acquisitionPrice));
+        //Check allowance
+        let allowance = await daiContract.allowance(user2.address, contractMarket.address);
+        console.log("\x1b[33m%s\x1b[0m", "   Allowance: ", ethers.utils.formatUnits(allowance, 18), " DAI");
+        expect(allowance).to.equal(tax.add(acquisitionPrice));
+    });
+    it('second user buys lot', async function () {
+//get users current DAI balance
+        let balanceBefore = await daiContract.balanceOf(user2.address);
+        //get current block
+        const block = await ethers.provider.getBlock('latest');
 
-            let timestamp = (Date.now() / 1000 | 0)+270000;
-            let acquisitionPrice = ethers.utils.parseUnits("10", 18); // DAI
-            let rate = ethers.utils.parseUnits("1000", 18);
+        //Purchase lot 
+        await contractMarket.connect(user2).tradeLot(frameKey, pairPrice, acqPrice, "0x0000000000000000000000000000000000000000", 
+            {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
+        );
 
-            //Calculate tax for purchase of lot (it is higher than tax at payment because of time difference between approve and payment)
-            //duration [second] = (frameKey + period)  - block.timestamp = 1709568000 [second] + 86400 - 1709211514 [second] = 442885 [second]
-            //taxPerSecond [wei %]= taxMarket / period = 5000000000000000 [wei %] / (86400 [second]) = 57870370370 [wei % /second]
-            //tax-charged = acquisitionPrice [wei DAI] * duration [seconds] * taxPerSecond [wei %]=  442885 * 57870370370 * 10000000000000000000 / 1000000000000000000= 256299189813174500// ETH/DAI
+        //get users new DAI balance
+        let balanceAfter = await daiContract.balanceOf(user2.address);
+        //expect statement to check if balance is same as tax
+        console.log("\x1b[33m%s\x1b[0m", "   DAI Difference: ", ethers.utils.formatUnits(balanceBefore.sub(balanceAfter), 18), " DAI");
 
-            await contractMarket.connect(addr1).tradeLot(timestamp, rate, acquisitionPrice);
-            let frameKey = await contractMarket.clcFrameKey(timestamp);
-            let lotKey = await contractMarket.clcLotKey(rate);
+        //Get Lot and check if it exists
+        let lot = await contractMarket.getLot(frameKey, pairPrice);
+        expect(lot.frameKey).to.equal(frameKey);
+        expect(lot.lotKey).to.equal(pairPrice);
 
-            let lot = await contractMarket.getLot(frameKey, lotKey);
+        //Get lot states and check if they are correct
+        let lotStates = await contractMarket.getLotStates(frameKey, pairPrice);
 
-            expect(lot.states[0].owner).to.be.eq(addr1.address);
+        expect(lotStates[1].owner).to.equal(user.address);
+        expect(lotStates[2].owner).to.equal(user2.address);
+        expect(lotStates[2].acquisitionPrice).to.equal(acqPrice);
+        expect(lotStates[2].taxCharged).to.equal(balanceBefore.sub(balanceAfter).sub(lotStates[1].acquisitionPrice));
+        //TODO: Check if tax refunded is correct in lotStates[1] and lotStates[2]
+        expect(lotStates.length).to.equal(3);
+    });
+})
 
-            // expect(lot.states[0].taxCharged).to.be.eq(256299189813174500n);
-
-        });
-
-        it("Resale lot to user 2", async function () {
-            //Mine multiple blocks with hardhat
-            await time.increase(36000);
-            console.log("Block timestamp: ", await time.latest());
-            let frameKey = 1711555200;
-            let acquisitionPriceNew = ethers.utils.parseUnits("15", 18); // DAI
-            let rate = ethers.utils.parseUnits("1000", 18); // ETH/DAI
-            let lotKey = await contractMarket.clcLotKey(rate);
-            let lot = await contractMarket.getLot(frameKey, lotKey);
-            // console.log(lot);
-
-            //***tax-new-left
-            let taxNew = await contractMarket.clcTax(frameKey, acquisitionPriceNew);
-            //duration [second] = (frameKey + period)  - block.timestamp = 1709568000 [second] + 86400 - 1709283515 [second] =  406885 [second]
-            //taxPerSecond [wei %]= taxMarket / period = 5000000000000000 [wei %] / (86400 [second]) = 57870370370 [wei % /second]
-            //tax-new-left = duration [seconds] * taxPerSecond [wei %] * acquisitionPrice [wei DAI] /1e18  =  406885 * 57870370370 * 15000000000000000000 / 1000000000000000000 = 353198784719961750
-            // expect(taxNew).to.be.eq(353198784719961750n);
-
-            let cost = taxNew + lot.states[0].acquisitionPrice;
-
-            //Set allowance to spend DAI
-            await contractTokenDai.connect(addr2).approve(contractMarket.address, cost);
-            let allowance = await contractTokenDai.allowance(addr2.address, contractMarket.address);
-            // expect(allowance).to.be.eq(10353198784719961750n);
-
-
-            // Pass one minute
-            await time.increase(60);
-
-            //New tax calculated at time of payment
-
-            //***tax-new
-            //duration [second] = (frameKey + period)  - block.timestamp = 1709568000 [second] + 86400 - 1709283577 [second] = 406823 [second]
-            //taxPerSecond [wei %]= taxMarket / period = 5000000000000000 [wei %] / (86400 [second]) = 57870370370 [wei % /second]
-            //tax-old = duration [seconds] * taxPerSecond [wei %] * acquisitionPrice [wei DAI] /1e18  = 406823 * 57870370370 * 15000000000000000000 / 1000000000000000000 = 353144965275517650
-
-            cost = 353144965275517650n + lot.states[0].acquisitionPrice;
-
-            //Get balance of the user 1
-            let balanceBefore = await contractTokenDai.balanceOf(addr1.address);
-            //Get balance of the user 2
-            let balanceBefore2 = await contractTokenDai.balanceOf(addr2.address);
-
-            await contractMarket.connect(addr2).tradeLot(frameKey, rate, acquisitionPriceNew);
-
-            //Get balance of the user 1
-            let balanceAfter = await contractTokenDai.balanceOf(addr1.address);
-            //Get balance of the user 2
-            let balanceAfter2 = await contractTokenDai.balanceOf(addr2.address);
-
-            lot = await contractMarket.getLot(frameKey, lotKey);
-
-            // //Tax refunded to the owner for previous acquisition price
-            expect(lot.states[1].owner).to.be.eq(addr2.address);
-
-            // expect(lot.states[1].taxCharged).to.be.eq(353144965275517650n);
-        });
-    })
-});

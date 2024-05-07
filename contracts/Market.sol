@@ -231,26 +231,25 @@ contract Market {
         return rewardFund;
     }
 
-    //Function for creating user on referral contract
+    //Function for creating user for referral purposes
     function createUser(address referrer) internal {
         // Check if referral exists
         require(!users[msg.sender].exists, "User already exists");
-        // Check if msg.sender address is empty
-        require(msg.sender != address(0), "Referral address is empty");
+
         // Check if referrer address is empty
         if (referrer == address(0)) {
-            // Create user on referral contract
+            // Create user 
             users[msg.sender].exists = true;
             users[msg.sender].referredBy = referrer;
             return;
         }
         // Check if referrer exists
         require(users[referrer].exists, "Referrer does not exist");
-        // Create user on referral contract
+        // Create user
         users[msg.sender].exists = true;
         users[msg.sender].referredBy = referrer;
     }
-
+    
     //Function for trading lots with referral
     function tradeLot(uint timestamp, uint rate, uint acquisitionPrice, address referrer) external {
         //Calculate frame key
@@ -263,23 +262,22 @@ contract Market {
             //If Frame doesn't exist, create new frame
             if (frames[frameKey].frameKey == 0) {
                 createFrame(timestamp);
-
             }
-            purchaseLotReferral(frameKey, lotKey, acquisitionPrice, referrer);
+            purchaseLot(frameKey, lotKey, acquisitionPrice, referrer);
             return;
         }
         //If lot owner is same update price
         if (lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner == msg.sender) {
-            revaluateLotReferral(frameKey, lotKey, acquisitionPrice, referrer);
+            revaluateLot(frameKey, lotKey, acquisitionPrice, referrer);
             return;
         }
         //Lot is sold to new owner
-        resaleLotReferral(frameKey, lotKey, acquisitionPrice, referrer);
+        resaleLot(frameKey, lotKey, acquisitionPrice, referrer);
         //Trigger event
         emit LotUpdate(lots[frameKey][lotKey]);
     }
 
-    function purchaseLotReferral(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
+    function purchaseLot(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
         //Calculate tax amount
         uint tax = clcTax(frameKey, acquisitionPrice);
         // console.log("SOL: tax:", tax);
@@ -311,14 +309,14 @@ contract Market {
         if (!users[msg.sender].exists) {
             createUser(referrer);
         }
-        // If referrer exists increase reward and fee
+        // If user exists increase reward and fee
         if (users[users[msg.sender].referredBy].exists) {
             increaseRewardAndFee(users[msg.sender].referredBy, tax, frameKey);
         }
 
     }
 
-    function revaluateLotReferral(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
+    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
         //Calculate tax with old acquisitionPrice
         uint tax1 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
         //console.log("tax1:", tax1);
@@ -338,7 +336,7 @@ contract Market {
             if (!users[msg.sender].exists) {
                 createUser(referrer);
             }
-            // If referrer exists decrease reward and fee
+            // If user exists decrease reward and fee
             if (users[users[msg.sender].referredBy].exists) {
                 decreaseRewardAndFee(users[msg.sender].referredBy, taxRefund, frameKey);
             }
@@ -362,7 +360,7 @@ contract Market {
         }
     }
 
-    function resaleLotReferral(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
+    function resaleLot(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
         address previousOwner = lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner;
         //Calculate tax amount
         uint tax = clcTax(frameKey, acquisitionPrice);
@@ -537,21 +535,6 @@ contract Market {
         emit FrameUpdate(frames[frameKey]);
 
         return frames[frameKey].rewardSettle;
-    }
-
-    function clcUnClaimableFunds() public view returns (uint){
-        uint unClaimableFunds = 0;
-        for (uint i = 0; i < framesKeys.length; i++) {
-            Frame memory frame = frames[framesKeys[i]];
-            //Frame has to be RATED
-            if (getStateFrame(frame.frameKey) == SFrame.RATED) {
-            //Frame must not have lot that won
-                Lot memory lotWon = lots[frame.frameKey][clcLotKey(frame.rate)];
-                if (getStateLot(frame.frameKey, lotWon.lotKey) != SLot.WON)
-                    unClaimableFunds += clcRewardFund(frame.frameKey);
-            }
-        }
-        return unClaimableFunds;
     }
 
    function withdrawAccountingToken(uint amount) external {

@@ -1,5 +1,5 @@
 const { expect, ethers, IERC20, ISwapRouter, fs } = require('../Helpers/imports');
-const {swapTokenForUsers} = require("../Helpers/TokenFunctions.js");
+const {swapTokenForUsers} = require("../Helpers/functions.js");
 
 
 /*

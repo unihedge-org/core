@@ -7,9 +7,10 @@
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
 ## Latest updates:
-* referral address field added in tradeLot function
+* Referral address field added in tradeLot function
+* Referral logic added to contract
 * settleRate is now updated in settleFrame function
-* In case of no winner, reward fund gets trasnfered to market owner
+* In case of no winner, reward fund gets transfered to market owner
 * New testing structure (more details in ./test folder)
 * .secret switched with .env in hardhat config
 
@@ -25,21 +26,8 @@ npm | 9.6.7
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-TODO: Sprobat vse funkcije kolko stanejo cca.
 ## Transaction fees
+TODO: Sprobat vse funkcije kolko stanejo cca.
 * Set Frame Rate: [0.021271387854123456 MATIC](https://polygonscan.com/tx/0xa94618edbc1149304a1a99fca82da961ec577b824da5ac7c30117914013b4815)
 
 

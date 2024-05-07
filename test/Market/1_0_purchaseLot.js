@@ -1,6 +1,5 @@
 const { expect, ethers, IERC20, ISwapRouter, fs } = require('../Helpers/imports');
-const {swapTokenForUsers} = require("../Helpers/TokenFunctions.js");
-
+const {swapTokenForUsers} = require("../Helpers/functions.js");
 
 /*
 Random user buys a random lot in the range of 1 to 100 times dPrice
