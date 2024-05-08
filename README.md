@@ -1,10 +1,11 @@
 # Unihedge core contracts
 ## Deployed contracts on Polygon mainnet:
 
-* Market Getter address: [0x3D22cf7B927fe1a4Ed547BFC0C403A8eC2c5Edf7](https://polygonscan.com/address/0x3D22cf7B927fe1a4Ed547BFC0C403A8eC2c5Edf7)
 
-* Market address: [0x0b23E24e43c013016fED6D56E8D1671cde1c956c](https://polygonscan.com/address/0x0b23E24e43c013016fED6D56E8D1671cde1c956c)
+* Market address: [0x32C0819301bF603954C309A439cC99955b38191a](https://polygonscan.com/address/0x32C0819301bF603954C309A439cC99955b38191a)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
+
+* Market Getter address: [0x3D22cf7B927fe1a4Ed547BFC0C403A8eC2c5Edf7](https://polygonscan.com/address/0x4E7ACEc79247264e731830f67D933129682b531f)
 
 ## Latest updates:
 * Referral address field added in tradeLot function
