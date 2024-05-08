@@ -2,6 +2,9 @@
   "name": "@unihedge-org/core",
   "version": "0.0.7",
   "type": "commonjs",
+  "engines": {
+    "node": ">=18.17.0"
+  },
   "files": [
     "artifacts/contracts/Market.sol/Market.json",
     "artifacts/contracts/MarketGetter.sol/MarketGetter.json"

@@ -48,8 +48,10 @@ describe("Purchase one random empty lot", function () {
     it("Approve DAI to spend", async function () {
         //Select random account
         user = accounts[Math.floor(Math.random() * 4) + 1];
+        //Get current block timestamp
+        const block = await ethers.provider.getBlock('latest');
 
-        frameKey = await contractMarket.clcFrameKey((Date.now() / 1000 | 0)+270000);
+        frameKey = await contractMarket.clcFrameKey((block.timestamp)+270000);
 
         //Get timestamp of today at 17 h
         const now = new Date();  
@@ -85,7 +87,7 @@ describe("Purchase one random empty lot", function () {
         //get current block
         const block = await ethers.provider.getBlock('latest'); //never had this problem?! TODO: Check what is going on
         //Purchase lot 
-        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, "0x0000000000000000000000000000000000000000", 
+        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
         //get users new DAI balance

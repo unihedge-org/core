@@ -49,7 +49,9 @@ describe("Resale lot", function () {
         //Select random account
         user = accounts[Math.floor(Math.random() * 4) + 1];
 
-        frameKey = await contractMarket.clcFrameKey((Date.now() / 1000 | 0)+270000);
+        const block = await ethers.provider.getBlock('latest');
+
+        frameKey = await contractMarket.clcFrameKey((block.timestamp)+270000);
 
         //Get timestamp of today at 17 h
         const now = new Date();  
@@ -85,7 +87,7 @@ describe("Resale lot", function () {
         //get current block
         const block = await ethers.provider.getBlock('latest');
         //Purchase lot 
-        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, "0x0000000000000000000000000000000000000000", 
+        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
         //get users new DAI balance
@@ -135,7 +137,7 @@ describe("Resale lot", function () {
         const block = await ethers.provider.getBlock('latest');
 
         //Purchase lot 
-        await contractMarket.connect(user2).tradeLot(frameKey, pairPrice, acqPrice, "0x0000000000000000000000000000000000000000", 
+        await contractMarket.connect(user2).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
 

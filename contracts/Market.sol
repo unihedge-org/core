@@ -249,7 +249,7 @@ contract Market {
         users[msg.sender].exists = true;
         users[msg.sender].referredBy = referrer;
     }
-    
+
     //Function for trading lots with referral
     function tradeLot(uint timestamp, uint rate, uint acquisitionPrice, address referrer) external {
         //Calculate frame key
@@ -488,6 +488,9 @@ contract Market {
 
     function setFrameRate(uint frameKey) public {
         //Frame has to be in state CLOSED
+        //console log frameKey + period
+        console.log("frameKey + period:", frameKey + period);
+        console.log("block.timestamp:", block.timestamp);
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
         uint rate = clcRateAvg(frameKey);

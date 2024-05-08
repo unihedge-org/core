@@ -95,7 +95,7 @@ describe("Referral test", function () {
             let acquisitionPrice = ethers.utils.parseUnits("10", 18); // DAI
             let rate = ethers.utils.parseUnits("3400", 18);
 
-            await contractMarket.connect(addr1).tradeLotReferral(timestamp, rate, acquisitionPrice, ethers.constants.AddressZero);
+            await contractMarket.connect(addr1).tradeLot(timestamp, rate, acquisitionPrice, ethers.constants.AddressZero);
             let frameKey = await contractMarket.clcFrameKey(timestamp);
             let lotKey = await contractMarket.clcLotKey(rate);
 
@@ -137,7 +137,7 @@ describe("Referral test", function () {
             //Get balance of the user 2
             let balanceBefore2 = await contractTokenDai.balanceOf(addr2.address);
 
-            await contractMarket.connect(addr2).tradeLotReferral(frameKey, rate, acquisitionPriceNew, addr1.address);
+            await contractMarket.connect(addr2).tradeLot(frameKey, rate, acquisitionPriceNew, addr1.address);
 
             //Get balance of the user 1
             let balanceAfter = await contractTokenDai.balanceOf(addr1.address);
