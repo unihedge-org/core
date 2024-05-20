@@ -1,4 +1,4 @@
-const { expect, ethers, IERC20, ISwapRouter, fs } = require('../Helpers/imports');
+const { expect, ethers, IERC20, ISwapRouter, daiAddress, wMaticAddress, uniswapRouterAddress  } = require('../Helpers/imports');
 const {swapTokenForUsers} = require("../Helpers/functions.js");
 
 
@@ -7,9 +7,6 @@ Random user buys a random lot in the range of 1 to 100 times dPrice
 */
 describe("Purchase one random empty lot", function () {
     let accounts, owner, user, daiContract, wMaticContract, contractMarket, swapRouter, frameKey, dPrice ,acqPrice, tax;
-    const daiAddress = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
-    const wMaticAddress = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"// Correct DAI address needed
-    const uniswapRouterAddress = "0xE592427A0AEce92De3Edee1F18E0157C05861564"; // Uniswap router address
     let pairPrice = ethers.BigNumber.from("0")
 
     before(async function () {
@@ -50,15 +47,17 @@ describe("Purchase one random empty lot", function () {
 
         frameKey = await contractMarket.clcFrameKey((block.timestamp)+270000);
 
-        //Get timestamp of today at 17 h
-        const now = new Date();  
-        //summer time, fix so it's always gmt time
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0, 0);
-        //Convert to seconds
-        const timestamp = today.getTime() / 1000 | 0;
+        // Get the current date and time in UTC
+        const now = new Date();
 
-        expect(frameKey).to.be.gt(timestamp);
-        expect(frameKey).to.be.lt(timestamp+270000);
+        // Get the timestamp of today at 16:00 GMT (neki je narobe z mojim časom na kompu....)
+        const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 13, 0, 0, 0));
+
+        // Convert to seconds
+        const timestamp = Math.floor(today.getTime() / 1000);
+
+        // Perform the assertion
+        expect(frameKey).to.equal(timestamp + 270000);
 
         //Select random pair price in range of 1 to 100 times dPrice
         pairPrice = ethers.BigNumber.from(Math.floor(Math.random() * 100) + 1);

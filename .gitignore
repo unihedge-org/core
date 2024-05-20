@@ -5,3 +5,4 @@ test/contracts.json
 .idea
 cache
 .env
+.npmrc

@@ -1,4 +1,5 @@
 const { ethers } = require("hardhat");
+const { daiAddress, wMaticAddress, uniswapRouterAddress, IERC20, ISwapRouter} = require('../Helpers/imports');
 
 // Exporting helper function to be used across different test files
 async function swapTokenForUsers(users, tokenIn, tokenOut, amountInEther, contractSwapRouter) {
@@ -18,6 +19,16 @@ async function swapTokenForUsers(users, tokenIn, tokenOut, amountInEther, contra
     }
 }
 
+async function loadCommonContracts() {
+    let accounts = await ethers.getSigners();
+    let owner = accounts[0];
+    daiContract = await ethers.getContractAt(IERC20.abi, daiAddress, owner);
+    wMaticContract = await ethers.getContractAt(IERC20.abi, wMaticAddress, owner);    
+    contractSwapRouter = await ethers.getContractAt(ISwapRouter.abi, uniswapRouterAddress, owner);
+    return {accounts, owner, daiContract, wMaticContract, contractSwapRouter};
+}
+
 module.exports = {
-    swapTokenForUsers
+    swapTokenForUsers,
+    loadCommonContracts
 };

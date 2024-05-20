@@ -58,15 +58,20 @@ describe("Resale lot", function () {
         //get current block timestamp
         const block = await ethers.provider.getBlock('latest');
 
-        frameKey = await contractMarket.clcFrameKey((block.timestamp)+27000);
+        frameKey = await contractMarket.clcFrameKey((block.timestamp)+270000);
         console.log("\x1b[33m%s\x1b[0m", "   Frame key: ", frameKey)
 
-        //Get timestamp of today at 17 h
-        const now = new Date();  
-        //summer time, fix so it's always gmt time
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0, 0);
-        //Convert to seconds
-        const timestamp = today.getTime() / 1000 | 0;
+        // Get the current date and time in UTC
+        const now = new Date();
+
+        // Get the timestamp of today at 16:00 GMT (neki je narobe z mojim časom na kompu....)
+        const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 13, 0, 0, 0));
+
+        // Convert to seconds
+        const timestamp = Math.floor(today.getTime() / 1000);
+
+        // Perform the assertion
+        expect(frameKey).to.equal(timestamp + 270000);
 
         //Acqusition price in DAI:
         acqPrice = ethers.utils.parseUnits("15", 18);
@@ -165,6 +170,7 @@ describe("Resale lot", function () {
         //Get lotState
         let lotState = await contractMarket.getStateLot(frameKey, lotKey);
         expect(lotState).to.equal(2);
+        
 
         //Get state frame
         let frameState = await contractMarket.getStateFrame(frameKey);
@@ -173,9 +179,11 @@ describe("Resale lot", function () {
 
         //get users balance before settlement
         let balanceBefore = await daiContract.balanceOf(user.address);
+        let balanceBeforeOwner = await daiContract.balanceOf(owner.address);
         await contractMarket.settleFrame(frameKey);
         //get users balance after settlement
         let balanceAfter = await daiContract.balanceOf(user.address);
+        let balanceAfterOwner = await daiContract.balanceOf(owner.address);
 
         let frame = await contractMarket.getFrame(frameKey);
 
@@ -186,7 +194,8 @@ describe("Resale lot", function () {
         expect(balanceAfter).to.be.gt(balanceBefore);
         //and it should equal reward amount - fee (no referral here)
         expect(balanceAfter).to.equal(balanceBefore.add(frame[6]));
-
+        //Expect owner balance to be greater than before
+        expect(balanceAfterOwner).to.be.gt(balanceBeforeOwner);
     });
 
 })

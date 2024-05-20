@@ -53,15 +53,17 @@ describe("Resale lot", function () {
 
         frameKey = await contractMarket.clcFrameKey((block.timestamp)+270000);
 
-        //Get timestamp of today at 17 h
-        const now = new Date();  
-        //summer time, fix so it's always gmt time
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0, 0);
-        //Convert to seconds
-        const timestamp = today.getTime() / 1000 | 0;
+        // Get the current date and time in UTC
+        const now = new Date();
 
-        expect(frameKey).to.be.gt(timestamp);
-        expect(frameKey).to.be.lt(timestamp+270000);
+        // Get the timestamp of today at 16:00 GMT (neki je narobe z mojim časom na kompu....)
+        const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 13, 0, 0, 0));
+
+        // Convert to seconds
+        const timestamp = Math.floor(today.getTime() / 1000);
+
+        // Perform the assertion
+        expect(frameKey).to.equal(timestamp + 270000);
 
         //Select random pair price in range of 1 to 100 times dPrice
         pairPrice = ethers.BigNumber.from(Math.floor(Math.random() * 100) + 1);

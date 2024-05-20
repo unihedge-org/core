@@ -1,31 +1,28 @@
-const { expect, ethers, IERC20, ISwapRouter, fs } = require('../Helpers/imports');
-const {swapTokenForUsers} = require("../Helpers/functions.js");
+const { expect, ethers, IERC20, ISwapRouter, daiAddress, wMaticAddress, uniswapRouterAddress  } = require('../Helpers/imports');
+const {swapTokenForUsers} = require("../Helpers/functions.js"); 
 
 /*
 Random user buys a random lot in the range of 1 to 100 times dPrice
 */
 describe("Purchase one random empty lot", function () {
     let accounts, owner, user, daiContract, wMaticContract, contractMarket, swapRouter, frameKey, dPrice ,acqPrice, tax;
-    const daiAddress = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
-    const wMaticAddress = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"// Correct DAI address needed
-    const uniswapRouterAddress = "0xE592427A0AEce92De3Edee1F18E0157C05861564"; // Uniswap router address
     let pairPrice = ethers.BigNumber.from("0")
 
     before(async function () {
         accounts = await ethers.getSigners();
         owner = accounts[0];
 
-        //Get current block number
+        //Get current block number and print it
         const block = await ethers.provider.getBlock('latest');
         console.log("\x1b[33m%s\x1b[0m", "   Current block: ", block.number);
 
         //Contracts are loaded from addresses
         daiContract = await ethers.getContractAt(IERC20.abi, daiAddress, owner);
-        wMaticContract = await ethers.getContractAt(IERC20.abi, wMaticAddress, owner);    
+        wMaticContract = await ethers.getContractAt(IERC20.abi, wMaticAddress, owner);
         swapRouter = await ethers.getContractAt(ISwapRouter.abi, uniswapRouterAddress, owner);
         contractSwapRouter = await ethers.getContractAt(ISwapRouter.abi, "0xE592427A0AEce92De3Edee1F18E0157C05861564", owner);
         
-        //users, tokenIn, tokenOut, amountInEther, contractSwapRouter
+        //Swap tokens for users, get DAI
         await swapTokenForUsers(accounts.slice(0,5),wMaticContract, daiContract, 10, contractSwapRouter);
         //Check if DAI balance is greater than 0
         let balance = await daiContract.balanceOf(owner.address);
@@ -39,11 +36,11 @@ describe("Purchase one random empty lot", function () {
         expect(await contractMarket.owner()).to.equal(accounts[0].address);
         //Expect period to be 1 day in seconds
         expect(await contractMarket.period()).to.equal(86400);
-
-        //get dPrice
+        
         dPrice = await contractMarket.dPrice();
         console.log("\x1b[33m%s\x1b[0m", "   dPrice: ", ethers.utils.formatUnits(dPrice, 18), " DAI");
-        expect(dPrice).to.be.gt(0);
+        //Expect dPrice to be 1e20
+        expect(dPrice).to.equal(ethers.utils.parseUnits("1", 20));
     });
     it("Approve DAI to spend", async function () {
         //Select random account
@@ -53,15 +50,17 @@ describe("Purchase one random empty lot", function () {
 
         frameKey = await contractMarket.clcFrameKey((block.timestamp)+270000);
 
-        //Get timestamp of today at 17 h
-        const now = new Date();  
-        //summer time, fix so it's always gmt time
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0, 0);
-        //Convert to seconds
-        const timestamp = today.getTime() / 1000 | 0;
+        // Get the current date and time in UTC
+        const now = new Date();
 
-        expect(frameKey).to.be.gt(timestamp);
-        expect(frameKey).to.be.lt(timestamp+270000);
+        // Get the timestamp of today at 16:00 GMT (neki je narobe z mojim časom na kompu....)
+        const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 13, 0, 0, 0));
+
+        // Convert to seconds
+        const timestamp = Math.floor(today.getTime() / 1000);
+
+        // Perform the assertion
+        expect(frameKey).to.equal(timestamp + 270000);
 
         //Select random pair price in range of 1 to 100 times dPrice
         pairPrice = ethers.BigNumber.from(Math.floor(Math.random() * 100) + 1);
@@ -85,7 +84,7 @@ describe("Purchase one random empty lot", function () {
         //get users current DAI balance
         let balanceBefore = await daiContract.balanceOf(user.address);
         //get current block
-        const block = await ethers.provider.getBlock('latest'); //never had this problem?! TODO: Check what is going on
+        const block = await ethers.provider.getBlock('latest');
         //Purchase lot 
         await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
@@ -103,12 +102,12 @@ describe("Purchase one random empty lot", function () {
         //Get lot states and check if they are correct
         let lotStates = await contractMarket.getLotStates(frameKey, pairPrice);
 
+        //Check if lot states are correct
         expect(lotStates[0].owner).to.equal(user.address);
         expect(lotStates[0].acquisitionPrice).to.equal(acqPrice);
         expect(lotStates[0].taxCharged).to.equal(balanceBefore.sub(balanceAfter));
         expect(lotStates[0].taxRefunded).to.equal(0);
         expect(lotStates.length).to.equal(1);
-
     });
 
 })
