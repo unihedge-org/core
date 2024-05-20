@@ -107,7 +107,7 @@ describe("Resale lot", function () {
 
         await contractMarket.setFrameRate(frameKey);
     });
-    it('Settle frame winner', async function () {
+    it('Settle frame with no winner', async function () {
         //Calculate lotKey from winningPairPrice
         let lotKey = await contractMarket.clcLotKey(rateAtStart);
         //Get lotState
@@ -130,13 +130,15 @@ describe("Resale lot", function () {
 
         let lotKeyWon = await contractMarket.clcLotKey(frame[4]);
 
-        expect(frame[3]).to.equal(user.address);
+        expect(frame[3]).to.equal(owner.address);
         //user balance should be greater than before
-        expect(balanceAfter).to.be.gt(balanceBefore);
-        //and it should equal reward amount - fee (no referral here)
-        expect(balanceAfter).to.equal(balanceBefore.add(frame[6]));
+        expect(balanceAfterOwner).to.be.gt(balanceBeforeOwner);
+        //and it should equal reward amount - fee
+        expect(balanceAfterOwner).to.equal(balanceBeforeOwner.add(frame[6]).add(frame[5])); 
         //Expect owner balance to be greater than before
         expect(balanceAfterOwner).to.be.gt(balanceBeforeOwner);
+
+        
     });
 
 })
