@@ -6,7 +6,8 @@ Random user buys a random lot in the range of 1 to 100 times dPrice
 */
 describe("Purchase one random empty lot", function () {
     let accounts, owner, user, daiContract, wMaticContract, contractMarket, swapRouter, frameKey, dPrice ,acqPrice, tax;
-    let pairPrice = ethers.BigNumber.from("0")
+    let pairPrice = ethers.BigNumber.from("0");
+
 
     before(async function () {
         accounts = await ethers.getSigners();
@@ -48,19 +49,18 @@ describe("Purchase one random empty lot", function () {
         //Get current block timestamp
         const block = await ethers.provider.getBlock('latest');
 
-        frameKey = await contractMarket.clcFrameKey((block.timestamp)+270000);
-
+        frameKey = await contractMarket.clcFrameKey((block.timestamp)+259200);
+        console.log((block.timestamp)+259200);
         // Get the current date and time in UTC
         const now = new Date();
 
-        // Get the timestamp of today at 16:00 GMT (neki je narobe z mojim časom na kompu....)
-        const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 13, 0, 0, 0));
-
+        // Get the timestamp of today at 16:00 GMT
+        const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 16, 0, 0, 0));
         // Convert to seconds
         const timestamp = Math.floor(today.getTime() / 1000);
-
+        console.log(timestamp + 259200);
         // Perform the assertion
-        expect(frameKey).to.equal(timestamp + 270000);
+        expect(frameKey).to.equal(timestamp + 259200 );
 
         //Select random pair price in range of 1 to 100 times dPrice
         pairPrice = ethers.BigNumber.from(Math.floor(Math.random() * 100) + 1);

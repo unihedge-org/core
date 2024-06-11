@@ -14,6 +14,7 @@
 * In case of no winner, reward fund gets transfered to market owner
 * New testing structure (more details in ./test folder)
 * .secret switched with .env in hardhat config
+* Added new test scripts
 
 
 ## Software version for developement

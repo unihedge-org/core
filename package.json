@@ -11,6 +11,7 @@
   ],
   "main": "abiIndex.js",
   "scripts": {
+    "test": "hardhat test",
     "release": "standard-version && git push --follow-tags && npm publish"
   },
   "repository": {
@@ -22,7 +23,7 @@
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
-    "hardhat": "^2.22.2",
+    "hardhat": "^2.21.0",
     "standard-version": "^9.5.0"
   },
   "dependencies": {
