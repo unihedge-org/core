@@ -231,6 +231,42 @@ contract Market {
         return rewardFund;
     }
 
+    //Calculate minimal reward fund at current state of an open frame
+    function clcRewardFundMin(uint frameKey) public view returns (uint) {
+        uint rewardFund = 0;
+        uint feeReferral = frames[frameKey].feeReferral;
+        for (uint i = 0; i < frames[frameKey].lotKeys.length; i++) {
+            Lot memory lot = lots[frames[frameKey].frameKey][frames[frameKey].lotKeys[i]];
+            for (uint j = 0; j < lot.states.length; j++) {
+
+                //-------> TAX CHARGED <-------
+                //Add tax charged to the reward fund
+                rewardFund += lot.states[j].taxCharged;
+
+                //-------> TAX REFUNDED <-------
+                //Subtract tax refunded from the reward fund
+                rewardFund -= lot.states[j].taxRefunded;
+
+                //-------> TAX CURRENT <-------
+                //if it's the last state, subtract the difference of the current tax (in case user puts acquisition price 0 and gets all tax back)
+                if (j == frames[frameKey].lotKeys.length - 1) {
+                    uint taxCurrent = clcTax(frameKey, lot.states[j].acquisitionPrice);
+                    rewardFund -= taxCurrent;
+
+                    //If user's referral user exists, take into account the referral reward and subtract the referral fee from current tax
+                    address referredByAddress = users[lot.states[j].owner].referredBy;
+                    if (users[referredByAddress].exists) {
+                        feeReferral-= clcReferralReward(taxCurrent);
+                    }                    
+                }
+
+                
+            }
+        }
+        rewardFund = rewardFund - feeReferral;
+        return rewardFund;
+    }
+
     //Function for creating user for referral purposes
     function createUser(address referrer) internal {
         // Check if referral exists
@@ -564,17 +600,21 @@ contract Market {
         return users[user].rewards[frameKey];
     }
 
+    function clcReferralReward(uint tax) public view returns(uint) {
+        return tax * referralPct / 1e18;
+    }
+
     // Function that increase reward for user and referral fee for frame
     function increaseRewardAndFee(address user, uint tax, uint frameKey) internal {
         require(users[user].exists, "User does not exist");
-        uint feeReward = tax * referralPct / 1e18;
+        uint feeReward = clcReferralReward(tax);
         users[user].rewards[frameKey] += feeReward;
         frames[frameKey].feeReferral += feeReward;
     }
     // Function that decrease reward for user and referral fee for frame
     function decreaseRewardAndFee(address user, uint tax,  uint frameKey) internal {
         require(users[user].exists, "User does not exist");
-        uint feeReward = tax * referralPct / 1e18;
+        uint feeReward = clcReferralReward(tax);
         users[user].rewards[frameKey] -= feeReward;
         frames[frameKey].feeReferral -= feeReward;
     }

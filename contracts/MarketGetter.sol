@@ -297,10 +297,16 @@ contract MarketGetter {
     /// @param frameKey MLib.Frame's timestamp
     /// @return award amount
     function getRewardAmount(Market market, uint frameKey) external view returns (uint) {     
+        Market.Frame memory frame = getFrameStruct(market, frameKey);
         uint rewardPure = market.clcRewardFund(frameKey);  
         uint feeProtocol = market.feeProtocol();
-        uint reward = rewardPure - (feeProtocol);                  
+        //Subtract protocol fee and referral fee from the reward
+        uint reward = rewardPure - feeProtocol - frame.feeReferral;                 
         return reward; 
+    }
+
+    function getRewardAmountMin(Market market, uint frameKey) external view returns (uint) {     
+
     }
 
     /// @notice Calculate amount required to approve to buy a lot

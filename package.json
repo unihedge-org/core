@@ -22,7 +22,6 @@
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
-    "hardhat": "^2.22.2",
     "standard-version": "^9.5.0"
   },
   "dependencies": {
@@ -32,6 +31,7 @@
     "@uniswap/v3-periphery": "^1.4.4",
     "chai": "^4.4.1",
     "dotenv": "^16.4.5",
+    "hardhat": "^2.21.0",
     "hardhat-gas-reporter": "^2.1.1"
   }
 }
