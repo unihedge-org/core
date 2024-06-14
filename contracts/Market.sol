@@ -349,7 +349,6 @@ contract Market {
         if (users[users[msg.sender].referredBy].exists) {
             increaseRewardAndFee(users[msg.sender].referredBy, tax, frameKey);
         }
-
     }
 
     function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
@@ -367,11 +366,6 @@ contract Market {
             accountingToken.transfer(lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, taxRefund);
             //Add new lot state
             lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, 0, taxRefund));
-            // If user exists skip otherwise create user
-            //TODO: A to rabi tukaj sploh? A je možno, da user ni narejen na tej točki??
-            if (!users[msg.sender].exists) {
-                createUser(referrer);
-            }
             // If user exists decrease reward and fee
             if (users[users[msg.sender].referredBy].exists) {
                 decreaseRewardAndFee(users[msg.sender].referredBy, taxRefund, frameKey);
@@ -385,10 +379,6 @@ contract Market {
             accountingToken.transferFrom(msg.sender, address(this), taxCharge);
             //Add new lot state
             lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, taxCharge, 0));
-            // If user exists skip otherwise create user
-            if (!users[msg.sender].exists) {
-                createUser(referrer);
-            }
             // If referrer exists increase reward and fee
             if (users[users[msg.sender].referredBy].exists) {
                 increaseRewardAndFee(users[msg.sender].referredBy, taxCharge, frameKey);
