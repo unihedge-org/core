@@ -2,20 +2,14 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0x32C0819301bF603954C309A439cC99955b38191a](https://polygonscan.com/address/0x32C0819301bF603954C309A439cC99955b38191a)
+* Market address: [0x7d31825005212e40BDb2869d550A71CA10974006](https://polygonscan.com/address/0x7d31825005212e40BDb2869d550A71CA10974006)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
-* Market Getter address: [0x3D22cf7B927fe1a4Ed547BFC0C403A8eC2c5Edf7](https://polygonscan.com/address/0x4E7ACEc79247264e731830f67D933129682b531f)
+* Market Getter address: [0xBde72f590abCf7E133C930b27F08fb65e3444E33](https://polygonscan.com/address/0xBde72f590abCf7E133C930b27F08fb65e3444E33)
 
 ## Latest updates:
-* Referral address field added in tradeLot function
-* Referral logic added to contract
-* settleRate is now updated in settleFrame function
-* In case of no winner, reward fund gets transfered to market owner
-* New testing structure (more details in ./test folder)
-* .secret switched with .env in hardhat config
-* Added new test scripts
-
+* clcRewardFundMin added to market.
+* getRewardFund in margetGetter fixed.
 
 ## Software version for developement
 Software | Version

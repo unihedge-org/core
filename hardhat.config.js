@@ -40,7 +40,7 @@ module.exports = {
 networks: {
   polygon: {
     url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
-    accounts: [`0x93daac766c391a95110614b3577c3917a3e8ab8bbb68e74619819db688379f90`],
+    accounts: [`0x${process.env.PRIVATE_KEY}`],
     loggingEnabled: true,
   },
   hardhat: {

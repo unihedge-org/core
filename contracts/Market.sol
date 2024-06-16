@@ -304,7 +304,7 @@ contract Market {
         }
         //If lot owner is same update price
         if (lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner == msg.sender) {
-            revaluateLot(frameKey, lotKey, acquisitionPrice, referrer);
+            revaluateLot(frameKey, lotKey, acquisitionPrice);
             return;
         }
         //Lot is sold to new owner
@@ -351,7 +351,7 @@ contract Market {
         }
     }
 
-    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
+    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
         //Calculate tax with old acquisitionPrice
         uint tax1 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
         //console.log("tax1:", tax1);
