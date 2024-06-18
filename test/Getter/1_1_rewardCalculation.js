@@ -1,4 +1,4 @@
-const { expect, ethers, IERC20, ISwapRouter, fs } = require('../Helpers/imports');
+const { expect, ethers, IERC20, ISwapRouter, time } = require('../Helpers/imports');
 const {swapTokenForUsers} = require("../Helpers/functions.js");
 
 /*
@@ -46,7 +46,10 @@ describe("Resale lot", function () {
         expect(dPrice).to.be.gt(0);
 
         const MarketGetter = await ethers.getContractFactory("MarketGetter");
-        contractMarketGetter = await MarketGetter.deploy(contractMarket.address);
+        contractMarketGetter = await MarketGetter.deploy();
+
+        //Confirm that contractMarketGetter is deployed
+        expect(contractMarketGetter.address).to.not.equal(ethers.constants.AddressZero);
     });
     it("Approve DAI to spend", async function () {
         //Select random account
@@ -136,7 +139,7 @@ describe("Resale lot", function () {
         expect(allowance).to.equal(tax.add(acquisitionPrice));
     });
     it('second user buys lot', async function () {
-//get users current DAI balance
+        //get users current DAI balance
         let balanceBefore = await daiContract.balanceOf(user2.address);
         //get current block
         const block = await ethers.provider.getBlock('latest');
@@ -165,6 +168,34 @@ describe("Resale lot", function () {
         expect(lotStates[2].taxCharged).to.equal(balanceBefore.sub(balanceAfter).sub(lotStates[1].acquisitionPrice));
         //TODO: Check if tax refunded is correct in lotStates[1] and lotStates[2]
         expect(lotStates.length).to.equal(3);
+    });
+    it('fast forward time', async function () {
+        const block = await ethers.provider.getBlock('latest');
+        console.log("\x1b[33m%s\x1b[0m", "   Block timestamp: ", block.timestamp);
+        console.log("\x1b[35m%s\x1b[0m", "   Skip time to end of frame");
+        //Skip time to next day of frameKey
+        await time.increaseTo(block.timestamp + 86400);
+        
+        const block2 = await ethers.provider.getBlock('latest');
+        console.log("\x1b[33m%s\x1b[0m", "   Current block timestamp: ", block2.timestamp);
+        console.log("\x1b[33m%s\x1b[0m", "   Time difference: ", (block2.timestamp - block.timestamp)/86400, " days");
+    });
+    it('Calculate reward fund', async function () {
+        let rewardFund = await contractMarketGetter.getRewardAmount(contractMarket.address, frameKey);
+        console.log("\x1b[33m%s\x1b[0m", "   Reward Fund: ", ethers.utils.formatUnits(rewardFund, 18), " DAI");
+        expect(rewardFund).to.be.gt(0);
+    });
+    it('Calculate reward minimal', async function () {
+        let rewardFund = await contractMarketGetter.getRewardAmount(contractMarket.address, frameKey);
+        let rewardCurrent = await contractMarket.clcRewardFundMin(frameKey);
+
+        console.log("\x1b[33m%s\x1b[0m", "   Reward Minimal: ", ethers.utils.formatUnits(rewardCurrent, 18), " DAI");
+        expect(rewardCurrent).to.be.gt(0);
+        expect(rewardCurrent).to.be.lte(rewardFund);
+
+        //Console log difference
+        console.log("\x1b[33m%s\x1b[0m", "   Difference: ", ethers.utils.formatUnits(rewardFund.sub(rewardCurrent), 18), " DAI");
+
     });
 })
 

@@ -306,7 +306,7 @@ contract MarketGetter {
     }
 
     function getRewardAmountMin(Market market, uint frameKey) external view returns (uint) {     
-
+        return market.clcRewardFundMin(frameKey);
     }
 
     /// @notice Calculate amount required to approve to buy a lot

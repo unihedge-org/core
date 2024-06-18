@@ -2,13 +2,14 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0x7d31825005212e40BDb2869d550A71CA10974006](https://polygonscan.com/address/0x7d31825005212e40BDb2869d550A71CA10974006)
+* Market address: [0x6A0277Cc099a6632D887230C0E7992C0eFd6B55e](https://polygonscan.com/address/0x6A0277Cc099a6632D887230C0E7992C0eFd6B55e)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
-* Market Getter address: [0xBde72f590abCf7E133C930b27F08fb65e3444E33](https://polygonscan.com/address/0xBde72f590abCf7E133C930b27F08fb65e3444E33)
+* Market Getter address: [0x733Bf1279CeB26FF57CADDf90F89981A2B051c01](https://polygonscan.com/address/0x733Bf1279CeB26FF57CADDf90F89981A2B051c01)
 
 ## Latest updates:
-* clcRewardFundMin added to market.
+* getRewardAmountMin added to marketGetter.
+    * Calculates the guaranteed reward amount at that moment
 * getRewardFund in margetGetter fixed.
 
 ## Software version for developement
@@ -18,8 +19,6 @@ Hardhat  | 2.22.3
 Solidity  | 0.8.0 (solc-js)
 Node | v18.17.0
 npm | 9.6.7
-
-
 
 
 ## Transaction fees
