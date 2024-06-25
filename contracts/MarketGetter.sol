@@ -305,8 +305,41 @@ contract MarketGetter {
         return reward; 
     }
 
-    function getRewardAmountMin(Market market, uint frameKey) external view returns (uint) {     
-        return market.clcRewardFundMin(frameKey);
+    function getRewardAmountMin(Market market, uint frameKey) external view returns (uint rewardFund) {     
+        console.log("SOL: frameKey:", frameKey);
+        Market.Frame memory frame = getFrameStruct(market, frameKey);
+        uint feeReferral = frame.feeReferral;
+        console.log("SOL: feeReferral:", feeReferral);
+        for(uint i = 0; i < frame.lotKeys.length; i++) {
+            Market.Lot memory lot = getLotStruct(market, frameKey, frame.lotKeys[i]);
+            console.log("SOL: lot key:", lot.lotKey);
+            for (uint j = 0; j < lot.states.length; j++) {
+                console.log("SOL: lot state num:", j);
+                //-------> TAX CHARGED <---------
+                rewardFund += lot.states[j].taxCharged;
+                console.log("SOL: taxCharged:", lot.states[j].taxCharged);
+                //-------> TAX REFUNDED <---------
+                rewardFund += lot.states[j].taxRefunded;    
+                console.log("SOL: taxRefunded:", lot.states[j].taxRefunded);
+                //-------> TAX CURRENT <---------
+                if (j == lot.states.length - 1) {
+                    uint taxCurrent = market.clcTax(frameKey, lot.states[j].acquisitionPrice);
+                    rewardFund -= taxCurrent;   
+                    console.log("SOL: taxCurrent:", taxCurrent);
+
+                    //Load users referredBy address, get it from markets users mapping
+                    (, address referredBy) = market.users(lot.states[j].owner);
+                    (bool referralUserExists,) = market.users(referredBy);
+                    if(referralUserExists) {
+                        feeReferral += market.clcReferralReward(taxCurrent);
+                        console.log("SOL: feeReferral:", feeReferral);
+                    }
+                }
+            }
+        }
+        rewardFund = rewardFund - feeReferral;
+        console.log("SOL: rewardFund:", rewardFund);
+        return rewardFund;
     }
 
     /// @notice Calculate amount required to approve to buy a lot
