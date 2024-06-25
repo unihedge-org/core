@@ -2,15 +2,14 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0x6A0277Cc099a6632D887230C0E7992C0eFd6B55e](https://polygonscan.com/address/0x6A0277Cc099a6632D887230C0E7992C0eFd6B55e)
+* Market address: [0x7d31825005212e40BDb2869d550A71CA10974006](https://polygonscan.com/address/0x7d31825005212e40BDb2869d550A71CA10974006)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
-* Market Getter address: [0x733Bf1279CeB26FF57CADDf90F89981A2B051c01](https://polygonscan.com/address/0x733Bf1279CeB26FF57CADDf90F89981A2B051c01)
+* Market Getter address: [0x677D293AB79bE7b6A543e1B8D2C8dEC2e24e91Ff](https://polygonscan.com/address/0x677D293AB79bE7b6A543e1B8D2C8dEC2e24e91Ff)
 
 ## Latest updates:
-* getRewardAmountMin added to marketGetter.
-    * Calculates the guaranteed reward amount at that moment
-* getRewardFund in margetGetter fixed.
+* getRewardAmountMin transfered to MarketGetter
+* Market contract reverted to last version without the rewardFundMin calculation
 
 ## Software version for developement
 Software | Version

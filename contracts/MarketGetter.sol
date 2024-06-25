@@ -21,13 +21,9 @@ contract MarketGetter {
     }
 
     function getLotStruct(Market market, uint frameKey, uint lotKey) public view returns (Market.Lot memory){
-        console.log("getLotStruct");
         Market.Lot memory lot;
-        console.log("frameKey: %s", frameKey);
         (lot.frameKey,lot.lotKey) = market.lots(frameKey,lotKey);
-        console.log("lot.frameKey: %s", lot.frameKey);
         Market.LotState[] memory lotStates = market.getLotStates(frameKey,lotKey);
-        console.log("lotStates.length: %s", lotStates.length);
         if(lotStates.length == 0) {
             //Create an empty lotState if there are no states
             lot.states = new Market.LotState[](1);
@@ -71,10 +67,8 @@ contract MarketGetter {
         for(uint i = 0; i <= numOfFrames; i++) {
             uint frameKey = startFrame+(market.period()*i);
             frame = getFrameStruct(market, frameKey);
-            console.log("SOL: frame.frameKey: %s", frame.frameKey);
             Market.SFrame frameState = market.getStateFrame(frame.frameKey);
             if(frameState == Market.SFrame.OPENED || frameState == Market.SFrame.RATED){
-                console.log("SOL: frame is open");
                 openFrames[counter] = frameKey;
                 counter++;
             }
@@ -85,7 +79,6 @@ contract MarketGetter {
 
 
     function getLots(Market market, uint frameKey_start,uint frameKey_end, uint page, uint perPage) external view returns (Market.Lot[] memory lots, uint pagesLeft){
-        console.log("getLots");
         require(frameKey_start <= frameKey_end, "frameKey_start must be smaller or equal to frameKey_end");
         lots = new Market.Lot[](perPage);
 
@@ -94,13 +87,10 @@ contract MarketGetter {
         uint[] memory uintVariables = new uint[](3);
 
         uintVariables[2] = market.period();
-        console.log("SOL: Starting loop");
         for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
             //
-            console.log("frameKey: %s", frameKey);
             lotKeys = market.getFrameLotKeys (frameKey);
-            for (uint j=0; j < lotKeys.length; j++) {
-                console.log("lotKey: %s", lotKeys[j]);                   
+            for (uint j=0; j < lotKeys.length; j++) {             
                 if(uintVariables[0] >= (page*perPage) && (uintVariables[0] < (page+1)*perPage) ) {
                     lots[uintVariables[1]]= (getLotStruct(market, frameKey, lotKeys[j]));
                     uintVariables[1]= uintVariables[1] + 1;
@@ -306,39 +296,31 @@ contract MarketGetter {
     }
 
     function getRewardAmountMin(Market market, uint frameKey) external view returns (uint rewardFund) {     
-        console.log("SOL: frameKey:", frameKey);
         Market.Frame memory frame = getFrameStruct(market, frameKey);
         uint feeReferral = frame.feeReferral;
-        console.log("SOL: feeReferral:", feeReferral);
         for(uint i = 0; i < frame.lotKeys.length; i++) {
             Market.Lot memory lot = getLotStruct(market, frameKey, frame.lotKeys[i]);
-            console.log("SOL: lot key:", lot.lotKey);
             for (uint j = 0; j < lot.states.length; j++) {
-                console.log("SOL: lot state num:", j);
                 //-------> TAX CHARGED <---------
                 rewardFund += lot.states[j].taxCharged;
-                console.log("SOL: taxCharged:", lot.states[j].taxCharged);
                 //-------> TAX REFUNDED <---------
-                rewardFund += lot.states[j].taxRefunded;    
-                console.log("SOL: taxRefunded:", lot.states[j].taxRefunded);
+                rewardFund -= lot.states[j].taxRefunded;    
                 //-------> TAX CURRENT <---------
                 if (j == lot.states.length - 1) {
                     uint taxCurrent = market.clcTax(frameKey, lot.states[j].acquisitionPrice);
                     rewardFund -= taxCurrent;   
-                    console.log("SOL: taxCurrent:", taxCurrent);
 
                     //Load users referredBy address, get it from markets users mapping
                     (, address referredBy) = market.users(lot.states[j].owner);
                     (bool referralUserExists,) = market.users(referredBy);
                     if(referralUserExists) {
-                        feeReferral += market.clcReferralReward(taxCurrent);
-                        console.log("SOL: feeReferral:", feeReferral);
+                        uint referralPct = market.referralPct();
+                        feeReferral += taxCurrent * referralPct / 1e18;
                     }
                 }
             }
         }
         rewardFund = rewardFund - feeReferral;
-        console.log("SOL: rewardFund:", rewardFund);
         return rewardFund;
     }
 
