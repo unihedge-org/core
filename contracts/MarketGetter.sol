@@ -105,8 +105,40 @@ contract MarketGetter {
         }
         else pagesLeft=0;
 
-        // return(lots, pagesLeft);
+    }
 
+    function getLotsByIndex(Market market, uint frameKey, uint startIndex, uint endIndex) external view returns (Market.Lot[] memory lots){
+        require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
+        Market.Frame memory frame = getFrameStruct(market, frameKey);
+        require(frame.lotKeys.length > 0, "No lots in the frame");
+        require(frame.lotKeys.length > startIndex, "startIndex is out of bounds");
+
+        if(frame.lotKeys.length < endIndex) endIndex = frame.lotKeys.length - 1;
+
+        lots = new Market.Lot[](endIndex - startIndex + 1);
+
+        for(uint i = startIndex; i <= startIndex; i++) {
+            lots[i] = getLotStruct(market, frameKey, frame.lotKeys[i]);
+        }
+        return lots;
+    }
+
+    function getFramesByIndex(Market market, uint startIndex, uint endIndex) external view returns (Market.Frame[] memory frames){
+        require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
+
+        uint frameKeysLength = market.getFramesLength();
+        require(frameKeysLength > 0, "No frames in the market");
+        require(frameKeysLength > startIndex, "startIndex is out of bounds");
+
+        if(frameKeysLength < endIndex) endIndex = frameKeysLength - 1;
+
+        frames = new Market.Frame[](endIndex - startIndex + 1);
+
+        for(uint i = startIndex; i <= startIndex; i++) {
+            uint frameKey = market.framesKeys(i);
+            frames[i] = getFrameStruct(market, frameKey);
+        }
+        return frames;
     }
 
     /// @notice Get users lots in the specified time frame
@@ -114,14 +146,14 @@ contract MarketGetter {
     /// @dev had to use 'tricks' with arrays that hold multiple variables to avoid stack too deep problem
     /// @param market Market's address
     /// @param user User's address
-    /// @param mode 0-all lots (in present and future frames and past frames (first open then closed)), 1 - only lots in OPEN frames, 2 - only lots in CLOSED frames
+    /// @param mode 0-all lots (in present, future and past frames (first open then closed)), 1 - only lots in OPEN frames, 2 - only lots in CLOSED frames
     /// @param frameKey_start Start frameKey
     /// @param frameKey_end End framekey
     /// @param page Which page to print
     /// @param perPage How many lots should be printed on a page
     /// @return userLots Returns array of users lots 
     /// @return pagesLeft How many pages are left to print
-    /// @dev Array's size is 100 no mather how many lots this user actually has. 
+    /// @dev Array's size is fixed no mather how many lots this user actually has. 
     /// @dev So the results have to be filtered before use
     function getLotsUser(Market market, address user,uint mode, uint frameKey_start,uint frameKey_end, uint page, uint perPage) external view returns (Market.Lot[] memory userLots, uint pagesLeft){
         userLots = new Market.Lot[](perPage+1);
@@ -155,39 +187,128 @@ contract MarketGetter {
                             }
                             uintVariables[0]= uintVariables[0] + 1;
                         } 
+                    }
+                }
+            }
+        }
+
+        if(mode == 2 || mode == 0) {
+            for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
+                frameState = market.getStateFrame(frameKey);
+
+                if (frameState == Market.SFrame.CLOSED || frameState == Market.SFrame.SETTLED || frameState == Market.SFrame.RATED) {
+                    //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
+                    lotKeys = market.getFrameLotKeys(frameKey);
+                    for (uint j=0; j < lotKeys.length; j++) {
+                        userLots[perPage] = (getLotStruct(market, frameKey, lotKeys[j]));
+
+                        Market.LotState[] memory lotStates = market.getLotStates(frameKey, lotKeys[j]);
+                        
+                        if(lotStates[lotStates.length - 1].owner == user) {
+                            if(uintVariables[0] >= ((page)*perPage) && uintVariables[0] < (page+1)*perPage) {
+                                userLots[uintVariables[1]]= userLots[perPage];
+                                uintVariables[1]= uintVariables[1] + 1;
+                            }
+                            uintVariables[0]= uintVariables[0] + 1;
+                        } 
+                    }
+                }
+            }
+        }
+
+        if(uintVariables[0] > (page+1)*perPage) {
+            pagesLeft = ((uintVariables[0]/perPage) - page);
+        }
+        else pagesLeft = 0;
+
+        return(userLots, pagesLeft);
+
+    }
+
+    /// @notice Get users lots in the specified time frame that the user sold
+    /// @param market Market's address
+    /// @param user User's address
+    /// @param mode 0-all lots (in present, future and past frames (first open then closed)), 1 - only lots in OPEN frames, 2 - only lots in CLOSED frames
+    /// @param frameKey_start Start frameKey
+    /// @param frameKey_end End framekey
+    /// @param page Which page to print
+    /// @param perPage How many lots should be printed on a page
+    /// @return userLots Returns array of users lots 
+    /// @return pagesLeft How many pages are left to print
+    /// @dev Array's size is 100 no mather how many lots this user actually has. 
+    /// @dev So the results have to be filtered before use
+    function getLotsSoldUser(Market market, address user,uint mode, uint frameKey_start,uint frameKey_end, uint page, uint perPage) external view returns (Market.Lot[] memory userLots, uint pagesLeft){
+        userLots = new Market.Lot[](perPage+1);
+        
+        Market.SFrame frameState;
+        uint[] memory lotKeys;
+        //0 - counter; 1 - arracCounter, 2 - period
+        uint[] memory uintVariables = new uint[](3);
+
+        uintVariables[2] = market.period();
+
+        if (mode <= 1) {
+            for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
+                frameState = market.getStateFrame(frameKey);
+
+                if (frameState == Market.SFrame.OPENED) {
+                    //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
+                    lotKeys = market.getFrameLotKeys(frameKey);
+                    for (uint j=0; j < lotKeys.length; j++) {
+
+                        userLots[perPage] = (getLotStruct(market, frameKey, lotKeys[j]));
+
+                        //Get lots current state
+                        Market.LotState[] memory lotStates = market.getLotStates(frameKey, lotKeys[j]);
+
+                        //Loop through past states and check if the user was the owner
+                        for (uint k = 0; k < lotStates.length-1; k++) {
+                            if(lotStates[k].owner == user) {
+                                if(uintVariables[0] >= (page*perPage) && (uintVariables[0] < (page+1)*perPage) ) {
+                                    userLots[uintVariables[1]]= userLots[perPage];
+                                    uintVariables[1]= uintVariables[1] + 1;
+                                }
+                                uintVariables[0]= uintVariables[0] + 1;
+                            }
+                        }
+                        
                                             }
                                         }
                                     }
                                 }
 
-                        if(mode == 2 || mode == 0) {
-                            for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
-                                frameState = market.getStateFrame(frameKey);
+        if(mode == 2 || mode == 0) {
+            for(uint frameKey = frameKey_start; frameKey <= frameKey_end; frameKey = frameKey + uintVariables[2]) {
+                frameState = market.getStateFrame(frameKey);
 
-                                if (frameState == Market.SFrame.CLOSED || frameState == Market.SFrame.SETTLED || frameState == Market.SFrame.RATED) {
-                                    //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
-                                    lotKeys = market.getFrameLotKeys(frameKey);
-                                    for (uint j=0; j < lotKeys.length; j++) {
-                                        userLots[perPage] = (getLotStruct(market, frameKey, lotKeys[j]));
+                if (frameState == Market.SFrame.CLOSED || frameState == Market.SFrame.SETTLED || frameState == Market.SFrame.RATED) {
+                    //more bit tako ločeno za getLotKeys, ker se ti noče vrnit dinamičnega array, ko kličeš cel Frame struct- Moreš posebej vrnit
+                    lotKeys = market.getFrameLotKeys(frameKey);
+                    for (uint j=0; j < lotKeys.length; j++) {
+                        userLots[perPage] = (getLotStruct(market, frameKey, lotKeys[j]));
 
-                                        Market.LotState[] memory lotStates = market.getLotStates(frameKey, lotKeys[j]);
-                                        
-                                        if(lotStates[lotStates.length - 1].owner == user) {
-                                            if(uintVariables[0] >= ((page)*perPage) && uintVariables[0] < (page+1)*perPage) {
-                                                userLots[uintVariables[1]]= userLots[perPage];
-                                                uintVariables[1]= uintVariables[1] + 1;
-                                            }
-                                            uintVariables[0]= uintVariables[0] + 1;
-                                        } 
-                                    }
+                        Market.LotState[] memory lotStates = market.getLotStates(frameKey, lotKeys[j]);
+
+                        //Loop through past states and check if the user was the owner
+                        for (uint k = 0; k < lotStates.length-1; k++) {
+                            if(lotStates[k].owner == user) {
+                                if(uintVariables[0] >= ((page)*perPage) && uintVariables[0] < (page+1)*perPage) {
+                                    userLots[uintVariables[1]]= userLots[perPage];
+                                    uintVariables[1]= uintVariables[1] + 1;
                                 }
+                                uintVariables[0]= uintVariables[0] + 1;
                             }
                         }
-
-            if(uintVariables[0] > (page+1)*perPage) {
-                pagesLeft = ((uintVariables[0]/perPage) - page);
+                        
+                    }
+                }
             }
-            else pagesLeft=0;
+        }
+
+        if(uintVariables[0] > (page+1)*perPage) {
+            pagesLeft = ((uintVariables[0]/perPage) - page);
+        }
+        else pagesLeft=0;
 
         return(userLots, pagesLeft);
 
@@ -357,6 +478,58 @@ contract MarketGetter {
         uint tax2 = market.clcTax(frameKey, acqPrice);
         if(tax1 >= tax2) amnt = 0;
         else amnt = tax2-tax1;
+    }
+
+    function getUsersReferrals(Market market, address user) external view returns (address[] memory referrals, uint16 length) {
+        address[] memory referralsRaw = new address[](market.getUsersArrayLength());
+        uint16 counter = 0;
+        for(uint i = 0; i < market.getUsersArrayLength(); i++) {
+            address userAddress = market.usersArray(i);
+            (, address referredBy) = market.users(userAddress);
+            if (referredBy == user) {
+                referralsRaw[counter] = (userAddress);
+                counter++;
+        }
+        }
+        
+        referrals = new address[](counter);
+        for(uint i = 0; i < counter; i++) {
+            referrals[i] = referralsRaw[i];
+        }
+        return (referrals, length);
+    }
+
+    //TODO: Add a limit to the number of frames that can be returned
+    function getUserRewards(Market market, address user, uint frameKeyStart, uint frameKeyEnd) external view returns (uint reward) {
+        uint period = market.period();
+        for(uint frameKey = frameKeyStart; frameKey <= frameKeyEnd; frameKey += period) {
+            reward += market.getUserReward(user, frameKey);
+        }
+        return reward;
+    }
+
+    function getMultipleUsersRewards(Market market, uint firstUserIndex, uint lastUserIndex, uint frameKeyStart, uint frameKeyEnd) external view returns (uint comulativeReward, uint[] memory rewards) {
+        require(firstUserIndex < lastUserIndex, "firstUserIndex must be smaller or equal to lastUserIndex");
+        uint usersLength = market.getUsersArrayLength();
+        require(firstUserIndex < usersLength, "firstUserIndex is out of bounds");
+        console.log("usersLength: ", usersLength);
+        if (lastUserIndex > usersLength) lastUserIndex = usersLength;
+        console.log("lastUserIndex: ", lastUserIndex);
+        rewards = new uint[](lastUserIndex - firstUserIndex);
+        uint period = market.period();
+        console.log("period: ", period);
+        for(uint i = firstUserIndex; i < lastUserIndex-1; i++) {
+            address user = market.usersArray(i);
+            console.log("user: ", user);
+             for(uint frameKey = frameKeyStart; frameKey < frameKeyEnd; frameKey += period) {
+                rewards[i] += market.getUserReward(user, frameKey);
+                console.log("rewards: ", rewards[i]);
+                comulativeReward += rewards[i];
+                console.log("comulativeReward: ", comulativeReward);
+             }
+        }
+        console.log("Returning rewards: ");
+        return (comulativeReward, rewards);
     }
 
 }

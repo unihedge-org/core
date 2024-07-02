@@ -82,6 +82,10 @@ contract Market {
     // Mapping that stores users by their address
     mapping(address => User) public users;
 
+    // Array of all users that have been created, needed to count referrals
+    // We could also add an array in the user struct that stores all referrals, maybe in a future version.. TODO
+    address[] public usersArray;
+
     struct LotState {
         //Block number
         uint blockNumber;
@@ -157,6 +161,15 @@ contract Market {
         return (frames[frameKey]);
     }
 
+    function getFramesLength() public view returns (uint){
+        return framesKeys.length;
+    }
+
+    function getLotsLength(uint frameKey) public view returns (uint){
+        return frames[frameKey].lotKeys.length;
+    }
+
+
     function getFrameLotKeys(uint frameKey) public view returns (uint[] memory){
         return frames[frameKey].lotKeys;
     }
@@ -170,6 +183,10 @@ contract Market {
     //Function to get lot states for market getter
     function getLotStates(uint frameKey, uint lotKey) public view returns (LotState[] memory){
         return lots[frameKey][lotKey].states;
+    }
+
+    function getUsersArrayLength() public view returns (uint){
+        return usersArray.length;
     }
 
     function createFrame(uint timestamp) internal returns (uint){
@@ -241,11 +258,12 @@ contract Market {
             // Create user 
             users[msg.sender].exists = true;
             users[msg.sender].referredBy = referrer;
+            usersArray.push(msg.sender);
             return;
         }
         // Check if referrer exists
         require(users[referrer].exists, "Referrer does not exist");
-        // Create user
+        usersArray.push(msg.sender);
         users[msg.sender].exists = true;
         users[msg.sender].referredBy = referrer;
     }
@@ -268,7 +286,7 @@ contract Market {
         }
         //If lot owner is same update price
         if (lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner == msg.sender) {
-            revaluateLot(frameKey, lotKey, acquisitionPrice, referrer);
+            revaluateLot(frameKey, lotKey, acquisitionPrice);
             return;
         }
         //Lot is sold to new owner
@@ -315,7 +333,7 @@ contract Market {
         }
     }
 
-    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPrice, address referrer) internal {
+    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
         //Calculate tax with old acquisitionPrice
         uint tax1 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
         //console.log("tax1:", tax1);
