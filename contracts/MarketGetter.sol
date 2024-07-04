@@ -107,19 +107,23 @@ contract MarketGetter {
 
     }
 
-    function getLotsByIndex(Market market, uint frameKey, uint startIndex, uint endIndex) external view returns (Market.Lot[] memory lots){
+    function getLotsByIndex(Market market, uint startIndex, uint endIndex) external view returns (Market.Lot[] memory lots) {
         require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
-        Market.Frame memory frame = getFrameStruct(market, frameKey);
-        require(frame.lotKeys.length > 0, "No lots in the frame");
-        require(frame.lotKeys.length > startIndex, "startIndex is out of bounds");
-
-        if(frame.lotKeys.length < endIndex) endIndex = frame.lotKeys.length - 1;
-
+        
+        Market.Lot[] memory lotsRaw = market.getLotsArray();
+        require(lotsRaw.length > 0, "No lots in the market");
+        require(startIndex < lotsRaw.length, "startIndex is out of bounds");
+        
+        if (endIndex >= lotsRaw.length) endIndex = lotsRaw.length - 1;
+        
+        // Define the size of lots array by start and end index 
         lots = new Market.Lot[](endIndex - startIndex + 1);
 
-        for(uint i = startIndex; i <= startIndex; i++) {
-            lots[i] = getLotStruct(market, frameKey, frame.lotKeys[i]);
+        for (uint i = startIndex; i <= endIndex; i++) {
+            Market.Lot memory lot = lotsRaw[i];
+            lots[i] = getLotStruct(market, lot.frameKey, lot.lotKey);
         }
+
         return lots;
     }
 
@@ -134,7 +138,7 @@ contract MarketGetter {
 
         frames = new Market.Frame[](endIndex - startIndex + 1);
 
-        for(uint i = startIndex; i <= startIndex; i++) {
+        for(uint i = startIndex; i <= endIndex; i++) {
             uint frameKey = market.framesKeys(i);
             frames[i] = getFrameStruct(market, frameKey);
         }

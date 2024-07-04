@@ -110,6 +110,8 @@ contract Market {
     //Lots
     //2 level mapping to store lots. 1 level mapping is frameKey, 2 level mapping is lotKey
     mapping(uint => mapping(uint => Lot)) public lots;
+    //Create a public array of lots, each input has frame key and lotKey
+    Lot[] public lotsArray;
 
     event LotUpdate(Lot lot);
 
@@ -167,6 +169,10 @@ contract Market {
 
     function getLotsLength(uint frameKey) public view returns (uint){
         return frames[frameKey].lotKeys.length;
+    }
+
+    function getLotsArray() public view returns (Lot[] memory){
+        return lotsArray;
     }
 
 
@@ -317,6 +323,9 @@ contract Market {
 
         //Add lot to lots
         lots[frameKey][lotKey] = lot;
+
+        //Add lot to lotsArray
+        lotsArray.push(lot);
 
         //Add lot to frame
         frames[frameKey].lotKeys.push(lot.lotKey);

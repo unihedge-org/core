@@ -2,10 +2,10 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0xF868b1d4E640a793E5CE17aE710f86539670E490](https://polygonscan.com/address/0xF868b1d4E640a793E5CE17aE710f86539670E490)
+* Market address: [0x2A4C144eb08aB135f652375A4BB8fAF8d36f59c0](https://polygonscan.com/address/0x2A4C144eb08aB135f652375A4BB8fAF8d36f59c0)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
-* Market Getter address: [0x0F0e8939d9bEd51377cd9461D66e22a82958739f](https://polygonscan.com/address/0x0F0e8939d9bEd51377cd9461D66e22a82958739f)
+* Market Getter address: [0xDC843570F1Bbb0edCD013F1bF7921720881Ee9D8](https://polygonscan.com/address/0xDC843570F1Bbb0edCD013F1bF7921720881Ee9D8)
 
 ## Latest updates:
 * Market contract now has **userArray** that stores all users that were created
