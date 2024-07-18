@@ -26,7 +26,7 @@ describe("Get lots by index", function () {
         contractSwapRouter = await ethers.getContractAt(ISwapRouter.abi, "0xE592427A0AEce92De3Edee1F18E0157C05861564", owner);
         
         //users, tokenIn, tokenOut, amountInEther, contractSwapRouter
-        await swapTokenForUsers(accounts.slice(0,5),wMaticContract, daiContract, 100, contractSwapRouter);
+        await swapTokenForUsers(accounts.slice(0,5),wMaticContract, daiContract, 9999, contractSwapRouter);
         //Check if DAI balance is greater than 0
         let balance = await daiContract.balanceOf(owner.address);
         console.log("\x1b[33m%s\x1b[0m", "   DAI balance: ", ethers.utils.formatUnits(balance, 18), " DAI");
@@ -95,6 +95,7 @@ describe("Get lots by index", function () {
         //get current block
         const block = await ethers.provider.getBlock('latest');
         //Purchase lot 
+        console.log("\x1b[35m%s\x1b[0m", '   Purchasing lot ' + pairPrice.toString());
         await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
@@ -243,17 +244,62 @@ describe("Get lots by index", function () {
     it('Settle frame winner', async function () {
         await contractMarket.settleFrame(frameKey);
     });
-    it('get lots by index', async function () {
-        let block = await ethers.provider.getBlock('latest');
-        let period = await contractMarket.period();
-        //Add period to current block timestamp
-        let timestamp = ethers.BigNumber.from(block.timestamp).add(period);
-        let frameKeyEnd = await contractMarket.clcFrameKey(timestamp);
-        //Get uesrs lots sold
+    it('Get lots array', async function () {
+        let userLots = await contractMarket.getLotsArray();
+        console.log("\x1b[33m%s\x1b[0m", "   User lots array: ", userLots);
+    });
+    it('get lots with an index bigger than length', async function () {
         //Market market, address user,uint mode, uint frameKey_start,uint frameKey_end, uint page, uint perPage
-        let lots = await contractMarketGetter.getLotsByIndex(contractMarket.address, 0, 10);
+        let lots = await contractMarketGetter.getLotsByIndex(contractMarket.address, 0, 100000);
 
         console.log(lots)
     });
+    it('Users buys 100 different lots', async function () {
+        for(i=0; i<100; i++){
+            //Select random account
+            user = accounts[3];
+            console.log("Round ", i);
+            const block = await ethers.provider.getBlock('latest');
+            frameKeyStart = await contractMarket.clcFrameKey((block.timestamp));
+            frameKey = await contractMarket.clcFrameKey((block.timestamp)+270000);
+
+            //Calculate new random pair price
+            pairPrice = ethers.BigNumber.from(Math.floor(Math.random() * 100) + 1);
+            pairPrice = pairPrice.mul(dPrice);
+
+            acqPrice = ethers.utils.parseUnits("1", 18);
+            //Calculate approval amount
+            tax = await contractMarket.clcTax(frameKey, acqPrice);
+            //Print tax in blue
+            console.log("\x1b[36m%s\x1b[0m", "   Tax: ", ethers.utils.formatUnits(tax, 18), " DAI");
+
+            //Approve DAI to spend
+            await daiContract.connect(user).approve(contractMarket.address, tax.mul(2));
+            //Check allowance
+            let allowance = await daiContract.allowance(user.address, contractMarket.address);
+            console.log("\x1b[33m%s\x1b[0m", "   Allowance: ", ethers.utils.formatUnits(allowance, 18), " DAI");
+
+            //get current block
+            const block2 = await ethers.provider.getBlock('latest');
+            //Purchase lot 
+            console.log("\x1b[35m%s\x1b[0m", '   Purchasing lot ' + pairPrice.toString());
+            await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero,
+                {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block2.baseFeePerGas))}
+            );
+        }
+    });
+    it('Get lots array length', async function () {
+        let userLotsLength = await contractMarket.getLotsArrayLength();
+        console.log("\x1b[33m%s\x1b[0m", "   User lots array length: ", userLotsLength);
+    });
+    it('get lots by index', async function () {
+        //Get userLots length
+        let userLotsLength = await contractMarket.getLotsArrayLength();
+        //Market market, address user,uint mode, uint frameKey_start,uint frameKey_end, uint page, uint perPage
+        let lots = await contractMarketGetter.getLotsByIndex(contractMarket.address, 0, userLotsLength-1);
+
+        console.log(lots)
+    });
+
 })
 

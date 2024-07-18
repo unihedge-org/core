@@ -22,7 +22,8 @@ contract MarketGetter {
 
     function getLotStruct(Market market, uint frameKey, uint lotKey) public view returns (Market.Lot memory){
         Market.Lot memory lot;
-        (lot.frameKey,lot.lotKey) = market.lots(frameKey,lotKey);
+        lot.frameKey = frameKey;
+        lot.lotKey = lotKey;
         Market.LotState[] memory lotStates = market.getLotStates(frameKey,lotKey);
         if(lotStates.length == 0) {
             //Create an empty lotState if there are no states
@@ -107,20 +108,34 @@ contract MarketGetter {
 
     }
 
+    // Function to split the concatenated number back into timestamp and 18-decimal number
+    function splitLotsArrayElement(uint256 concatenated) public pure returns (uint256 frameKey, uint256 lotKey) {
+        frameKey = concatenated % 1e10;
+        lotKey = concatenated / 1e10;
+    }
+
     function getLotsByIndex(Market market, uint startIndex, uint endIndex) external view returns (Market.Lot[] memory lots) {
         require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
+        uint lotArrayLength = market.getLotsArrayLength();
+        require(lotArrayLength > 0, "No lots in the market");
+        uint[] memory lotsArray = new uint[](lotArrayLength);
+        lotsArray = market.getLotsArray();
+
+        require(startIndex < lotArrayLength, "startIndex is out of bounds");
         
-        Market.Lot[] memory lotsRaw = market.getLotsArray();
-        require(lotsRaw.length > 0, "No lots in the market");
-        require(startIndex < lotsRaw.length, "startIndex is out of bounds");
-        
-        if (endIndex >= lotsRaw.length) endIndex = lotsRaw.length - 1;
+        if (endIndex >= lotArrayLength) endIndex = lotArrayLength - 1;
         
         // Define the size of lots array by start and end index 
         lots = new Market.Lot[](endIndex - startIndex + 1);
 
         for (uint i = startIndex; i <= endIndex; i++) {
-            Market.Lot memory lot = lotsRaw[i];
+            uint frameKey;
+            uint lotKey;
+            console.log("SOL: lotsArray[i]: ", lotsArray[i]);
+            (frameKey, lotKey) = splitLotsArrayElement(lotsArray[i]);
+            console.log("SOL: frameKey: ", frameKey);
+            console.log("SOL: lotKey: ", lotKey);
+            Market.Lot memory lot = market.getLot(frameKey, lotKey);
             lots[i] = getLotStruct(market, lot.frameKey, lot.lotKey);
         }
 

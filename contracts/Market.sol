@@ -110,8 +110,8 @@ contract Market {
     //Lots
     //2 level mapping to store lots. 1 level mapping is frameKey, 2 level mapping is lotKey
     mapping(uint => mapping(uint => Lot)) public lots;
-    //Create a public array of lots, each input has frame key and lotKey
-    Lot[] public lotsArray;
+    //Create a public array of lots, each number is made out of frame key and lotKey
+    uint256[] public lotsArray;
 
     event LotUpdate(Lot lot);
 
@@ -171,10 +171,12 @@ contract Market {
         return frames[frameKey].lotKeys.length;
     }
 
-    function getLotsArray() public view returns (Lot[] memory){
+    function getLotsArray() public view returns (uint256[] memory){
         return lotsArray;
     }
-
+    function getLotsArrayLength() public view returns (uint){
+        return lotsArray.length;
+    }
 
     function getFrameLotKeys(uint frameKey) public view returns (uint[] memory){
         return frames[frameKey].lotKeys;
@@ -193,6 +195,16 @@ contract Market {
 
     function getUsersArrayLength() public view returns (uint){
         return usersArray.length;
+    }
+
+    // Function to concatenate a timestamp and an 18-decimal number
+    function concatenate(uint256 frameKey, uint256 lotKey) public pure returns (uint256 concatenated) {
+        lotKey = lotKey * 1e10;
+        console.log("SOL CONCAT: frameKey:", frameKey);
+        console.log("SOL CONCAT: lotKey:", lotKey);
+        concatenated = lotKey + frameKey;
+        console.log("SOL CONCAT: concatenated:", concatenated);
+        return concatenated;
     }
 
     function createFrame(uint timestamp) internal returns (uint){
@@ -311,6 +323,8 @@ contract Market {
         //Approved amount has to be at least equal to tax
         require(accountingToken.allowance(msg.sender, address(this)) >= tax, "Allowance to spend set too low");
 
+        //this check is because with the concat function, the lotKey is not limited to full uint256 range anymore
+        require(lotKey < 10000000000000000000000000000000000000000000000000000000000000000000000000000, "Lot key too big");
         //Reject if lot already exists
         require(lots[frameKey][lotKey].lotKey == 0, "Lot already exists");
         //Create lot
@@ -325,7 +339,11 @@ contract Market {
         lots[frameKey][lotKey] = lot;
 
         //Add lot to lotsArray
-        lotsArray.push(lot);
+        console.log("SOL: lotkey:", lotKey);
+        console.log("SOL: frameKey:", frameKey);
+        uint lotKeyConcat = concatenate(frameKey, lotKey);
+        console.log("SOL: lotKeyConcat:", lotKeyConcat);
+        lotsArray.push(lotKeyConcat);
 
         //Add lot to frame
         frames[frameKey].lotKeys.push(lot.lotKey);

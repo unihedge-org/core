@@ -2,25 +2,24 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0x2A4C144eb08aB135f652375A4BB8fAF8d36f59c0](https://polygonscan.com/address/0x2A4C144eb08aB135f652375A4BB8fAF8d36f59c0)
+* Market address: [0x3F1A0f4303a5CAa12165F15ceC24dFBfeBeec1b0](https://polygonscan.com/address/0x3F1A0f4303a5CAa12165F15ceC24dFBfeBeec1b0)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
-* Market Getter address: [0xDC843570F1Bbb0edCD013F1bF7921720881Ee9D8](https://polygonscan.com/address/0xDC843570F1Bbb0edCD013F1bF7921720881Ee9D8)
+* Market Getter address: [0x1FA341466575674e537Ef17953ceEDe22B66917c](https://polygonscan.com/address/0x1FA341466575674e537Ef17953ceEDe22B66917c)
 
 ## Latest updates:
-* Market contract now has **userArray** that stores all users that were created
+* Market contract now has **lotsArray** that stores all lots that were ever created
+    * Array elements are in uint format: lotKey + frameKey concatenated. 
+    * Ex: 
+        * LotKey = 900000000000000000000
+        * FrameKey = 1721923200
+        * lotKey + frameKey = 9000000000000000000001721923200
 * New functions in market contract:
-    * getFramesLength() --> returns length of framesKeys array
-    * getLotsLength(uint frameKey) --> returns length of lotKey in a given frame
-    * getUsersArrayLength() --> returns the number of users
+    * getLotsArrayLength() --> returns length of lotsArray
 * New functions in marketGetter:    
-    * function getLotsByIndex(Market market, uint frameKey, uint startIndex, uint endIndex) external view returns (Market.Lot[] memory lots)
-    * function getFramesByIndex(Market market, uint startIndex, uint endIndex) external view returns (Market.Frame[] memory frames)
-    * function getLotsSoldUser(Market market, address user,uint mode, uint frameKey_start,uint frameKey_end, uint page, uint perPage) external view returns (Market.Lot[] memory userLots, uint pagesLeft)
-        * works the same as getLotsUser, except it looks only at past lot states to find the current user as owner
-    * function getUsersReferrals(Market market, address user) external view returns (address[] memory referrals, uint16 length)
-    * function getUserRewards(Market market, address user, uint frameKeyStart, uint frameKeyEnd) external view returns (uint reward)
-    * function getMultipleUsersRewards(Market market, uint firstUserIndex, uint lastUserIndex, uint frameKeyStart, uint frameKeyEnd) external view returns (uint comulativeReward, uint[] memory rewards)
+    * function splitLotsArrayElement(uint256 concatenated) public pure returns (uint256 frameKey, uint256 lotKey)
+    * function getLotsByIndex updated with new logic
+
 
 
 ## Software version for developement
