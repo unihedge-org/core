@@ -373,8 +373,8 @@
       ]
     },
     "D:\\prog\\UniHedge\\core\\contracts\\MarketGetter.sol": {
-      "lastModificationDate": 1721977845186,
-      "contentHash": "777465265afb73d719237fc367e4f930",
+      "lastModificationDate": 1721978671062,
+      "contentHash": "b707e6b842f58a3ead906a9beeac8694",
       "sourceName": "contracts/MarketGetter.sol",
       "solcConfig": {
         "version": "0.8.20",

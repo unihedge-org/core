@@ -5,7 +5,7 @@
 * Market address: [0xcAD8aAd1FFa79B864D7956b408ac4A2B0ac787c7](https://polygonscan.com/address/0xcAD8aAd1FFa79B864D7956b408ac4A2B0ac787c7)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
-* Market Getter address: [0xE323F6D15F6bd8172C86ef769306bDe7084505EA](https://polygonscan.com/address/0xE323F6D15F6bd8172C86ef769306bDe7084505EA)
+* Market Getter address: [0x99ea5131958887E78aE996b93295E4ed2EaF9A6B](https://polygonscan.com/address/0x99ea5131958887E78aE996b93295E4ed2EaF9A6B)
 
 ## Latest updates:
 * New functions in marketGetter:    

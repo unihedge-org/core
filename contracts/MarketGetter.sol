@@ -568,7 +568,7 @@ contract MarketGetter {
     function getUserRewardsByIndex(Market market, address user, uint startIndex, uint endIndex) public view returns (uint[] memory rewards) {
         require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
         (rewards,) = market.getUsersRewardArrays(user);
-        if (rewards.length == 0) return rewards;
+        if (rewards.length == 0 || startIndex >= rewards.length) return rewards;
         if (endIndex >= rewards.length) endIndex = rewards.length - 1;
 
         for(uint i = startIndex; i <= endIndex; i++) {
@@ -581,7 +581,7 @@ contract MarketGetter {
         require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
     
         (, collected) = market.getUsersRewardArrays(user);
-        if (collected.length == 0) return collected;
+        if (collected.length == 0 || startIndex >= collected.length) return collected;
         if (endIndex >= collected.length) endIndex = collected.length - 1;
 
         for(uint i = startIndex; i <= endIndex; i++) {
