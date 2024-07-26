@@ -2,23 +2,21 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0x3F1A0f4303a5CAa12165F15ceC24dFBfeBeec1b0](https://polygonscan.com/address/0x3F1A0f4303a5CAa12165F15ceC24dFBfeBeec1b0)
+* Market address: [0xcAD8aAd1FFa79B864D7956b408ac4A2B0ac787c7](https://polygonscan.com/address/0xcAD8aAd1FFa79B864D7956b408ac4A2B0ac787c7)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
-* Market Getter address: [0x1FA341466575674e537Ef17953ceEDe22B66917c](https://polygonscan.com/address/0x1FA341466575674e537Ef17953ceEDe22B66917c)
+* Market Getter address: [0xE323F6D15F6bd8172C86ef769306bDe7084505EA](https://polygonscan.com/address/0xE323F6D15F6bd8172C86ef769306bDe7084505EA)
 
 ## Latest updates:
-* Market contract now has **lotsArray** that stores all lots that were ever created
-    * Array elements are in uint format: lotKey + frameKey concatenated. 
-    * Ex: 
-        * LotKey = 900000000000000000000
-        * FrameKey = 1721923200
-        * lotKey + frameKey = 9000000000000000000001721923200
-* New functions in market contract:
-    * getLotsArrayLength() --> returns length of lotsArray
 * New functions in marketGetter:    
-    * function splitLotsArrayElement(uint256 concatenated) public pure returns (uint256 frameKey, uint256 lotKey)
-    * function getLotsByIndex updated with new logic
+    * function getUsersByIndex(Market market, uint startIndex, uint endIndex, uint startIndexArray, uint endIndexArray) external view returns (User[] memory users)
+        * startIndex - start index of users in the user array
+        * endIndex - end index of users in the user array
+        * startIndexArray - start index of users rewards and collected arrays
+        * endIndexArray - end index of users rewards and collected arrays
+    * function getUserRewardsLength(Market market, address user) public view returns (uint)
+    * function getUserRewardsByIndex(Market market, address user, uint startIndex, uint endIndex) public view returns (uint[] memory rewards)
+    * function getUserCollectedByIndex(Market market, address user, uint startIndex, uint endIndex) public view returns (uint[] memory collected)
 
 
 

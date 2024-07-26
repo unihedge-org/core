@@ -182,6 +182,18 @@ contract Market {
         return frames[frameKey].lotKeys;
     }
 
+    function getUsersRewardArrays(address user) public view returns (uint[] memory rewards, uint[] memory collected){
+        rewards = new uint[](framesKeys.length);
+        collected = new uint[](framesKeys.length);
+        for(uint i = 0; i < framesKeys.length; i++){
+            if (users[user].rewards[framesKeys[i]] == 0) {
+                continue;
+            }
+            rewards[i] = users[user].rewards[framesKeys[i]];
+            collected[i] = users[user].collected[framesKeys[i]] ? 1 : 0;
+        }
+    }
+
     function getLot(uint frameKey, uint lotKey) public view returns (Lot memory){
         //Reject if lot doesn't exist
         require(lots[frameKey][lotKey].lotKey != 0, "Lot doesn't exist");
@@ -195,6 +207,10 @@ contract Market {
 
     function getUsersArrayLength() public view returns (uint){
         return usersArray.length;
+    }
+
+    function getUsersArray() public view returns (address[] memory){
+        return usersArray;
     }
 
     // Function to concatenate a timestamp and an 18-decimal number

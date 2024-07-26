@@ -12,6 +12,15 @@ import "hardhat/console.sol";
 /// @author UniHedge
 contract MarketGetter {
 
+    struct User {
+        address user;
+        address referredBy;
+        // Mapping that stores total amount of reward for each frameKey:
+        uint[] rewards;
+        // Mapping that stores frame keys of frames that reward was collected from:
+        uint[] collected;
+    }
+
     function getFrameStruct(Market market, uint frameKey) public view returns (Market.Frame memory){
         Market.Frame memory frame;
         // uint tmp;
@@ -531,24 +540,80 @@ contract MarketGetter {
         require(firstUserIndex < lastUserIndex, "firstUserIndex must be smaller or equal to lastUserIndex");
         uint usersLength = market.getUsersArrayLength();
         require(firstUserIndex < usersLength, "firstUserIndex is out of bounds");
-        console.log("usersLength: ", usersLength);
         if (lastUserIndex > usersLength) lastUserIndex = usersLength;
-        console.log("lastUserIndex: ", lastUserIndex);
         rewards = new uint[](lastUserIndex - firstUserIndex);
         uint period = market.period();
-        console.log("period: ", period);
         for(uint i = firstUserIndex; i < lastUserIndex-1; i++) {
             address user = market.usersArray(i);
-            console.log("user: ", user);
              for(uint frameKey = frameKeyStart; frameKey < frameKeyEnd; frameKey += period) {
                 rewards[i] += market.getUserReward(user, frameKey);
-                console.log("rewards: ", rewards[i]);
                 comulativeReward += rewards[i];
-                console.log("comulativeReward: ", comulativeReward);
              }
         }
-        console.log("Returning rewards: ");
         return (comulativeReward, rewards);
     }
+
+    function getUserStruct(Market market, address user) public view returns (User memory) {
+        (, address refferedBy) = market.users(user);
+        (uint[] memory rewards, uint[] memory collected) = market.getUsersRewardArrays(user);
+        return User(user, refferedBy, rewards, collected);
+    }
+
+    function getUserRewardsLength(Market market, address user) public view returns (uint) {
+        uint[] memory rewards;
+        (rewards,) = market.getUsersRewardArrays(user);
+        return rewards.length;
+    }
+
+    function getUserRewardsByIndex(Market market, address user, uint startIndex, uint endIndex) public view returns (uint[] memory rewards) {
+        require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
+        (rewards,) = market.getUsersRewardArrays(user);
+        if (rewards.length == 0) return rewards;
+        if (endIndex >= rewards.length) endIndex = rewards.length - 1;
+
+        for(uint i = startIndex; i <= endIndex; i++) {
+            rewards[i] = rewards[i];
+        }
+        return rewards;
+    }
+
+    function getUserCollectedByIndex(Market market, address user, uint startIndex, uint endIndex) public view returns (uint[] memory collected) {
+        require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
+    
+        (, collected) = market.getUsersRewardArrays(user);
+        if (collected.length == 0) return collected;
+        if (endIndex >= collected.length) endIndex = collected.length - 1;
+
+        for(uint i = startIndex; i <= endIndex; i++) {
+            collected[i-startIndex] = collected[i];
+        }
+        return collected;
+    }
+
+    function getUsersByIndex(Market market, uint startIndex, uint endIndex, uint startIndexArray, uint endIndexArray) external view returns (User[] memory users) {
+        require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
+        uint usersLength = market.getUsersArrayLength();
+        require(usersLength > 0, "No users in the market");
+        address[] memory usersArray = new address[](endIndex-startIndex+1);
+        usersArray = market.getUsersArray();
+
+        require(startIndex < usersLength, "startIndex is out of bounds");
+        
+        if (endIndex >= usersLength) endIndex = usersLength - 1;
+        
+        // Define the size of users array by start and end index 
+        users = new User[](endIndex - startIndex + 1);
+
+        for (uint i = startIndex; i <= endIndex; i++) {
+            (, address refferedBy) = market.users(usersArray[i]);
+            uint[] memory rewards = getUserRewardsByIndex(market, usersArray[i], startIndexArray, endIndexArray);
+            uint[] memory collected = getUserCollectedByIndex(market, usersArray[i], startIndexArray, endIndexArray);
+
+            users[i-startIndex] = User(usersArray[i], refferedBy, rewards, collected);
+        }
+
+        return users;
+}
+
 
 }
