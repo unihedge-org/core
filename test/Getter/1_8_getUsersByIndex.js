@@ -190,7 +190,7 @@ describe("Referral test", function () {
 
             console.log("Claim referral test");
             // User1 should not be able to collect any of the referral reward because there is no frame settled
-            await expect(contractMarket.connect(addr1).getUncollectedRewards()).to.be.revertedWith("No settled frames");
+            await expect(contractMarket.connect(addr1).getUncollectedRewards(addr1.address)).to.be.revertedWith("No settled frames");
         });
 
         it("Fast forward time", async function () {
@@ -213,7 +213,7 @@ describe("Referral test", function () {
 
             console.log("Claim referral test");
             // User1 should be able to collect referral reward for frameKey
-            let uncollectedRewards = await contractMarket.connect(addr1).getUncollectedRewards();
+            let uncollectedRewards = await contractMarket.connect(addr1).getUncollectedRewards(addr1.address);
             await expect(uncollectedRewards).to.be.eq(frame.feeReferral);
             // User 1 balance should increase when collecting referral reward
             console.log("User claim referral reward");
@@ -230,6 +230,10 @@ describe("Referral test", function () {
     describe("Get users getter", async () => {
         it("Get users by index", async function () {
             let users = await contractMarketGetter.getUsersByIndex(contractMarket.address, 0, 100, 0, 2);
+            console.log(users);
+        });
+        it("Get users getter with full arrays", async function () {
+            let users = await contractMarketGetter.getUsersByIndexFull(contractMarket.address, 0, 100);
             console.log(users);
         });
     });

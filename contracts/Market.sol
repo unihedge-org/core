@@ -185,11 +185,14 @@ contract Market {
     function getUsersRewardArrays(address user) public view returns (uint[] memory rewards, uint[] memory collected){
         rewards = new uint[](framesKeys.length);
         collected = new uint[](framesKeys.length);
-        for(uint i = 0; i < framesKeys.length; i++){
-            if (users[user].rewards[framesKeys[i]] == 0) {
+        uint length = framesKeys.length;
+        for(uint i = 0; i < length; i++){
+            uint frameKey = framesKeys[i];
+            uint reward = users[user].rewards[frameKey];
+            if (reward == 0) {
                 continue;
             }
-            rewards[i] = users[user].rewards[framesKeys[i]];
+            rewards[i] = reward;
             collected[i] = users[user].collected[framesKeys[i]] ? 1 : 0;
         }
     }
@@ -631,8 +634,8 @@ contract Market {
     }
 
     // Function that return uncollected referral rewards for user
-    function getUncollectedRewards() public view returns(uint) {
-        require(users[msg.sender].exists, "User does not exist");
+    function getUncollectedRewards(address userAddr) public view returns(uint) {
+        require(users[userAddr].exists, "User does not exist");
         // Find all settled frames
         uint[] memory settledFramesKeys = new uint[](framesKeys.length);
         // Set length indicator for settledFramesKeys
@@ -650,8 +653,8 @@ contract Market {
         // Loop from firstUncollectedIndexFrameKey to settledFrameLength to add reward
         for (uint j = 0; j < settledFrameLength; j++) {
             // Check if reward was already collected for this frame
-            if (users[msg.sender].collected[settledFramesKeys[j]] == false) {
-                reward += users[msg.sender].rewards[settledFramesKeys[j]];
+            if (users[userAddr].collected[settledFramesKeys[j]] == false) {
+                reward += users[userAddr].rewards[settledFramesKeys[j]];
             }
         }
         return reward;

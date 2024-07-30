@@ -11,7 +11,8 @@ import "hardhat/console.sol";
 /// @title TWPM Market getter contract
 /// @author UniHedge
 contract MarketGetter {
-
+    
+    // --- Defining structs for easier data handling ---
     struct User {
         address user;
         address referredBy;
@@ -21,6 +22,12 @@ contract MarketGetter {
         uint[] collected;
     }
 
+    // --- Functions to get structs from Market contract ---
+
+    /// @notice Get frame struct by frameKey
+    /// @param market Market contract address
+    /// @param frameKey Frame's timestamp
+    /// @return frame Frame struct
     function getFrameStruct(Market market, uint frameKey) public view returns (Market.Frame memory){
         Market.Frame memory frame;
         // uint tmp;
@@ -29,6 +36,9 @@ contract MarketGetter {
         return frame;
     }
 
+    /// @notice Get lot struct by frameKey and lotKey
+    /// @param market Market contract address
+    /// @param frameKey Frame's timestamp
     function getLotStruct(Market market, uint frameKey, uint lotKey) public view returns (Market.Lot memory){
         Market.Lot memory lot;
         lot.frameKey = frameKey;
@@ -49,6 +59,20 @@ contract MarketGetter {
         return (lot);
     }
 
+    /// @notice Get user struct by user address
+    /// @param market Market contract address
+    /// @param user User's address
+    /// @return User struct
+    /// @dev market.getUsersRewardArrays used to get rewards and collected arrays
+    /// @dev it's not optimal, it loops throgh mappings
+    function getUserStruct(Market market, address user) public view returns (User memory) {
+        (, address refferedBy) = market.users(user);
+        (uint[] memory rewards, uint[] memory collected) = market.getUsersRewardArrays(user);
+        return User(user, refferedBy, rewards, collected);
+    }
+
+    // ----------------------------------------------------------------
+
     /// @notice Get no. of created lots in a frame 
     /// @param frameKey Frame's timestamp
     /// @return lot count
@@ -66,7 +90,10 @@ contract MarketGetter {
         return lotKeys[index];
     }
 
-
+    /// @notice Get frameKey from index in framesKeys array
+    /// @param startFrame Start frameKey
+    /// @param numOfFrames Number of frames to get
+    /// @return openFrames Array of frameKeys
     function getOpenFrameKeys(Market market, uint startFrame, uint numOfFrames) external view returns (uint[] memory openFrames){
         openFrames = new uint[](numOfFrames);
 
@@ -87,7 +114,13 @@ contract MarketGetter {
         return openFrames;
     }
 
-
+    /// @notice Get lotKey from index in framesKeys array
+    /// @param frameKey_start Start frameKey
+    /// @param frameKey_end End frameKey
+    /// @param page Which page to print
+    /// @param perPage How many frames should be printed on a page
+    /// @return lots Array of frameKeys
+    /// @return pagesLeft How many pages are left to print
     function getLots(Market market, uint frameKey_start,uint frameKey_end, uint page, uint perPage) external view returns (Market.Lot[] memory lots, uint pagesLeft){
         require(frameKey_start <= frameKey_end, "frameKey_start must be smaller or equal to frameKey_end");
         lots = new Market.Lot[](perPage);
@@ -117,12 +150,20 @@ contract MarketGetter {
 
     }
 
-    // Function to split the concatenated number back into timestamp and 18-decimal number
+    /// @notice Function to split the concatenated number back into timestamp and 18-decimal number
+    /// @param concatenated Concatenated number
+    /// @return frameKey Frame's timestamp
+    /// @return lotKey Lot's 18-decimal number
     function splitLotsArrayElement(uint256 concatenated) public pure returns (uint256 frameKey, uint256 lotKey) {
         frameKey = concatenated % 1e10;
         lotKey = concatenated / 1e10;
     }
 
+    /// @notice Get lots by index in lots array
+    /// @param market Market's address
+    /// @param startIndex Start index
+    /// @param endIndex End index
+    /// @return lots Array of lots
     function getLotsByIndex(Market market, uint startIndex, uint endIndex) external view returns (Market.Lot[] memory lots) {
         require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
         uint lotArrayLength = market.getLotsArrayLength();
@@ -151,6 +192,11 @@ contract MarketGetter {
         return lots;
     }
 
+    /// @notice Get frames by index in frames array
+    /// @param market Market's address
+    /// @param startIndex Start index
+    /// @param endIndex End index
+    /// @return frames Array of frames
     function getFramesByIndex(Market market, uint startIndex, uint endIndex) external view returns (Market.Frame[] memory frames){
         require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
 
@@ -444,6 +490,10 @@ contract MarketGetter {
         return reward; 
     }
 
+    /// @notice Get minimun guarantied frame's award amount (accumulation of different lot taxes)
+    /// @notice Remaining tax of a lot owner get's returned after a sale (change of ownership). So the award amount isn't for sure untill the frame get's closed.
+    /// @param frameKey Market.Frame's timestamp
+    /// @return rewardFund amount 
     function getRewardAmountMin(Market market, uint frameKey) external view returns (uint rewardFund) {     
         Market.Frame memory frame = getFrameStruct(market, frameKey);
         uint feeReferral = frame.feeReferral;
@@ -508,6 +558,10 @@ contract MarketGetter {
         else amnt = tax2-tax1;
     }
 
+    /// @notice Get all users in the market
+    /// @param market Market's address
+    /// @return referrals Array of users
+    /// @return length Number of users
     function getUsersReferrals(Market market, address user) external view returns (address[] memory referrals, uint16 length) {
         address[] memory referralsRaw = new address[](market.getUsersArrayLength());
         uint16 counter = 0;
@@ -527,7 +581,13 @@ contract MarketGetter {
         return (referrals, length);
     }
 
-    //TODO: Add a limit to the number of frames that can be returned
+    // TODO: Add a limit to the number of frames that can be returned
+    /// @notice Get users rewards 
+    /// @param market Market's address
+    /// @param user User's address
+    /// @param frameKeyStart Start frameKey
+    /// @param frameKeyEnd End frameKey
+    /// @return reward Total reward
     function getUserRewards(Market market, address user, uint frameKeyStart, uint frameKeyEnd) external view returns (uint reward) {
         uint period = market.period();
         for(uint frameKey = frameKeyStart; frameKey <= frameKeyEnd; frameKey += period) {
@@ -536,6 +596,14 @@ contract MarketGetter {
         return reward;
     }
 
+    /// @notice Get multiple users rewards
+    /// @param market Market's address
+    /// @param firstUserIndex Start index
+    /// @param lastUserIndex End index
+    /// @param frameKeyStart Start frameKey
+    /// @param frameKeyEnd End frameKey
+    /// @return comulativeReward Total reward
+    /// @return rewards Array of rewards
     function getMultipleUsersRewards(Market market, uint firstUserIndex, uint lastUserIndex, uint frameKeyStart, uint frameKeyEnd) external view returns (uint comulativeReward, uint[] memory rewards) {
         require(firstUserIndex < lastUserIndex, "firstUserIndex must be smaller or equal to lastUserIndex");
         uint usersLength = market.getUsersArrayLength();
@@ -553,18 +621,22 @@ contract MarketGetter {
         return (comulativeReward, rewards);
     }
 
-    function getUserStruct(Market market, address user) public view returns (User memory) {
-        (, address refferedBy) = market.users(user);
-        (uint[] memory rewards, uint[] memory collected) = market.getUsersRewardArrays(user);
-        return User(user, refferedBy, rewards, collected);
-    }
-
+    /// @notice Get user's rewards length
+    /// @param market Market's address
+    /// @param user User's address
+    /// @return rewards length
     function getUserRewardsLength(Market market, address user) public view returns (uint) {
         uint[] memory rewards;
         (rewards,) = market.getUsersRewardArrays(user);
         return rewards.length;
     }
 
+    /// @notice Get users rewards by index
+    /// @param market Market's address
+    /// @param user User's address
+    /// @param startIndex Start index
+    /// @param endIndex End index
+    /// @return rewards Array of rewards
     function getUserRewardsByIndex(Market market, address user, uint startIndex, uint endIndex) public view returns (uint[] memory rewards) {
         require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
         (rewards,) = market.getUsersRewardArrays(user);
@@ -577,6 +649,12 @@ contract MarketGetter {
         return rewards;
     }
 
+    /// @notice Get user's collected rewards length
+    /// @param market Market's address
+    /// @param user User's address
+    /// @param startIndex Start index
+    /// @param endIndex End index
+    /// @return collected Array of collected rewards
     function getUserCollectedByIndex(Market market, address user, uint startIndex, uint endIndex) public view returns (uint[] memory collected) {
         require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
     
@@ -590,6 +668,13 @@ contract MarketGetter {
         return collected;
     }
 
+    /// @notice Get users by index in users array
+    /// @param market Market's address
+    /// @param startIndex Start index
+    /// @param endIndex End index
+    /// @param startIndexArray Start index of rewards and collected arrays
+    /// @param endIndexArray End index of rewards and collected arrays
+    /// @return users Array of users structs
     function getUsersByIndex(Market market, uint startIndex, uint endIndex, uint startIndexArray, uint endIndexArray) external view returns (User[] memory users) {
         require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
         uint usersLength = market.getUsersArrayLength();
@@ -608,6 +693,30 @@ contract MarketGetter {
             (, address refferedBy) = market.users(usersArray[i]);
             uint[] memory rewards = getUserRewardsByIndex(market, usersArray[i], startIndexArray, endIndexArray);
             uint[] memory collected = getUserCollectedByIndex(market, usersArray[i], startIndexArray, endIndexArray);
+
+            users[i-startIndex] = User(usersArray[i], refferedBy, rewards, collected);
+        }
+
+        return users;
+    }
+
+    function getUsersByIndexFull(Market market, uint startIndex, uint endIndex) external view returns (User[] memory users) {
+        require(startIndex <= endIndex, "startIndex must be smaller or equal to endIndex");
+        uint usersLength = market.getUsersArrayLength();
+        require(usersLength > 0, "No users in the market");
+        address[] memory usersArray = new address[](endIndex-startIndex+1);
+        usersArray = market.getUsersArray();
+
+        require(startIndex < usersLength, "startIndex is out of bounds");
+        
+        if (endIndex >= usersLength) endIndex = usersLength - 1;
+        
+        // Define the size of users array by start and end index 
+        users = new User[](endIndex - startIndex + 1);
+
+        for (uint i = startIndex; i <= endIndex; i++) {
+            (, address refferedBy) = market.users(usersArray[i]);
+            (uint[] memory rewards, uint[] memory collected) = market.getUsersRewardArrays(usersArray[i]);
 
             users[i-startIndex] = User(usersArray[i], refferedBy, rewards, collected);
         }
