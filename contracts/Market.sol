@@ -319,16 +319,18 @@ contract Market {
                 createFrame(timestamp);
             }
             purchaseLot(frameKey, lotKey, acquisitionPrice, referrer);
-            return;
+        } else { // Existing lot
+
+            if (lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner == msg.sender) {
+                // If lot owner is same update price
+                revaluateLot(frameKey, lotKey, acquisitionPrice);
+            } else {
+                // Lot is sold to a new owner
+                resaleLot(frameKey, lotKey, acquisitionPrice, referrer);
+            }
         }
-        //If lot owner is same update price
-        if (lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner == msg.sender) {
-            revaluateLot(frameKey, lotKey, acquisitionPrice);
-            return;
-        }
-        //Lot is sold to new owner
-        resaleLot(frameKey, lotKey, acquisitionPrice, referrer);
-        //Trigger event
+        
+        // Trigger event
         emit LotUpdate(lots[frameKey][lotKey]);
     }
 
