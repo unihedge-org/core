@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "D:\\prog\\UniHedge\\core\\contracts\\Market.sol": {
-      "lastModificationDate": 1730924655279,
-      "contentHash": "455201a0e531d6adcdf6cf64b666204d",
+      "lastModificationDate": 1731005423919,
+      "contentHash": "f47449c2e91dc23b43ca6329f069fbe7",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
         "version": "0.8.20",

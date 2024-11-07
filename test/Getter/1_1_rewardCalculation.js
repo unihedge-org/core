@@ -4,7 +4,7 @@ const {swapTokenForUsers} = require("../Helpers/functions.js");
 /*
 Random user buys a random lot in the range of 1 to 100 times dPrice
 */
-describe("Resale lot", function () {
+describe("Reward calculation", function () {
     let accounts, owner, user, user2, user3, daiContract, wMaticContract, contractMarket, contractMarketGetter, swapRouter, frameKey, dPrice ,acqPrice, acqPrice2, tax;
     const daiAddress = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
     const wMaticAddress = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"// Correct DAI address needed
@@ -95,7 +95,7 @@ describe("Resale lot", function () {
         //get current block
         const block = await ethers.provider.getBlock('latest');
         //Purchase lot 
-        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero, 
+        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
         //get users new DAI balance
@@ -144,7 +144,7 @@ describe("Resale lot", function () {
         const block = await ethers.provider.getBlock('latest');
 
         //Purchase lot 
-        await contractMarket.connect(user2).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero, 
+        await contractMarket.connect(user2).tradeLot(frameKey, pairPrice, acqPrice, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
 
@@ -200,7 +200,7 @@ describe("Resale lot", function () {
 
 
         //Purchase lot 
-        await contractMarket.connect(user3).tradeLot(frameKey, pairPrice2, acqPrice2, user2.address, 
+        await contractMarket.connect(user3).tradeLot(frameKey, pairPrice2, acqPrice2, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
 
@@ -219,11 +219,6 @@ describe("Resale lot", function () {
 
         expect(lotStates[0].owner).to.equal(user3.address);
         expect(lotStates[0].acquisitionPrice).to.equal(acqPrice2);
-
-        //Get user3 struct from mapping users
-        let user3ReferredBy = await contractMarket.referredBy(user3.address)
-
-        expect(user3ReferredBy).to.equal(user2.address);
 
     });
     it('fast forward time', async function () {

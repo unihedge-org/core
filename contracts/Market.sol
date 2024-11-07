@@ -178,10 +178,7 @@ contract Market {
     // Function to concatenate a timestamp and an 18-decimal number
     function concatenate(uint256 frameKey, uint256 lotKey) public pure returns (uint256 concatenated) {
         lotKey = lotKey * 1e10;
-        console.log("SOL CONCAT: frameKey:", frameKey);
-        console.log("SOL CONCAT: lotKey:", lotKey);
         concatenated = lotKey + frameKey;
-        console.log("SOL CONCAT: concatenated:", concatenated);
         return concatenated;
     }
 
@@ -222,11 +219,11 @@ contract Market {
         //Calculate tax per second and correct for 18 decimals because of wei multiplication
         //Tax per second is calculated as taxMarket [wei %] * acquisitionPrice [wei DAI] / period [seconds]
         uint256 taxPerSecond = taxMarket / period;
-        //console.log("taxPerSecond:", taxPerSecond);
+
         uint duration = (frameKey + period) - block.timestamp;
-        //console.log("duration:", duration);
+
         uint tax = ((duration * taxPerSecond) * acquisitionPrice) / (10 ** 18);
-        //console.log("tax:", tax);
+
         return tax;
     }
 
@@ -277,8 +274,7 @@ contract Market {
     function purchaseLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
         //Calculate tax amount
         uint tax = clcTax(frameKey, acquisitionPrice);
-        // console.log("SOL: tax:", tax);
-        // console.log("SOL: Approved amount:", accountingToken.allowance(msg.sender, address(this)));
+
         //Tax has to be greater than 0
         require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
         //Approved amount has to be at least equal to tax
@@ -300,10 +296,7 @@ contract Market {
         lots[frameKey][lotKey] = lot;
 
         //Add lot to lotsArray
-        console.log("SOL: lotkey:", lotKey);
-        console.log("SOL: frameKey:", frameKey);
         uint lotKeyConcat = concatenate(frameKey, lotKey);
-        console.log("SOL: lotKeyConcat:", lotKeyConcat);
         lotsArray.push(lotKeyConcat);
 
         //Add lot to frame
@@ -316,10 +309,8 @@ contract Market {
     function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
         //Calculate tax with old acquisitionPrice
         uint tax1 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
-        //console.log("tax1:", tax1);
         //Calculate tax with new acquisitionPrice
         uint tax2 = clcTax(frameKey, acquisitionPrice);
-        //console.log("tax2:", tax2);
         //If tax1 is greater than tax2, refund the difference
         if (tax1 > tax2) {
             //Calculate tax difference
@@ -331,7 +322,7 @@ contract Market {
         } else {
             //If tax2 is greater than tax1, charge the difference
             uint taxCharge = tax2 - tax1;
-            //console.log("taxCharge:", taxCharge);
+
             require(accountingToken.allowance(msg.sender, address(this)) >= taxCharge, "Allowance to spend set too low");
             //Transfer tax difference to the market contract
             accountingToken.transferFrom(msg.sender, address(this), taxCharge);
@@ -458,8 +449,7 @@ contract Market {
     function setFrameRate(uint frameKey) public {
         //Frame has to be in state CLOSED
         //console log frameKey + period
-        console.log("frameKey + period:", frameKey + period);
-        console.log("block.timestamp:", block.timestamp);
+
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
         uint rate = clcRateAvg(frameKey);
