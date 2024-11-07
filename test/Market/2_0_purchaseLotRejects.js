@@ -89,7 +89,7 @@ describe("Purchase one lot but fails", function () {
         const block = await ethers.provider.getBlock('latest');
         //Purchase lot
         console.log("\x1b[36m%s\x1b[0m", "   Purchase lot with acqPrice set to 0");
-        await expect(contractMarket.connect(user).tradeLot(frameKey, pairPrice, 0, ethers.constants.AddressZero,
+        await expect(contractMarket.connect(user).tradeLot(frameKey, pairPrice, 0,
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         )).to.be.revertedWith("Tax has to be greater than 0. Increase the acquisition price");
 
@@ -102,7 +102,7 @@ describe("Purchase one lot but fails", function () {
         await expect(contractMarket.getLot(frameKey, pairPrice)).to.be.reverted;
 
         console.log("\x1b[36m%s\x1b[0m", "   Purchase lot with frameKey set in the past");
-        await expect(contractMarket.connect(user).tradeLot(frameKey-2700000, pairPrice, acqPrice, ethers.constants.AddressZero,
+        await expect(contractMarket.connect(user).tradeLot(frameKey-2700000, pairPrice, acqPrice,
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         )).to.be.revertedWith("Frame has to be in the future");
 
@@ -115,7 +115,7 @@ describe("Purchase one lot but fails", function () {
         await expect(contractMarket.getLot(frameKey, pairPrice)).to.be.reverted;
 
         console.log("\x1b[36m%s\x1b[0m", "   Purchase lot with acqPrice set higher than allowance");
-        await expect(contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice+100, ethers.constants.AddressZero,
+        await expect(contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice+100,
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         )).to.be.revertedWith("Allowance to spend set too low");
 

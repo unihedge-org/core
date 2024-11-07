@@ -93,7 +93,7 @@ describe("Resale lot", function () {
         //get current block
         const block = await ethers.provider.getBlock('latest');
         //Purchase lot 
-        await contractMarket.connect(user).tradeLot(frameKey, rateAtStart, acqPrice, ethers.constants.AddressZero, 
+        await contractMarket.connect(user).tradeLot(frameKey, rateAtStart, acqPrice, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
         //get users new DAI balance
@@ -141,7 +141,7 @@ describe("Resale lot", function () {
             //Approve DAI to spend
             await daiContract.connect(loserUser).approve(contractMarket.address, tax);
             //Purchase lot 
-            await contractMarket.connect(loserUser).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero);
+            await contractMarket.connect(loserUser).tradeLot(frameKey, pairPrice, acqPrice);
             console.log("\x1b[33m%s\x1b[0m", "   Lot purchased by user: ", loserUser.address);
             //get users new DAI balance
             let balanceAfter = await daiContract.balanceOf(loserUser.address);

@@ -88,7 +88,7 @@ describe("Revaluate a lot but fails", function () {
         //get current block
         const block = await ethers.provider.getBlock('latest');
         //Purchase lot
-        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero,
+        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice,
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
         //get users new DAI balance
@@ -102,7 +102,7 @@ describe("Revaluate a lot but fails", function () {
         expect(lot.lotKey).to.equal(pairPrice);
 
         console.log("\x1b[36m%s\x1b[0m", "   Revaluate lot with acqPrice set higher than allowance");
-        await expect(contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice+100, ethers.constants.AddressZero,
+        await expect(contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice+100,
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         )).to.be.revertedWith("Allowance to spend set too low");
     });

@@ -31,7 +31,7 @@ contract MarketGetter {
     function getFrameStruct(Market market, uint frameKey) public view returns (Market.Frame memory){
         Market.Frame memory frame;
         // uint tmp;
-        (frame.frameKey,frame.rate,frame.claimedBy, frame.rateSettle, frame.feeSettle, frame.rewardSettle, frame.feeReferral) = market.frames(frameKey);
+        (frame.frameKey,frame.rate,frame.claimedBy, frame.rateSettle, frame.feeSettle, frame.rewardSettle) = market.frames(frameKey);
         frame.lotKeys = market.getFrameLotKeys(frameKey);
         return frame;
     }
@@ -470,11 +470,10 @@ contract MarketGetter {
     /// @param frameKey MLib.Frame's timestamp
     /// @return award amount
     function getRewardAmount(Market market, uint frameKey) external view returns (uint) {     
-        Market.Frame memory frame = getFrameStruct(market, frameKey);
         uint rewardPure = market.clcRewardFund(frameKey);  
         uint feeProtocol = market.feeProtocol();
         //Subtract protocol fee and referral fee from the reward
-        uint reward = rewardPure - feeProtocol - frame.feeReferral;                 
+        uint reward = rewardPure - feeProtocol;                 
         return reward; 
     }
 
@@ -484,7 +483,6 @@ contract MarketGetter {
     /// @return rewardFund amount 
     function getRewardAmountMin(Market market, uint frameKey) external view returns (uint rewardFund) {     
         Market.Frame memory frame = getFrameStruct(market, frameKey);
-        uint feeReferral = frame.feeReferral;
         for(uint i = 0; i < frame.lotKeys.length; i++) {
             Market.Lot memory lot = getLotStruct(market, frameKey, frame.lotKeys[i]);
             for (uint j = 0; j < lot.states.length; j++) {
@@ -499,7 +497,7 @@ contract MarketGetter {
                 }
             }
         }
-        rewardFund = rewardFund - feeReferral;
+        rewardFund = rewardFund;
         return rewardFund;
     }
 

@@ -84,7 +84,7 @@ describe("Purchase one random empty lot", function () {
         //get current block
         const block = await ethers.provider.getBlock('latest');
         //Purchase lot 
-        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero, 
+        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, 
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
         //get users new DAI balance

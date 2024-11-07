@@ -88,7 +88,7 @@ describe("Resale lot but fails", function () {
         //get current block
         const block = await ethers.provider.getBlock('latest');
         //Purchase lot
-        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice, ethers.constants.AddressZero,
+        await contractMarket.connect(user).tradeLot(frameKey, pairPrice, acqPrice,
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         );
         //get users new DAI balance
@@ -123,7 +123,7 @@ describe("Resale lot but fails", function () {
         const block = await ethers.provider.getBlock('latest');
         //Purchase lot
         console.log("\x1b[36m%s\x1b[0m", "   Purchase lot with acqPrice set to 0");
-        await expect(contractMarket.connect(newUser).tradeLot(frameKey, pairPrice, 0, ethers.constants.AddressZero,
+        await expect(contractMarket.connect(newUser).tradeLot(frameKey, pairPrice, 0,
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         )).to.be.revertedWith("Tax has to be greater than 0. Increase the acquisition price");
 
@@ -133,7 +133,7 @@ describe("Resale lot but fails", function () {
         console.log("\x1b[33m%s\x1b[0m", "   DAI Difference: ", ethers.utils.formatUnits(balanceBefore.sub(balanceAfter), 18), " DAI");
 
         console.log("\x1b[36m%s\x1b[0m", "   Purchase lot with acqPrice set higher than allowance");
-        await expect(contractMarket.connect(newUser).tradeLot(frameKey, pairPrice, acqPrice+100, ethers.constants.AddressZero,
+        await expect(contractMarket.connect(newUser).tradeLot(frameKey, pairPrice, acqPrice+100,
             {maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas))}
         )).to.be.revertedWith("Allowance to spend set too low");
 

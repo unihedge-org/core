@@ -50,8 +50,6 @@ contract Market {
         uint feeSettle;
         //Reward fund for the frame sum of all taxes charged minus all taxes refunded minus protocol fee
         uint rewardSettle;
-        //Referral fee charged at the settle stage of the frame
-        uint feeReferral;
     }
 
     //Frames
@@ -206,14 +204,15 @@ contract Market {
         return frames[frameKey].lotKeys;
     }
 
-    function overrideFrameRate(Frame memory frame, uint avgPrice) external {
+    function overrideFrameRate(uint frameKey, uint avgPrice) external {
+
         //Only owner can update frame close price
         require(msg.sender == owner, "Only owner can update frame close price");
         //Frame must exists
-        require(frame.frameKey != 0, "Frame doesn't exist");
+        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
         //Frame must not be in CLAIMED state
-        require(frame.claimedBy == address(0), "Frame reward was already claimed");
-        frames[frame.frameKey].rate = avgPrice;
+        require(frames[frameKey].claimedBy == address(0), "Frame reward was already claimed");
+        frames[frames[frameKey].frameKey].rate = avgPrice;
     }
 
     //Calculate amount of tax to be collected from the owner of the lot
@@ -486,7 +485,7 @@ contract Market {
         //Calculate protocol fee
         uint fee = rewardFund * feeProtocol / 1e18;
         frames[frameKey].feeSettle = fee;
-        frames[frameKey].rewardSettle = rewardFund - fee - frames[frameKey].feeReferral;
+        frames[frameKey].rewardSettle = rewardFund - fee;
         
         //Check if lot has an owner, at least one state has to exist
         if (lotWon.states.length > 0) {
