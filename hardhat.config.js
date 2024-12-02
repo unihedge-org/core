@@ -4,6 +4,8 @@ require("@nomiclabs/hardhat-waffle");
 //Import dotenv
 require("dotenv/config");
 
+const privateKeys = process.env.PRIVATE_KEYS.split(",");
+
 // console.log("Private Key:", process.env.PRIVATE_KEY ? "Loaded" : "Not Found");
 // console.log("Alchemy Polygon Key:", process.env.ALCHEMY_POLYGON_API_KEY ? "Loaded" : "Not Found");
 // console.log("Quicknode Polygon Key:", process.env.QUICKNODE_POLYGON_API_KEY ? "Loaded" : "Not Found");
@@ -37,40 +39,40 @@ module.exports = {
       },
     ],
   },
-networks: {
-  polygon: {
-    url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
-    accounts: [`0x${process.env.PRIVATE_KEY}`],
-    loggingEnabled: true,
-  },
-  hardhat: {
-    forking: {
+  networks: {
+    polygon: {
       url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
-      // url: `https://lingering-winter-spree.matic.quiknode.pro/${process.env.QUICKNODE_POLYGON_API_KEY}`,
+      accounts: privateKeys,
       loggingEnabled: true,
-      // blockNumber: 56612874
     },
-    chains: {
-      137: {
-        hardforkHistory: {
-          london: 23850000
-        }
-      }
-    }
-  }
-},
-solc: {
-  optimizer: {
-    enabled: true,
-    runs: 200
+    hardhat: {
+      forking: {
+        url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
+        // url: `https://lingering-winter-spree.matic.quiknode.pro/${process.env.QUICKNODE_POLYGON_API_KEY}`,
+        loggingEnabled: true,
+        // blockNumber: 56612874
+      },
+      chains: {
+        137: {
+          hardforkHistory: {
+            london: 23850000,
+          },
+        },
+      },
+    },
   },
-},
-etherscan: {
-  // Your API key for Etherscan
-  // Obtain one at https://bscscan.com/
-  apiKey: `${process.env.ETHERSCAN_API_KEY}`
-},
-mocha: {
-  timeout: 100000000
-}
+  solc: {
+    optimizer: {
+      enabled: true,
+      runs: 200,
+    },
+  },
+  etherscan: {
+    // Your API key for Etherscan
+    // Obtain one at https://bscscan.com/
+    apiKey: `${process.env.ETHERSCAN_API_KEY}`,
+  },
+  mocha: {
+    timeout: 100000000,
+  },
 };
