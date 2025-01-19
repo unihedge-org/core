@@ -2,14 +2,14 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0x722B124B3837e05e5be614f2259554075f1D095E](https://polygonscan.com/address/0x722B124B3837e05e5be614f2259554075f1D095E)
+* Market address: [0x7b7eca93929e44952c5340Aa031d40c659501b7e](https://polygonscan.com/address/0x7b7eca93929e44952c5340Aa031d40c659501b7e)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
-* Market Getter address: [0x1c7FdF81E725c4AEae48E3C8a17E6c444f9E3856](https://polygonscan.com/address/0x1c7FdF81E725c4AEae48E3C8a17E6c444f9E3856)
+* Market Getter address: [0x37204637607D48C5CBBfC0ECeEB7e1cc4b184495](https://polygonscan.com/address/0x37204637607D48C5CBBfC0ECeEB7e1cc4b184495)
 
 ## Latest updates:
-* Removed referral system from contracts
-* Some functions now take one parameter less (tradeLot etc.)
+* changeTaxPercentage(uint256 newTax)
+* changeProtocolFee(uint256 newFee)
 
 
 
