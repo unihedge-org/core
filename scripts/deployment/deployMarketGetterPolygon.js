@@ -15,16 +15,12 @@ async function main() {
   //Deploy market getter contract
   const MarketGetter = await hre.ethers.getContractFactory("MarketGetter");
   const marketGetter = await MarketGetter.deploy({
-    gasPrice: 300000000000
+    gasPrice: 300000000000,
   });
   await marketGetter.deployed();
   // Console log address
-  console.log("MarketGetter deployed to:", marketGetter.address)
-
-
-  }
-
-  
+  console.log("MarketGetter deployed to:", marketGetter.address);
+}
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.

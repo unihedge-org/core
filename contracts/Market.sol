@@ -504,4 +504,14 @@ contract Market {
        accountingToken.transfer(owner, amount);
    }
 
+   function changeTaxPercentage(uint256 newTax) external {
+       require(msg.sender == owner, "Only owner can change tax percentage");
+       taxMarket = newTax;
+   }
+
+   function changeProtocolFee(uint256 newFee) external {
+       require(msg.sender == owner, "Only owner can change protocol fee");
+       feeProtocol = newFee;
+   }
+
 }
