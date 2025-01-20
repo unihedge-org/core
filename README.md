@@ -2,7 +2,7 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0x7b7eca93929e44952c5340Aa031d40c659501b7e](https://polygonscan.com/address/0x7b7eca93929e44952c5340Aa031d40c659501b7e)
+* Market address: [0x28824b535d1F4edaf89a36B558811CB1c0b9Aa47](https://polygonscan.com/address/0x28824b535d1F4edaf89a36B558811CB1c0b9Aa47)
     * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
 
 * Market Getter address: [0x37204637607D48C5CBBfC0ECeEB7e1cc4b184495](https://polygonscan.com/address/0x37204637607D48C5CBBfC0ECeEB7e1cc4b184495)
