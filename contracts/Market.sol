@@ -18,13 +18,13 @@ contract Market {
     //Settle interval for average price calculation in [seconds] (10 minutes)
     uint public tSettle = 600;
     //Uniswap pool
-    IUniswapV3Pool public uniswapPool = IUniswapV3Pool(0x67a9FE12fa6082D9D0203c84C6c56D3c4B269F28);
+    IUniswapV3Pool public uniswapPool = IUniswapV3Pool(0x45dDa9cb7c25131DF268515131f647d726f50608);
     //Range of a lot [wei ETH/USD]
     uint256 public dPrice = 1e20;
     //Tax on lots in the market 1% per period [wei] = 0.01
     uint256 public taxMarket = 10000000000000000; //256b
     //ERC20 token used for buying lots in this contract
-    IERC20 public accountingToken = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); //256b
+    IERC20 public accountingToken = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174); //256b // USDC: 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174
     //Owner of this market
     address public owner; //256b
     /*

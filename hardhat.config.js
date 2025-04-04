@@ -45,6 +45,12 @@ module.exports = {
       accounts: privateKeys,
       loggingEnabled: true,
     },
+    sepolia: {
+      url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_SEPOLIA_API_KEY}`,
+      accounts: privateKeys,
+      loggingEnabled: true,
+    },
+    
     hardhat: {
       forking: {
         url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
