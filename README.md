@@ -1,11 +1,11 @@
 # Unihedge core contracts
-## Deployed contracts on Polygon mainnet:
+## Deployed contracts on Sepolia testnet:
 
 
-* Market address: [0x28824b535d1F4edaf89a36B558811CB1c0b9Aa47](https://polygonscan.com/address/0x28824b535d1F4edaf89a36B558811CB1c0b9Aa47)
-    * Accounting Token - DAI: [0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063](https://polygonscan.com/address/0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063)  
+* Market address: [0x37204637607D48C5CBBfC0ECeEB7e1cc4b184495](https://sepolia.etherscan.io/address/0x37204637607D48C5CBBfC0ECeEB7e1cc4b184495)
+    * Accounting Token - WETH: [0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14](https://sepolia.etherscan.io/address/0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14)  
 
-* Market Getter address: [0x37204637607D48C5CBBfC0ECeEB7e1cc4b184495](https://polygonscan.com/address/0x37204637607D48C5CBBfC0ECeEB7e1cc4b184495)
+* Market Getter address: [0x412C872a51E261D5dbF1Dd086653C920b1b101c6](https://sepolia.etherscan.io/address/0x412C872a51E261D5dbF1Dd086653C920b1b101c6)
 
 ## Latest updates:
 * changeTaxPercentage(uint256 newTax)
@@ -18,9 +18,6 @@ Software | Version
 ------------- | -------------
 Hardhat  | 2.22.3
 Solidity  | 0.8.0 (solc-js)
-Node | v18.17.0
+Node | v18.19.1
 npm | 9.6.7
 
-
-## Transaction fees
-TODO: Sprobat vse funkcije kolko stanejo cca.
