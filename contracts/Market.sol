@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 pragma abicoder v2;
 
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "hardhat/console.sol";
 
 /// @author UniHedge
@@ -13,18 +13,20 @@ contract Market {
     uint public period = 86400; //64b
     //Market begin timestamp 1.1.2024 [seconds]
     uint public initTimestamp = 1704124800; //64b
-    //Protocol fee 3.00% per frame [wei] writen with 18 decimals = 0.03
-    uint256 public feeProtocol = 30000000000000000; //256b
+    //Protocol fee 3.00% per frame [wei] writen with 6 decimals = 0.03
+    uint256 public feeProtocol = 30000; //256b
     //Settle interval for average price calculation in [seconds] (10 minutes)
     uint public tSettle = 600;
     //Uniswap pool
     IUniswapV3Pool public uniswapPool = IUniswapV3Pool(0x45dDa9cb7c25131DF268515131f647d726f50608);
-    //Range of a lot [wei ETH/USD]
-    uint256 public dPrice = 1e20;
+    //Range of a lot [wei ETH/USDC], 
+    uint256 public dPrice = 1e8; // 100 USDC
     //Tax on lots in the market 1% per period [wei] = 0.01
-    uint256 public taxMarket = 10000000000000000; //256b
+    uint256 public taxMarket = 10000; //256b
     //ERC20 token used for buying lots in this contract
-    IERC20 public accountingToken = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174); //256b // USDC: 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174
+    IERC20Metadata public accountingToken; //256b // USDC token address on Polygon
+    // ERC20 token decimals	
+    uint8 public accountingTokenDecimals;
     //Owner of this market
     address public owner; //256b
     /*
@@ -96,8 +98,10 @@ contract Market {
 
     event LotUpdate(Lot lot);
 
-    constructor() {
+    constructor(address _accountingToken) {
         owner = msg.sender;
+        accountingToken = IERC20Metadata(_accountingToken);
+        accountingTokenDecimals = accountingToken.decimals(); 
     }
 
     function getStateFrame(uint frameKey) public view returns (SFrame){
@@ -135,7 +139,7 @@ contract Market {
     function clcLotKey(uint value) public view returns (uint){
         if (value < dPrice) return dPrice;
         //Division cast to uint rounds down
-        return value / (dPrice) * (dPrice);
+        return (value / (dPrice) * (dPrice));
     }
 
     function getFrame(uint frameKey) public view returns (Frame memory){
@@ -218,11 +222,17 @@ contract Market {
         require(frameKey + period > block.timestamp, "Frame has to be in the future");
         //Calculate tax per second and correct for 18 decimals because of wei multiplication
         //Tax per second is calculated as taxMarket [wei %] * acquisitionPrice [wei DAI] / period [seconds]
-        uint256 taxPerSecond = taxMarket / period;
-
-        uint duration = (frameKey + period) - block.timestamp;
-
-        uint tax = ((duration * taxPerSecond) * acquisitionPrice) / (10 ** 18);
+        console.log("Tax market: ", taxMarket);
+        console.log("Acquisition price: ", acquisitionPrice);
+        console.log("Period: ", period);
+        console.log("Frame key: ", frameKey);
+        console.log("Current timestamp: ", block.timestamp);
+        uint256 taxPerSecond = (taxMarket * 1e18) / period;
+        console.log("Tax per second: ", taxPerSecond);
+        uint256 duration = (frameKey + period) - block.timestamp;
+        console.log("Duration: ", duration);
+        uint256 tax = (duration * taxPerSecond * acquisitionPrice) / 1e24;
+        console.log("Tax: ", tax);
 
         return tax;
     }
@@ -292,14 +302,14 @@ contract Market {
         lot.lotKey = lotKey;
         lot.states.push(state);
 
-        //Add lot to lots
+        // Add lot to lots
         lots[frameKey][lotKey] = lot;
 
-        //Add lot to lotsArray
+        // Add lot to lotsArray
         uint lotKeyConcat = concatenate(frameKey, lotKey);
         lotsArray.push(lotKeyConcat);
 
-        //Add lot to frame
+        // Add lot to frame
         frames[frameKey].lotKeys.push(lot.lotKey);
 
         //Transfer tax amount to the market contract
@@ -362,10 +372,12 @@ contract Market {
         //Get the current price from the pool
         (uint160 sqrtPriceX96, , , , , ,) = uniswapPool.slot0();
 
-        uint256 sqrtPrice = uint256(sqrtPriceX96);
+        uint256 price = uint256(sqrtPriceX96 * 1e12);
 
-        uint256 price = sqrtPrice * 1e18 / 2 ** 96;
-        price = price * price / 1e18;
+        price = price / 2**96;
+        price = price ** 2; // Square the price to get the actual price
+        price = price * 1e6;
+        price =  (1 * 1e48) / price; // Adjust for 18 decimal places (18 + 12 + 18 = 48)
 
         return price;
     }
@@ -398,19 +410,14 @@ contract Market {
         // Calculate the sqrtPriceX96 (Calculates sqrt(1.0001^tick) * 2^96) from the average tick with a fixed point Q64.96
         uint160 sqrtPriceX96 = getSqrtRatioAtTick(averageTick);
 
-        // Step 1: Convert sqrtPriceX96 back to a regular price format by dividing by 2^96
-        // This reduces its magnitude, helping avoid overflow in subsequent steps
-        uint price = uint(sqrtPriceX96) / 2 ** 48;
+        uint256 price = uint256(sqrtPriceX96 * 1e12);
 
-        // Step 2: Square the price to get price squared (in regular format)
-        // Since 'price' is significantly smaller than 'sqrtPriceX96', this reduces the risk of overflow
-        uint256 priceSquared = price * price;
+        price = price / 2**96;
+        price = price ** 2; // Square the price to get the actual price
+        price = price * 1e6;
+        price =  (1 * 1e48) / price; // Adjust for 18 decimal places (18 + 12 + 18 = 48)
 
-        // Step 3: Adjust for 18 decimal places if necessary
-        // Depending on your needs, this step may adjust 'priceSquared' to represent the final value in 18 decimals
-        uint256 priceIn18Decimals = priceSquared * 1e18 / 2 ** 96;
-
-        return priceIn18Decimals;
+        return price;
     }
 
     function getSqrtRatioAtTick(uint tick) internal pure returns (uint160 sqrtPriceX96) {
@@ -473,7 +480,7 @@ contract Market {
         //total reward fund
         uint rewardFund = clcRewardFund(frameKey);
         //Calculate protocol fee
-        uint fee = rewardFund * feeProtocol / 1e18;
+        uint fee = rewardFund * feeProtocol / (1e6);
         frames[frameKey].feeSettle = fee;
         frames[frameKey].rewardSettle = rewardFund - fee;
         
