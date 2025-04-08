@@ -1,6 +1,6 @@
 {
   "name": "@unihedge-org/core",
-  "version": "0.0.26",
+  "version": "0.0.27",
   "type": "commonjs",
   "engines": {
     "node": ">=18.17.0"
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/unihedge-org/core"
+    "url": "git+https://github.com/unihedge-org/core.git"
   },
   "publishConfig": {
     "@unihedge-org:registry": "https://npm.pkg.github.com/"
