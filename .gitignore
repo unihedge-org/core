@@ -6,3 +6,6 @@ test/contracts.json
 cache
 .env
 .npmrc
+.prettierignore
+.prettierrc
+.vscode

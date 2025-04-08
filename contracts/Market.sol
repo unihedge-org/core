@@ -222,17 +222,11 @@ contract Market {
         require(frameKey + period > block.timestamp, "Frame has to be in the future");
         //Calculate tax per second and correct for 18 decimals because of wei multiplication
         //Tax per second is calculated as taxMarket [wei %] * acquisitionPrice [wei DAI] / period [seconds]
-        console.log("Tax market: ", taxMarket);
-        console.log("Acquisition price: ", acquisitionPrice);
-        console.log("Period: ", period);
-        console.log("Frame key: ", frameKey);
-        console.log("Current timestamp: ", block.timestamp);
         uint256 taxPerSecond = (taxMarket * 1e18) / period;
-        console.log("Tax per second: ", taxPerSecond);
+
         uint256 duration = (frameKey + period) - block.timestamp;
-        console.log("Duration: ", duration);
-        uint256 tax = (duration * taxPerSecond * acquisitionPrice) / 1e24;
-        console.log("Tax: ", tax);
+
+        uint256 tax = (duration * taxPerSecond * acquisitionPrice) / 1e24; // 1e18 + 1e6 = 1e24
 
         return tax;
     }
