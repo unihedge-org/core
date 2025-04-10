@@ -1,10 +1,10 @@
-require("@nomiclabs/hardhat-waffle");
+require('@nomiclabs/hardhat-waffle');
 // require("@atixlabs/hardhat-time-n-mine");
 // require("hardhat-gas-reporter");
 //Import dotenv
-require("dotenv/config");
+require('dotenv/config');
 
-const privateKeys = process.env.PRIVATE_KEYS.split(",");
+const privateKeys = process.env.PRIVATE_KEYS.split(',');
 
 // console.log("Private Key:", process.env.PRIVATE_KEY ? "Loaded" : "Not Found");
 // console.log("Alchemy Polygon Key:", process.env.ALCHEMY_POLYGON_API_KEY ? "Loaded" : "Not Found");
@@ -20,7 +20,7 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.0",
+        version: '0.8.0',
         settings: {
           optimizer: {
             enabled: true,
@@ -29,7 +29,7 @@ module.exports = {
         },
       },
       {
-        version: "0.8.20", // Additional compiler versions can be specified here
+        version: '0.8.20', // Additional compiler versions can be specified here
         settings: {
           optimizer: {
             enabled: true,
@@ -50,11 +50,11 @@ module.exports = {
       accounts: privateKeys,
       loggingEnabled: true,
     },
-    
+
     hardhat: {
       forking: {
-        url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
-        // url: `https://lingering-winter-spree.matic.quiknode.pro/${process.env.QUICKNODE_POLYGON_API_KEY}`,
+        // url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
+        url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_SEPOLIA_API_KEY}`,
         loggingEnabled: true,
         // blockNumber: 56612874
       },

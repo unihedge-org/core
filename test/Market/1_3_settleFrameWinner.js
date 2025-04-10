@@ -33,7 +33,7 @@ describe('Resale lot', function () {
   });
   it('Deploy Market contract', async function () {
     const Market = await ethers.getContractFactory('Market');
-    contractMarket = await Market.deploy(process.env.FUNDING_TOKEN);
+    contractMarket = await Market.deploy(process.env.FUNDING_TOKEN, 30000, 10000);
     //Expect owner to be first account
     expect(await contractMarket.owner()).to.equal(accounts[0].address);
     //Expect period to be 1 day in seconds

@@ -14,7 +14,7 @@ contract Market {
     //Market begin timestamp 1.1.2024 [seconds]
     uint public initTimestamp = 1704124800; //64b
     //Protocol fee 3.00% per frame [wei] writen with 6 decimals = 0.03
-    uint256 public feeProtocol = 30000; //256b
+    uint256 public feeProtocol =0; //256b
     //Settle interval for average price calculation in [seconds] (10 minutes)
     uint public tSettle = 600;
     //Uniswap pool
@@ -22,7 +22,7 @@ contract Market {
     //Range of a lot [wei ETH/USDC], 
     uint256 public dPrice = 1e8; // 100 USDC
     //Tax on lots in the market 1% per period [wei] = 0.01
-    uint256 public taxMarket = 10000; //256b
+    uint256 public taxMarket = 0; //256b
     //ERC20 token used for buying lots in this contract
     IERC20Metadata public accountingToken; //256b // USDC token address on Polygon
     // ERC20 token decimals	
@@ -98,10 +98,12 @@ contract Market {
 
     event LotUpdate(Lot lot);
 
-    constructor(address _accountingToken) {
+    constructor(address _accountingToken, uint256 _feeProtocol, uint256 _taxMarket) {
         owner = msg.sender;
         accountingToken = IERC20Metadata(_accountingToken);
         accountingTokenDecimals = accountingToken.decimals(); 
+        feeProtocol = _feeProtocol;
+        taxMarket = _taxMarket;
     }
 
     function getStateFrame(uint frameKey) public view returns (SFrame){
@@ -220,13 +222,14 @@ contract Market {
     function clcTax(uint frameKey, uint256 acquisitionPrice) public view returns (uint) {
         //Require frameKey to be in the future
         require(frameKey + period > block.timestamp, "Frame has to be in the future");
+        require(accountingTokenDecimals <= 18, "Accounting token decimals has to be less than or equal to 18");
         //Calculate tax per second and correct for 18 decimals because of wei multiplication
         //Tax per second is calculated as taxMarket [wei %] * acquisitionPrice [wei DAI] / period [seconds]
         uint256 taxPerSecond = (taxMarket * 1e18) / period;
 
         uint256 duration = (frameKey + period) - block.timestamp;
 
-        uint256 tax = (duration * taxPerSecond * acquisitionPrice) / 1e24; // 1e18 + 1e6 = 1e24
+        uint256 tax = (duration * taxPerSecond * acquisitionPrice) / (10 ** (18 + accountingTokenDecimals));
 
         return tax;
     }
@@ -300,6 +303,8 @@ contract Market {
         lots[frameKey][lotKey] = lot;
 
         // Add lot to lotsArray
+        console.log("frameKey: ", frameKey);
+        console.log("lotKey: ", lotKey);
         uint lotKeyConcat = concatenate(frameKey, lotKey);
         lotsArray.push(lotKeyConcat);
 
@@ -366,12 +371,14 @@ contract Market {
         //Get the current price from the pool
         (uint160 sqrtPriceX96, , , , , ,) = uniswapPool.slot0();
 
-        uint256 price = uint256(sqrtPriceX96 * 1e12);
+        uint256 exponent = 18 - accountingTokenDecimals;
+
+        uint256 price = uint256(sqrtPriceX96 * (10 ** exponent));
 
         price = price / 2**96;
         price = price ** 2; // Square the price to get the actual price
-        price = price * 1e6;
-        price =  (1 * 1e48) / price; // Adjust for 18 decimal places (18 + 12 + 18 = 48)
+        price = price * (10 ** accountingTokenDecimals);
+        price =  (1 * (10 ** (36 + exponent))) / price; // (18 + 12 + 18 = 48)
 
         return price;
     }
@@ -401,15 +408,17 @@ contract Market {
         // Calculate the average tick
         uint averageTick = tickCumulativeDelta / timeElapsed;
 
+        uint256 exponent = 18 - accountingTokenDecimals;    
+
         // Calculate the sqrtPriceX96 (Calculates sqrt(1.0001^tick) * 2^96) from the average tick with a fixed point Q64.96
         uint160 sqrtPriceX96 = getSqrtRatioAtTick(averageTick);
 
-        uint256 price = uint256(sqrtPriceX96 * 1e12);
+        uint256 price = uint256(sqrtPriceX96 * (10 ** exponent));
 
         price = price / 2**96;
         price = price ** 2; // Square the price to get the actual price
         price = price * 1e6;
-        price =  (1 * 1e48) / price; // Adjust for 18 decimal places (18 + 12 + 18 = 48)
+        price =  (1 * (10 ** (36 + exponent))) / price; // (18 + 12 + 18 = 48)
 
         return price;
     }
@@ -450,7 +459,6 @@ contract Market {
     function setFrameRate(uint frameKey) public {
         //Frame has to be in state CLOSED
         //console log frameKey + period
-
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
         uint rate = clcRateAvg(frameKey);
