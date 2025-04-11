@@ -33,7 +33,9 @@ describe('Resale lot', function () {
   });
   it('Deploy Market contract', async function () {
     const Market = await ethers.getContractFactory('Market');
-    contractMarket = await Market.deploy(process.env.FUNDING_TOKEN, 30000, 10000);
+    // Define dPrice of 100 in tokenDecimals
+    dPrice = ethers.utils.parseUnits('100', tokenDecimals);
+    contractMarket = await Market.deploy(process.env.FUNDING_TOKEN, 30000, 10000, dPrice, process.env.POOL);
     //Expect owner to be first account
     expect(await contractMarket.owner()).to.equal(accounts[0].address);
     //Expect period to be 1 day in seconds
@@ -51,7 +53,7 @@ describe('Resale lot', function () {
     expect(rateAtStart).to.be.gt(0);
   });
 
-  it('Approve DAI to spend', async function () {
+  it('Approve token to spend', async function () {
     //Select random account
     user = accounts[Math.floor(Math.random() * 4) + 1];
     //get current block timestamp

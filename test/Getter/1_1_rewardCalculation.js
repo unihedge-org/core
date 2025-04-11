@@ -5,50 +5,36 @@ const {swapTokenForUsers} = require("../Helpers/functions.js");
 Random user buys a random lot in the range of 1 to 100 times dPrice
 */
 describe("Reward calculation", function () {
-    let accounts,
-    owner,
-    user,
-    user2,
-    user3,
-    token,
-    contractMarket,
-    contractMarketGetter,
-    frameKeyStart,
-    frameKey,
-    dPrice,
-    acqPrice,
-    acqPrice2,
-    wPOLContract,
-    tax;
-
-  let pairPrice = ethers.BigNumber.from("0");
+    let accounts, owner, user, token, wPOLContract, contractMarket, contractMarketGetter, frameKey, dPrice, acqPrice, tax, tokenDecimals;
+  let pairPrice = ethers.BigNumber.from('0');
 
   before(async function () {
     accounts = await ethers.getSigners();
     owner = accounts[0];
 
-    //Get current block number
-    const block = await ethers.provider.getBlock("latest");
-    console.log("\x1b[33m%s\x1b[0m", "   Current block: ", block.number);
+    //Get current block number and print it
+    const block = await ethers.provider.getBlock('latest');
+    console.log('\x1b[33m%s\x1b[0m', '   Current block: ', block.number);
 
     //Contracts are loaded from addresses
-    token = await ethers.getContractAt("IERC20Metadata", process.env.FUNDING_TOKEN, owner);
+    token = await ethers.getContractAt('IERC20Metadata', process.env.FUNDING_TOKEN, owner);
     wPOLContract = await ethers.getContractAt(IERC20.abi, process.env.WPOL_POLYGON, owner);
     contractSwapRouter = await ethers.getContractAt(ISwapRouter.abi, process.env.UNISWAP_ROUTER, owner);
 
     // Get token decimals
     tokenDecimals = await token.decimals();
 
-    //Swap tokens for users, get USDC
-    await swapTokenForUsers(accounts.slice(0,5), wPOLContract, token, 9000, contractSwapRouter);
-    //Check if USDC balance is greater than 0
+    //Swap tokens for users, get DAI
+    await swapTokenForUsers(accounts.slice(0, 5), wPOLContract, token, 9000, contractSwapRouter);
+    //Check if DAI balance is greater than 0
     let balance = await token.balanceOf(owner.address);
-    console.log("\x1b[33m%s\x1b[0m", "   USDC balance: ", ethers.utils.formatUnits(balance, tokenDecimals), " $");
+    console.log('\x1b[33m%s\x1b[0m', '   USDC balance: ', ethers.utils.formatUnits(balance, tokenDecimals), ' $');
     expect(balance).to.be.gt(0);
   });
   it("Deploy Market and Getter contract", async function () {
     const Market = await ethers.getContractFactory("Market");
-    contractMarket = await Market.deploy(process.env.FUNDING_TOKEN);
+    dPrice = ethers.utils.parseUnits('100', tokenDecimals);
+    contractMarket = await Market.deploy(process.env.FUNDING_TOKEN, 30000, 10000, dPrice, process.env.POOL);
     //Expect owner to be first account
     expect(await contractMarket.owner()).to.equal(accounts[0].address);
     //Expect period to be 1 day in seconds

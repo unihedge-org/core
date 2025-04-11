@@ -11,10 +11,14 @@ async function main() {
   const accounts = await hre.ethers.getSigners();
   console.log('Account address:', accounts[0].address);
 
+  // Get account balance
+  const balance = await accounts[0].getBalance();
+  console.log('Account balance:', hre.ethers.utils.formatEther(balance), 'ETH');
+
   //Deploy market getter contract
   const MarketGetter = await hre.ethers.getContractFactory('MarketGetter');
   const marketGetter = await MarketGetter.deploy({
-    gasPrice: ethers.utils.parseUnits('30', 'gwei'),
+    gasPrice: ethers.utils.parseUnits('10', 'gwei'),
     gasLimit: 5000000,
   });
   await marketGetter.deployed();

@@ -18,9 +18,9 @@ contract Market {
     //Settle interval for average price calculation in [seconds] (10 minutes)
     uint public tSettle = 600;
     //Uniswap pool
-    IUniswapV3Pool public uniswapPool = IUniswapV3Pool(0x45dDa9cb7c25131DF268515131f647d726f50608);
+    IUniswapV3Pool public uniswapPool; // Sepolia: 0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50 // Polygon: 0x45dDa9cb7c25131DF268515131f647d726f50608
     //Range of a lot [wei ETH/USDC], 
-    uint256 public dPrice = 1e8; // 100 USDC
+    uint256 public dPrice = 0; // 100 USDC
     //Tax on lots in the market 1% per period [wei] = 0.01
     uint256 public taxMarket = 0; //256b
     //ERC20 token used for buying lots in this contract
@@ -98,12 +98,14 @@ contract Market {
 
     event LotUpdate(Lot lot);
 
-    constructor(address _accountingToken, uint256 _feeProtocol, uint256 _taxMarket) {
+    constructor(address _accountingToken, uint256 _feeProtocol, uint256 _taxMarket, uint256 _dPrice, address _uniswapPool) {
         owner = msg.sender;
         accountingToken = IERC20Metadata(_accountingToken);
         accountingTokenDecimals = accountingToken.decimals(); 
         feeProtocol = _feeProtocol;
         taxMarket = _taxMarket;
+        dPrice = _dPrice;
+        uniswapPool = IUniswapV3Pool(_uniswapPool);
     }
 
     function getStateFrame(uint frameKey) public view returns (SFrame){
@@ -226,8 +228,13 @@ contract Market {
         //Calculate tax per second and correct for 18 decimals because of wei multiplication
         //Tax per second is calculated as taxMarket [wei %] * acquisitionPrice [wei DAI] / period [seconds]
         uint256 taxPerSecond = (taxMarket * 1e18) / period;
+        console.log("Tax per second: ", taxPerSecond);
+        console.log("Tax market: ", taxMarket);
 
         uint256 duration = (frameKey + period) - block.timestamp;
+        console.log("Frame key: ", frameKey);
+        console.log("Period duration: ", period);
+        console.log("Timestamp: ", block.timestamp);
 
         uint256 tax = (duration * taxPerSecond * acquisitionPrice) / (10 ** (18 + accountingTokenDecimals));
 
@@ -303,14 +310,11 @@ contract Market {
         lots[frameKey][lotKey] = lot;
 
         // Add lot to lotsArray
-        console.log("frameKey: ", frameKey);
-        console.log("lotKey: ", lotKey);
         uint lotKeyConcat = concatenate(frameKey, lotKey);
         lotsArray.push(lotKeyConcat);
 
         // Add lot to frame
         frames[frameKey].lotKeys.push(lot.lotKey);
-
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), tax);
     }
@@ -417,7 +421,7 @@ contract Market {
 
         price = price / 2**96;
         price = price ** 2; // Square the price to get the actual price
-        price = price * 1e6;
+        price = price * (10 ** accountingTokenDecimals);
         price =  (1 * (10 ** (36 + exponent))) / price; // (18 + 12 + 18 = 48)
 
         return price;
@@ -458,7 +462,6 @@ contract Market {
 
     function setFrameRate(uint frameKey) public {
         //Frame has to be in state CLOSED
-        //console log frameKey + period
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
         uint rate = clcRateAvg(frameKey);
