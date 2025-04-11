@@ -8,7 +8,7 @@ async function main() {
   // manually to make sure everything is compiled
   // await hre.run('compile');
 
-  const accountingToken = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"; // USDC
+  const accountingToken = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174"; // USDC
   const pool = "0x45dDa9cb7c25131DF268515131f647d726f50608" // USDC/WETH
   const feeProtocol = 30000;
   const feeMarket = 10000; // 10%
