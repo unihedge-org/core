@@ -2,8 +2,8 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0x237291711038056d4FF79dEE8d5Bfa288Cb13F0e](https://polygonscan.com/address/0x237291711038056d4FF79dEE8d5Bfa288Cb13F0e)
-    * Accounting Token - USDC: [0x2791bca1f2de4661ed88a30c99a7a9449aa84174](https://polygonscan.com/address/0x2791bca1f2de4661ed88a30c99a7a9449aa84174)
+* Market address: [0x3DAAFCC098bDE962B5a48d2813d3dE57f09eCe9f](https://polygonscan.com/address/0x3DAAFCC098bDE962B5a48d2813d3dE57f09eCe9f)
+    * Accounting Token - USDC: [0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359](https://polygonscan.com/address/0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359)
 
 * Market Getter address: [0xfCe1b2D806afAe93A07fF369e8C0D0cCAbbb2374](https://polygonscan.com/address/0xfCe1b2D806afAe93A07fF369e8C0D0cCAbbb2374)
 
