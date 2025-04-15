@@ -8,11 +8,11 @@ async function main() {
   // manually to make sure everything is compiled
   // await hre.run('compile');
 
-  const accountingToken = "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9"; // WETH
-  const pool = "0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50" // USDC/WETH
-  const feeProtocol = hre.ethers.utils.parseUnits('0.03', 18); // 1 %
-  const feeMarket = hre.ethers.utils.parseUnits('0.01', 18); 
+  const accountingToken = '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9'; // WETH
+  const pool = '0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50'; // USDC/WETH
   const dPrice = ethers.utils.parseUnits('100', 18);
+  const feeProtocol = ethers.utils.parseUnits('0.03', 18);
+  const feeMarket = ethers.utils.parseUnits('0.01', 18);
 
   //Print the account address
   const accounts = await hre.ethers.getSigners();
@@ -23,13 +23,7 @@ async function main() {
   console.log('Account balance:', hre.ethers.utils.formatEther(balance), 'ETH');
 
   const Market = await hre.ethers.getContractFactory('Market');
-  const market = await Market.deploy(
-    accountingToken, 
-    feeProtocol,
-    feeMarket,
-    dPrice,
-    pool,
-    {
+  const market = await Market.deploy(accountingToken, feeProtocol, feeMarket, dPrice, pool, {
     gasPrice: ethers.utils.parseUnits('10', 'gwei'),
     gasLimit: 5000000,
   });

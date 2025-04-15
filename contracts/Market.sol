@@ -14,7 +14,7 @@ contract Market {
     //Market begin timestamp 1.1.2024 [seconds]
     uint public initTimestamp = 1704124800; //64b
     //Protocol fee 3.00% per frame [wei] writen with 6 decimals = 0.03
-    uint256 public feeProtocol =0; //256b
+    uint256 public feeProtocol = 0; //256b
     //Settle interval for average price calculation in [seconds] (10 minutes)
     uint public tSettle = 600;
     //Uniswap pool
@@ -224,21 +224,26 @@ contract Market {
     function clcTax(uint frameKey, uint256 acquisitionPrice) public view returns (uint) {
         //Require frameKey to be in the future
         require(frameKey + period > block.timestamp, "Frame has to be in the future");
-        require(accountingTokenDecimals <= 18, "Accounting token decimals has to be less than or equal to 18");
         //Calculate tax per second and correct for 18 decimals because of wei multiplication
         //Tax per second is calculated as taxMarket [wei %] * acquisitionPrice [wei DAI] / period [seconds]
-        uint256 taxPerSecond = (taxMarket * 1e18) / period;
-        console.log("Tax per second: ", taxPerSecond);
-        console.log("Tax market: ", taxMarket);
+        uint256 taxPerSecond = taxMarket / period;
+        uint duration = (frameKey + period) - block.timestamp;
 
-        uint256 duration = (frameKey + period) - block.timestamp;
-        console.log("Frame key: ", frameKey);
-        console.log("Period duration: ", period);
-        console.log("Timestamp: ", block.timestamp);
-
-        uint256 tax = (duration * taxPerSecond * acquisitionPrice) / (10 ** (18 + accountingTokenDecimals));
+        uint tax = ((duration * taxPerSecond) * acquisitionPrice) / 1e18;
 
         return tax;
+    }
+
+    function convertToTokenDecimals(uint256 amount18Dec, bool round) public view returns (uint256) {
+        uint256 scaleDown = 10 ** (18 - accountingTokenDecimals);
+        
+        if (round) {
+            // Round to nearest integer
+            return (amount18Dec + (scaleDown / 2)) / scaleDown;
+        } else {
+            // Simple truncation
+            return amount18Dec / scaleDown;
+        }
     }
 
     //Calculate reward fund for the frame from lots
@@ -288,18 +293,21 @@ contract Market {
     function purchaseLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
         //Calculate tax amount
         uint tax = clcTax(frameKey, acquisitionPrice);
+        // Convert tax to token decimals
+        uint taxInToken = convertToTokenDecimals(tax, false);
+        console.log("Tax in token: ", taxInToken);
 
         //Tax has to be greater than 0
-        require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
+        require(taxInToken > 0, "Tax has to be greater than 0. Increase the acquisition price");
         //Approved amount has to be at least equal to tax
-        require(accountingToken.allowance(msg.sender, address(this)) >= tax, "Allowance to spend set too low");
+        require(accountingToken.allowance(msg.sender, address(this)) >= taxInToken, "Allowance to spend set too low");
 
         //this check is because with the concat function, the lotKey is not limited to full uint256 range anymore
         require(lotKey < 10000000000000000000000000000000000000000000000000000000000000000000000000000, "Lot key too big");
         //Reject if lot already exists
         require(lots[frameKey][lotKey].lotKey == 0, "Lot already exists");
         //Create lot
-        LotState memory state = LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, tax, 0);
+        LotState memory state = LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, taxInToken * 10**(18 - accountingTokenDecimals), 0); // Important, Tax is in 18 decimals!!! Always
 
         Lot storage lot = lots[frameKey][lotKey];
         lot.frameKey = frameKey;
@@ -315,8 +323,9 @@ contract Market {
 
         // Add lot to frame
         frames[frameKey].lotKeys.push(lot.lotKey);
+
         //Transfer tax amount to the market contract
-        accountingToken.transferFrom(msg.sender, address(this), tax);
+        accountingToken.transferFrom(msg.sender, address(this), taxInToken);
     }
 
     function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
@@ -328,19 +337,24 @@ contract Market {
         if (tax1 > tax2) {
             //Calculate tax difference
             uint taxRefund = tax1 - tax2;
+            //Convert tax difference to token decimals
+            uint taxRefundInToken = convertToTokenDecimals(taxRefund, false);
             //Transfer tax difference to the lot owner
-            accountingToken.transfer(lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, taxRefund);
+            accountingToken.transfer(lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, taxRefundInToken);
             //Add new lot state
-            lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, 0, taxRefund));
+            lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, 0, taxRefundInToken*10**(18 - accountingTokenDecimals)));
         } else {
             //If tax2 is greater than tax1, charge the difference
             uint taxCharge = tax2 - tax1;
 
-            require(accountingToken.allowance(msg.sender, address(this)) >= taxCharge, "Allowance to spend set too low");
+            //Convert tax difference to token decimals
+            uint taxChargeInToken = convertToTokenDecimals(taxCharge, false);
+
+            require(accountingToken.allowance(msg.sender, address(this)) >= taxChargeInToken, "Allowance to spend set too low");
             //Transfer tax difference to the market contract
-            accountingToken.transferFrom(msg.sender, address(this), taxCharge);
+            accountingToken.transferFrom(msg.sender, address(this), taxChargeInToken);
             //Add new lot state
-            lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, taxCharge, 0));
+            lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, taxCharge*10**(18 - accountingTokenDecimals), 0));
         }
     }
 
@@ -353,19 +367,34 @@ contract Market {
         //Approved amount has to be at least equal to price of the
         //Get last acquisition price + tax
         uint lastAcquisitionPrice = lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice;
-        require(accountingToken.allowance(msg.sender, address(this)) >= tax + lastAcquisitionPrice, "Allowance to spend set too low");
+
+        // Convert last acquisition price to token decimals
+        uint lastAcquisitionPriceInToken = convertToTokenDecimals(lastAcquisitionPrice, false);
+        console.log("Last acquisition price in token: ", lastAcquisitionPriceInToken);
+
+        uint taxInToken = convertToTokenDecimals(tax, false);
+        console.log("Tax in token: ", taxInToken);
+
+        console.log("Allowance: ", accountingToken.allowance(msg.sender, address(this)));
+
+        
+        require(accountingToken.allowance(msg.sender, address(this)) >= taxInToken + lastAcquisitionPriceInToken, "Allowance to spend set too low");
         //Transfer tax amount to the market contract
-        accountingToken.transferFrom(msg.sender, address(this), tax);
+        accountingToken.transferFrom(msg.sender, address(this), taxInToken);
         // Transfer from new owner lastAcquisitionPrice to the previous owner
-        accountingToken.transferFrom(msg.sender, previousOwner, lastAcquisitionPrice);
+        accountingToken.transferFrom(msg.sender, previousOwner, lastAcquisitionPriceInToken);
         // Transfer the remaining tax to previous owner
         uint taxRefund = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
-        accountingToken.transfer(previousOwner, taxRefund);
+
+        // Convert tax refund to token decimals
+        uint taxRefundInToken = convertToTokenDecimals(taxRefund, false);
+
+        accountingToken.transfer(previousOwner, taxRefundInToken);
 
         // Update previous lot state
-        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, previousOwner, lastAcquisitionPrice, 0, taxRefund));
+        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, previousOwner, lastAcquisitionPrice, 0, taxRefundInToken*10**(18 - accountingTokenDecimals)));
         //Add new lot state
-        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, tax, 0));
+        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, tax*10**(18-accountingTokenDecimals), 0));
     }
 
     /* Calculate the current price of the pool
@@ -383,6 +412,11 @@ contract Market {
         price = price ** 2; // Square the price to get the actual price
         price = price * (10 ** accountingTokenDecimals);
         price =  (1 * (10 ** (36 + exponent))) / price; // (18 + 12 + 18 = 48)
+
+        // Convert price to 18 decimals
+        if (accountingTokenDecimals != 18) {
+            price = price * (10 ** (18 - accountingTokenDecimals));
+        }
 
         return price;
     }
@@ -423,6 +457,10 @@ contract Market {
         price = price ** 2; // Square the price to get the actual price
         price = price * (10 ** accountingTokenDecimals);
         price =  (1 * (10 ** (36 + exponent))) / price; // (18 + 12 + 18 = 48)
+
+        if (accountingTokenDecimals != 18) {
+            price = price * (10 ** (18 - accountingTokenDecimals));
+        }
 
         return price;
     }
@@ -465,6 +503,8 @@ contract Market {
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
         uint rate = clcRateAvg(frameKey);
+        console.log("Rate: ", rate);
+
         //Update frame
         frames[frameKey].rate = rate;
         emit FrameUpdate(frames[frameKey]);
@@ -483,23 +523,41 @@ contract Market {
         // require(getStateLot(frameKey, lotKeyWon) == SLot.WON, "No winning lot in this frame");
         //Transfer winnings to last owner
         //total reward fund
-        uint rewardFund = clcRewardFund(frameKey);
-        //Calculate protocol fee
-        uint fee = rewardFund * feeProtocol / (1e6);
-        frames[frameKey].feeSettle = fee;
-        frames[frameKey].rewardSettle = rewardFund - fee;
+        uint rewardFundTokenDec = convertToTokenDecimals(clcRewardFund(frameKey), false);
+        uint feeTokenDec = (rewardFundTokenDec * (feeProtocol / (10 ** (18 - accountingTokenDecimals)))) / (10 ** accountingTokenDecimals);
+        uint payoutTokenDec = rewardFundTokenDec - feeTokenDec;
+
+        console.log("Reward fund: ", rewardFundTokenDec);
+        console.log("Fee: ", feeTokenDec);
+        console.log("Payout: ", payoutTokenDec);
+
+        frames[frameKey].feeSettle = feeTokenDec * (10 ** (18 - accountingTokenDecimals));
+        frames[frameKey].rewardSettle = payoutTokenDec * (10 ** (18 - accountingTokenDecimals));
+    
         
         //Check if lot has an owner, at least one state has to exist
         if (lotWon.states.length > 0) {
-            accountingToken.transfer(lotWon.states[lotWon.states.length - 1].owner, frames[frameKey].rewardSettle);
+            // Covnert reward fund to token decimals
+            // Get contract balance
+            uint256 contractBalance = accountingToken.balanceOf(address(this));
+            console.log("Contract balance: ", contractBalance);
+
+            accountingToken.transfer(lotWon.states[lotWon.states.length - 1].owner, payoutTokenDec);
             frames[frameKey].claimedBy = lotWon.states[lotWon.states.length - 1].owner;
+            console.log("Transfered reward to lot owner");
+
+            // Get the conract balance after transfer
+            uint256 contractBalanceAfter = accountingToken.balanceOf(address(this));
+            console.log("Contract balance after transfer: ", contractBalanceAfter);
 
             //transfer protocol fee to owner
-            accountingToken.transfer(owner, frames[frameKey].feeSettle);
+            accountingToken.transfer(owner, feeTokenDec);
+            console.log("Transfered fee to owner");
 
         } else {
             //transfer protocol fee + reward fund to owner
-            accountingToken.transfer(owner, frames[frameKey].rewardSettle + frames[frameKey].feeSettle);
+            accountingToken.transfer(owner, payoutTokenDec + feeTokenDec);
+            console.log("Reward fund in token + fee in token: ", payoutTokenDec + feeTokenDec);
             frames[frameKey].claimedBy = owner;
         }
 
