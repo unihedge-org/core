@@ -10,9 +10,9 @@ async function main() {
 
   const accountingToken = '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9'; // WETH
   const pool = '0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50'; // USDC/WETH
-  const dPrice = ethers.utils.parseUnits('100', 18);
-  const feeProtocol = ethers.utils.parseUnits('0.03', 18);
-  const feeMarket = ethers.utils.parseUnits('0.01', 18);
+  const dPrice = Number(100);
+  const feeProtocol = 3;
+  const feeMarket = 1;
 
   //Print the account address
   const accounts = await hre.ethers.getSigners();

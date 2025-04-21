@@ -18,7 +18,7 @@ async function main() {
   //Deploy market getter contract
   const MarketGetter = await hre.ethers.getContractFactory('MarketGetter');
   const marketGetter = await MarketGetter.deploy({
-    gasPrice: ethers.utils.parseUnits('10', 'gwei'),
+    gasPrice: ethers.utils.parseUnits('5', 'gwei'),
     gasLimit: 5000000,
   });
   await marketGetter.deployed();
