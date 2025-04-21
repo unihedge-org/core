@@ -5,6 +5,7 @@ pragma abicoder v2;
 
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import "hardhat/console.sol";
 
 /// @author UniHedge
@@ -27,6 +28,8 @@ contract Market {
     IERC20Metadata public accountingToken; //256b // USDC token address on Polygon
     // ERC20 token decimals	
     uint8 public accountingTokenDecimals;
+    // Base unit for calculations
+    uint256 public immutable baseUnit;   // 10 ** accountingTokenDecimals
     //Owner of this market
     address public owner; //256b
     /*
@@ -98,15 +101,19 @@ contract Market {
 
     event LotUpdate(Lot lot);
 
-    constructor(address _accountingToken, uint256 _feeProtocol, uint256 _taxMarket, uint256 _dPrice, address _uniswapPool) {
+    constructor(address _acct, uint256 _feeProtocol, uint256 _taxMarket, uint256 _dPrice, address _uniswapPool) {
         owner = msg.sender;
-        accountingToken = IERC20Metadata(_accountingToken);
-        accountingTokenDecimals = accountingToken.decimals(); 
-        feeProtocol = _feeProtocol;
-        taxMarket = _taxMarket;
-        dPrice = _dPrice;
         uniswapPool = IUniswapV3Pool(_uniswapPool);
+        accountingToken = IERC20Metadata(_acct);
+        accountingTokenDecimals = accountingToken.decimals(); 
+        baseUnit = 10 ** uint256(accountingTokenDecimals);
+
+        feeProtocol = toQ96(baseUnit * _feeProtocol / 100);
+        taxMarket = toQ96(baseUnit * _taxMarket / 100);
+        dPrice = toQ96(baseUnit * _dPrice);
     }
+
+
 
     function getStateFrame(uint frameKey) public view returns (SFrame){
         //NULL If frame doesn't exist, return SFrame.NULL
@@ -140,10 +147,14 @@ contract Market {
         return timestamp - ((timestamp - initTimestamp) % (period));
     }
 
-    function clcLotKey(uint value) public view returns (uint){
-        if (value < dPrice) return dPrice;
-        //Division cast to uint rounds down
-        return (value / (dPrice) * (dPrice));
+    function clcLotKey(uint valueQ96) public view returns (uint){
+        if (valueQ96 < dPrice) return dPrice;
+
+        // Calculate how many lots (whole number): value / dPrice → no decimals
+        uint256 no_lots = valueQ96 / dPrice;
+
+        // Multiply back: lots * dPrice → Q96
+        return mulDiv(no_lots, dPrice, 1); 
     }
 
     function getFrame(uint frameKey) public view returns (Frame memory){
@@ -181,6 +192,14 @@ contract Market {
     //Function to get lot states for market getter
     function getLotStates(uint frameKey, uint lotKey) public view returns (LotState[] memory){
         return lots[frameKey][lotKey].states;
+    }
+
+    function toQ96(uint256 amount) public view returns (uint256) {
+        return mulDiv(amount, FixedPoint96.Q96, baseUnit);
+    }
+
+    function fromQ96(uint256 x96) public view returns (uint256) {
+        return mulDiv(x96, baseUnit, FixedPoint96.Q96);
     }
 
     // Function to concatenate a timestamp and an 18-decimal number
@@ -221,17 +240,19 @@ contract Market {
     }
 
     //Calculate amount of tax to be collected from the owner of the lot
-    function clcTax(uint frameKey, uint256 acquisitionPrice) public view returns (uint) {
-        //Require frameKey to be in the future
+    function clcTax(uint frameKey, uint256 acquisitionPriceQ96) public view returns (uint256) {
         require(frameKey + period > block.timestamp, "Frame has to be in the future");
-        //Calculate tax per second and correct for 18 decimals because of wei multiplication
-        //Tax per second is calculated as taxMarket [wei %] * acquisitionPrice [wei DAI] / period [seconds]
-        uint256 taxPerSecond = taxMarket / period;
-        uint duration = (frameKey + period) - block.timestamp;
 
-        uint tax = ((duration * taxPerSecond) * acquisitionPrice) / 1e18;
+        uint256 duration = (frameKey + period) - block.timestamp;
 
-        return tax;
+        uint256 taxPerSecondQ96 = taxMarket / period;
+        uint256 taxMultiplierQ96 = taxPerSecondQ96 * duration;
+
+        // Wwith mupliplication of two Q96 numbers, we get Q192 number, 
+        // so we need to divide by Q96 to get back to Q96 number
+        uint256 taxQ96 = mulDiv(taxMultiplierQ96, acquisitionPriceQ96, FixedPoint96.Q96);
+        
+        return taxQ96;
     }
 
     function convertToTokenDecimals(uint256 amount18Dec, bool round) public view returns (uint256) {
@@ -290,32 +311,36 @@ contract Market {
         emit LotUpdate(lots[frameKey][lotKey]);
     }
 
-    function purchaseLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
+    function purchaseLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {
         //Calculate tax amount
-        uint tax = clcTax(frameKey, acquisitionPrice);
+        uint taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
         // Convert tax to token decimals
-        uint taxInToken = convertToTokenDecimals(tax, false);
-        console.log("Tax in token: ", taxInToken);
-
+        uint taxToken = fromQ96(taxQ96);
         //Tax has to be greater than 0
-        require(taxInToken > 0, "Tax has to be greater than 0. Increase the acquisition price");
+        require(taxToken > 0, "Tax has to be greater than 0. Increase the acquisition price");
         //Approved amount has to be at least equal to tax
-        require(accountingToken.allowance(msg.sender, address(this)) >= taxInToken, "Allowance to spend set too low");
+        require(accountingToken.allowance(msg.sender, address(this)) >= taxToken, "Allowance to spend set too low");
 
         //this check is because with the concat function, the lotKey is not limited to full uint256 range anymore
         require(lotKey < 10000000000000000000000000000000000000000000000000000000000000000000000000000, "Lot key too big");
         //Reject if lot already exists
         require(lots[frameKey][lotKey].lotKey == 0, "Lot already exists");
         //Create lot
-        LotState memory state = LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, taxInToken * 10**(18 - accountingTokenDecimals), 0); // Important, Tax is in 18 decimals!!! Always
+        LotState memory state = LotState(
+            block.number, 
+            block.timestamp, 
+            msg.sender, 
+            acquisitionPriceQ96, 
+            toQ96(taxToken), 
+            0); 
 
         Lot storage lot = lots[frameKey][lotKey];
         lot.frameKey = frameKey;
         lot.lotKey = lotKey;
         lot.states.push(state);
 
-        // Add lot to lots
-        lots[frameKey][lotKey] = lot;
+        // // Add lot to lots
+        // lots[frameKey][lotKey] = lot;
 
         // Add lot to lotsArray
         uint lotKeyConcat = concatenate(frameKey, lotKey);
@@ -325,100 +350,117 @@ contract Market {
         frames[frameKey].lotKeys.push(lot.lotKey);
 
         //Transfer tax amount to the market contract
-        accountingToken.transferFrom(msg.sender, address(this), taxInToken);
+        accountingToken.transferFrom(msg.sender, address(this), taxToken);
     }
 
-    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
+    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {
         //Calculate tax with old acquisitionPrice
-        uint tax1 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
+        uint taxQ96_1 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
         //Calculate tax with new acquisitionPrice
-        uint tax2 = clcTax(frameKey, acquisitionPrice);
+        uint taxQ96_2 = clcTax(frameKey, acquisitionPriceQ96);
         //If tax1 is greater than tax2, refund the difference
-        if (tax1 > tax2) {
+        if (taxQ96_1 > taxQ96_2) {
             //Calculate tax difference
-            uint taxRefund = tax1 - tax2;
+            uint taxRefundQ96 = taxQ96_1 - taxQ96_2;
             //Convert tax difference to token decimals
-            uint taxRefundInToken = convertToTokenDecimals(taxRefund, false);
+            uint taxRefundToken = fromQ96(taxRefundQ96);
             //Transfer tax difference to the lot owner
-            accountingToken.transfer(lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, taxRefundInToken);
+            accountingToken.transfer(lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, taxRefundToken);
             //Add new lot state
-            lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, 0, taxRefundInToken*10**(18 - accountingTokenDecimals)));
+            lots[frameKey][lotKey].states.push(
+                LotState(
+                    block.number, 
+                    block.timestamp, 
+                    msg.sender, 
+                    acquisitionPriceQ96, 
+                    0, 
+                    toQ96(taxRefundToken))    
+                );
         } else {
             //If tax2 is greater than tax1, charge the difference
-            uint taxCharge = tax2 - tax1;
+            uint taxChargeQ96 = taxQ96_2 - taxQ96_1;
 
             //Convert tax difference to token decimals
-            uint taxChargeInToken = convertToTokenDecimals(taxCharge, false);
+            uint taxChargeToken = fromQ96(taxChargeQ96);
 
-            require(accountingToken.allowance(msg.sender, address(this)) >= taxChargeInToken, "Allowance to spend set too low");
+            require(accountingToken.allowance(msg.sender, address(this)) >= taxChargeToken, "Allowance to spend set too low");
             //Transfer tax difference to the market contract
-            accountingToken.transferFrom(msg.sender, address(this), taxChargeInToken);
+            accountingToken.transferFrom(msg.sender, address(this), taxChargeToken);
             //Add new lot state
-            lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, taxCharge*10**(18 - accountingTokenDecimals), 0));
+            lots[frameKey][lotKey].states.push(
+                LotState(
+                    block.number, 
+                    block.timestamp, 
+                    msg.sender, 
+                    acquisitionPriceQ96, 
+                    toQ96(taxChargeToken), 
+                    0)
+                );
         }
     }
 
-    function resaleLot(uint frameKey, uint lotKey, uint acquisitionPrice) internal {
+    function resaleLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {
         address previousOwner = lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner;
         //Calculate tax amount
-        uint tax = clcTax(frameKey, acquisitionPrice);
+        uint taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
         //Tax has to be greater than 0
-        require(tax > 0, "Tax has to be greater than 0. Increase the acquisition price");
+        require(taxQ96 > 0, "Tax has to be greater than 0. Increase the acquisition price");
         //Approved amount has to be at least equal to price of the
         //Get last acquisition price + tax
         uint lastAcquisitionPrice = lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice;
 
         // Convert last acquisition price to token decimals
-        uint lastAcquisitionPriceInToken = convertToTokenDecimals(lastAcquisitionPrice, false);
-        console.log("Last acquisition price in token: ", lastAcquisitionPriceInToken);
+        uint lastAcquisitionPriceToken = fromQ96(lastAcquisitionPrice);
 
-        uint taxInToken = convertToTokenDecimals(tax, false);
-        console.log("Tax in token: ", taxInToken);
-
-        console.log("Allowance: ", accountingToken.allowance(msg.sender, address(this)));
-
+        uint taxToken = fromQ96(taxQ96);
         
-        require(accountingToken.allowance(msg.sender, address(this)) >= taxInToken + lastAcquisitionPriceInToken, "Allowance to spend set too low");
+        require(accountingToken.allowance(msg.sender, address(this)) >= taxToken + lastAcquisitionPriceToken, "Allowance to spend set too low");
         //Transfer tax amount to the market contract
-        accountingToken.transferFrom(msg.sender, address(this), taxInToken);
+        accountingToken.transferFrom(msg.sender, address(this), taxToken);
         // Transfer from new owner lastAcquisitionPrice to the previous owner
-        accountingToken.transferFrom(msg.sender, previousOwner, lastAcquisitionPriceInToken);
+        accountingToken.transferFrom(msg.sender, previousOwner, lastAcquisitionPriceToken);
         // Transfer the remaining tax to previous owner
-        uint taxRefund = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
+        uint taxRefundQ96 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
 
         // Convert tax refund to token decimals
-        uint taxRefundInToken = convertToTokenDecimals(taxRefund, false);
+        uint taxRefundToken = fromQ96(taxRefundQ96);
 
-        accountingToken.transfer(previousOwner, taxRefundInToken);
+        accountingToken.transfer(previousOwner, taxRefundToken);
 
         // Update previous lot state
-        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, previousOwner, lastAcquisitionPrice, 0, taxRefundInToken*10**(18 - accountingTokenDecimals)));
+        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, previousOwner, lastAcquisitionPrice, 0, toQ96(taxRefundToken)));
         //Add new lot state
-        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPrice, tax*10**(18-accountingTokenDecimals), 0));
+        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPriceQ96, toQ96(taxToken), 0));
     }
 
     /* Calculate the current price of the pool
     *  @return price - the current price of the pool
     */
-    function clcRate() public view returns (uint) {
-        //Get the current price from the pool
+    function clcRate() public view returns (uint256) {
         (uint160 sqrtPriceX96, , , , , ,) = uniswapPool.slot0();
 
-        uint256 exponent = 18 - accountingTokenDecimals;
+        uint256 priceX192 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
+        uint256 priceQ96 = priceX192 >> 96;
 
-        uint256 price = uint256(sqrtPriceX96 * (10 ** exponent));
+        address token0 = uniswapPool.token0();
+        address token1 = uniswapPool.token1();
 
-        price = price / 2**96;
-        price = price ** 2; // Square the price to get the actual price
-        price = price * (10 ** accountingTokenDecimals);
-        price =  (1 * (10 ** (36 + exponent))) / price; // (18 + 12 + 18 = 48)
+        uint8 decimals0 = IERC20Metadata(token0).decimals();
+        uint8 decimals1 = IERC20Metadata(token1).decimals();
 
-        // Convert price to 18 decimals
-        if (accountingTokenDecimals != 18) {
-            price = price * (10 ** (18 - accountingTokenDecimals));
+        // Adjust for decimal difference between token0 and token1
+        if (decimals0 > decimals1) {
+            priceQ96 = mulDiv(priceQ96, 10 ** (decimals0 - decimals1), 1);
+        } else if (decimals1 > decimals0) {
+            priceQ96 = mulDiv(priceQ96, 1, 10 ** (decimals1 - decimals0));
         }
 
-        return price;
+        // Invert if needed (you want USDC per ETH)
+        if (address(accountingToken) == token0) {
+            priceQ96 = mulDiv(FixedPoint96.Q96, FixedPoint96.Q96, priceQ96);
+        }
+
+        return priceQ96; // Final price, scaled for decimals, in Q96
     }
 
     /* Calculate the average price of the pool from a given timestamp minus 10 minutes to the current timestamp
@@ -435,7 +477,7 @@ contract Market {
         timeIntervals[1] = t2;
 
         // Assuming observe returns cumulative price values directly
-        (int56[] memory tickCumulatives,) = uniswapPool.observe(timeIntervals);
+        (int56[] memory tickCumulatives, ) = uniswapPool.observe(timeIntervals);
 
         // Calculate the tick difference and time elapsed
         int256 tickCumulativeDeltaInt = int256(tickCumulatives[1]) - int256(tickCumulatives[0]);
@@ -446,23 +488,31 @@ contract Market {
         // Calculate the average tick
         uint averageTick = tickCumulativeDelta / timeElapsed;
 
-        uint256 exponent = 18 - accountingTokenDecimals;    
-
         // Calculate the sqrtPriceX96 (Calculates sqrt(1.0001^tick) * 2^96) from the average tick with a fixed point Q64.96
         uint160 sqrtPriceX96 = getSqrtRatioAtTick(averageTick);
 
-        uint256 price = uint256(sqrtPriceX96 * (10 ** exponent));
+        uint256 priceX192 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
+        uint256 priceQ96 = priceX192 >> 96;
 
-        price = price / 2**96;
-        price = price ** 2; // Square the price to get the actual price
-        price = price * (10 ** accountingTokenDecimals);
-        price =  (1 * (10 ** (36 + exponent))) / price; // (18 + 12 + 18 = 48)
+        address token0 = uniswapPool.token0();
+        address token1 = uniswapPool.token1();
 
-        if (accountingTokenDecimals != 18) {
-            price = price * (10 ** (18 - accountingTokenDecimals));
+        uint8 decimals0 = IERC20Metadata(token0).decimals();
+        uint8 decimals1 = IERC20Metadata(token1).decimals();
+
+        // Adjust for decimal difference between token0 and token1
+        if (decimals0 > decimals1) {
+            priceQ96 = mulDiv(priceQ96, 10 ** (decimals0 - decimals1), 1);
+        } else if (decimals1 > decimals0) {
+            priceQ96 = mulDiv(priceQ96, 1, 10 ** (decimals1 - decimals0));
         }
 
-        return price;
+        // Invert if needed (you want USDC per ETH)
+        if (address(accountingToken) == token0) {
+            priceQ96 = mulDiv(FixedPoint96.Q96, FixedPoint96.Q96, priceQ96);
+        }
+
+        return priceQ96; // Final price, scaled for decimals, in Q96
     }
 
     function getSqrtRatioAtTick(uint tick) internal pure returns (uint160 sqrtPriceX96) {
@@ -503,7 +553,6 @@ contract Market {
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
         uint rate = clcRateAvg(frameKey);
-        console.log("Rate: ", rate);
 
         //Update frame
         frames[frameKey].rate = rate;
@@ -517,47 +566,33 @@ contract Market {
         require(getStateFrame(frameKey) == SFrame.RATED, "Frame does not have a close rate set");
         //Calculate the winning lot key based on the frame's close rate
         uint lotKeyWon = clcLotKey(frames[frameKey].rate);
-        Lot memory lotWon = lots[frameKey][lotKeyWon];
+        Lot storage lotWon = lots[frameKey][lotKeyWon];
         //Reject if lot is in state LOST
 
         // require(getStateLot(frameKey, lotKeyWon) == SLot.WON, "No winning lot in this frame");
         //Transfer winnings to last owner
         //total reward fund
-        uint rewardFundTokenDec = convertToTokenDecimals(clcRewardFund(frameKey), false);
-        uint feeTokenDec = (rewardFundTokenDec * (feeProtocol / (10 ** (18 - accountingTokenDecimals)))) / (10 ** accountingTokenDecimals);
-        uint payoutTokenDec = rewardFundTokenDec - feeTokenDec;
-
-        console.log("Reward fund: ", rewardFundTokenDec);
-        console.log("Fee: ", feeTokenDec);
-        console.log("Payout: ", payoutTokenDec);
-
-        frames[frameKey].feeSettle = feeTokenDec * (10 ** (18 - accountingTokenDecimals));
-        frames[frameKey].rewardSettle = payoutTokenDec * (10 ** (18 - accountingTokenDecimals));
+        uint rewardFund = clcRewardFund(frameKey);
+        uint fee = mulDiv(rewardFund, feeProtocol, FixedPoint96.Q96); // Q96 result
+        uint payout = rewardFund - fee;
+        frames[frameKey].feeSettle = fee;
+        frames[frameKey].rewardSettle = payout;
     
         
         //Check if lot has an owner, at least one state has to exist
         if (lotWon.states.length > 0) {
+            console.log("Lot has an owner", lotWon.states[lotWon.states.length - 1].owner);
             // Covnert reward fund to token decimals
-            // Get contract balance
-            uint256 contractBalance = accountingToken.balanceOf(address(this));
-            console.log("Contract balance: ", contractBalance);
 
-            accountingToken.transfer(lotWon.states[lotWon.states.length - 1].owner, payoutTokenDec);
+            accountingToken.transfer(lotWon.states[lotWon.states.length - 1].owner, fromQ96(payout));
             frames[frameKey].claimedBy = lotWon.states[lotWon.states.length - 1].owner;
-            console.log("Transfered reward to lot owner");
-
-            // Get the conract balance after transfer
-            uint256 contractBalanceAfter = accountingToken.balanceOf(address(this));
-            console.log("Contract balance after transfer: ", contractBalanceAfter);
 
             //transfer protocol fee to owner
-            accountingToken.transfer(owner, feeTokenDec);
-            console.log("Transfered fee to owner");
+            accountingToken.transfer(owner, fromQ96(fee));
 
         } else {
             //transfer protocol fee + reward fund to owner
-            accountingToken.transfer(owner, payoutTokenDec + feeTokenDec);
-            console.log("Reward fund in token + fee in token: ", payoutTokenDec + feeTokenDec);
+            accountingToken.transfer(owner, fromQ96(rewardFund));
             frames[frameKey].claimedBy = owner;
         }
 
@@ -583,5 +618,103 @@ contract Market {
        require(msg.sender == owner, "Only owner can change protocol fee");
        feeProtocol = newFee;
    }
+
+    // Uniswap V3 mulDiv function
+    // This function is used to multiply two numbers and then divide by a third number, all in a single operation.
+    // It's converted to solidity v.0.8.0 from the original Uniswap V3 code.
+   function mulDiv(
+        uint256 a,
+        uint256 b,
+        uint256 denominator
+    ) internal pure returns (uint256 result) {
+        // 512-bit multiply [prod1 prod0] = a * b
+        // Compute the product mod 2**256 and mod 2**256 - 1
+        // then use the Chinese Remainder Theorem to reconstruct
+        // the 512 bit result. The result is stored in two 256
+        // variables such that product = prod1 * 2**256 + prod0
+        uint256 prod0; // Least significant 256 bits of the product
+        uint256 prod1; // Most significant 256 bits of the product
+        assembly {
+            let mm := mulmod(a, b, not(0))
+            prod0 := mul(a, b)
+            prod1 := sub(sub(mm, prod0), lt(mm, prod0))
+        }
+
+        // Handle non-overflow cases, 256 by 256 division
+        if (prod1 == 0) {
+            require(denominator > 0);
+            assembly {
+                result := div(prod0, denominator)
+            }
+            return result;
+        }
+
+        // Make sure the result is less than 2**256.
+        // Also prevents denominator == 0
+        require(denominator > prod1);
+
+        ///////////////////////////////////////////////
+        // 512 by 256 division.
+        ///////////////////////////////////////////////
+
+        // Make division exact by subtracting the remainder from [prod1 prod0]
+        // Compute remainder using mulmod
+        uint256 remainder;
+        assembly {
+            remainder := mulmod(a, b, denominator)
+        }
+        // Subtract 256 bit number from 512 bit number
+        assembly {
+            prod1 := sub(prod1, gt(remainder, prod0))
+            prod0 := sub(prod0, remainder)
+        }
+
+        // Factor powers of two out of denominator
+        // Compute largest power of two divisor of denominator.
+        // Always >= 1.
+        uint256 twos = (~denominator + 1) & denominator;
+        // Divide denominator by power of two
+        assembly {
+            denominator := div(denominator, twos)
+        }
+
+        // Divide [prod1 prod0] by the factors of two
+        assembly {
+            prod0 := div(prod0, twos)
+        }
+        // Shift in bits from prod1 into prod0. For this we need
+        // to flip `twos` such that it is 2**256 / twos.
+        // If twos is zero, then it becomes one
+        assembly {
+            twos := add(div(sub(0, twos), twos), 1)
+        }
+        prod0 |= prod1 * twos;
+
+        // Invert denominator mod 2**256
+        // Now that denominator is an odd number, it has an inverse
+        // modulo 2**256 such that denominator * inv = 1 mod 2**256.
+        // Compute the inverse by starting with a seed that is correct
+        // correct for four bits. That is, denominator * inv = 1 mod 2**4
+        uint256 inv = (3 * denominator) ^ 2;
+        // Now use Newton-Raphson iteration to improve the precision.
+        // Thanks to Hensel's lifting lemma, this also works in modular
+        // arithmetic, doubling the correct bits in each step.
+        inv *= 2 - denominator * inv; // inverse mod 2**8
+        inv *= 2 - denominator * inv; // inverse mod 2**16
+        inv *= 2 - denominator * inv; // inverse mod 2**32
+        inv *= 2 - denominator * inv; // inverse mod 2**64
+        inv *= 2 - denominator * inv; // inverse mod 2**128
+        inv *= 2 - denominator * inv; // inverse mod 2**256
+
+        // Because the division is now exact we can divide by multiplying
+        // with the modular inverse of denominator. This will give us the
+        // correct result modulo 2**256. Since the precoditions guarantee
+        // that the outcome is less than 2**256, this is the final result.
+        // We don't need to compute the high bits of the result and prod1
+        // is no longer required.
+        result = prod0 * inv;
+        return result;
+    }
+
 
 }

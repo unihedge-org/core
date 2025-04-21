@@ -53,3 +53,30 @@ module.exports = {
   loadCommonContracts,
   convertToTokenUnits,
 };
+
+/**
+ * Convert token amount (in raw decimals) to Q64.96 fixed-point format
+ * @param {BigNumber} amountRaw - token amount in raw units (e.g., 15 USDC = 15 * 10^6)
+ * @param {number} tokenDecimals - decimals of the token (e.g., 6 for USDC)
+ * @returns {BigNumber} - amount in Q96 format
+ */
+function toQ96(amountRaw, tokenDecimals) {
+  const Q96 = ethers.BigNumber.from(2).pow(96);
+  const baseUnit = ethers.BigNumber.from(10).pow(tokenDecimals);
+  return amountRaw.mul(Q96).div(baseUnit);
+}
+
+/**
+ * Convert Q64.96 amount back to token decimals
+ * @param {BigNumber} amountQ96 - amount in Q96 format
+ * @param {number} tokenDecimals - decimals of the token (e.g., 6 for USDC)
+ * @returns {BigNumber} - amount in raw token units
+ */
+function fromQ96(amountQ96, tokenDecimals) {
+  const Q96 = ethers.BigNumber.from(2).pow(96);
+  const baseUnit = ethers.BigNumber.from(10).pow(tokenDecimals);
+  return amountQ96.mul(baseUnit).div(Q96);
+}
+
+module.exports.toQ96 = toQ96;
+module.exports.fromQ96 = fromQ96;

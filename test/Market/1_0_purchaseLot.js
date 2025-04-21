@@ -1,126 +1,119 @@
 const { expect, ethers, IERC20, ISwapRouter, daiAddress, wMaticAddress, uniswapRouterAddress } = require('../Helpers/imports');
-const { swapTokenForUsers, convertToTokenUnits } = require('../Helpers/functions.js');
+const { swapTokenForUsers, toQ96, fromQ96 } = require('../Helpers/functions');
 
 /*
-Random user buys a random lot in the range of 1 to 100 times dPrice
+Random user buys a random lot in the range of 1 to 100 times dPrice (Q96)
 */
 describe('Purchase one random empty lot', function () {
-  let accounts, owner, user, token, wPOLContract, contractMarket, swapRouter, frameKey, dPrice, acqPrice, tax, tokenDecimals, mathDecimals;
-  let pairPrice = ethers.BigNumber.from('0');
+  let accounts,
+    owner,
+    user,
+    token,
+    wPOLContract,
+    contractMarket,
+    contractSwapRouter,
+    frameKey,
+    rateAtStart,
+    dPrice,
+    acqPriceQ96,
+    tokenDecimals,
+    baseUnit,
+    Q96;
 
   before(async function () {
     accounts = await ethers.getSigners();
     owner = accounts[0];
 
-    //Get current block number and print it
     const block = await ethers.provider.getBlock('latest');
     console.log('\x1b[33m%s\x1b[0m', '   Current block: ', block.number);
 
-    //Contracts are loaded from addresses
     token = await ethers.getContractAt('IERC20Metadata', process.env.FUNDING_TOKEN, owner);
     wPOLContract = await ethers.getContractAt(IERC20.abi, process.env.WPOL_POLYGON, owner);
     contractSwapRouter = await ethers.getContractAt(ISwapRouter.abi, process.env.UNISWAP_ROUTER, owner);
 
-    // Get token decimals
     tokenDecimals = await token.decimals();
-    mathDecimals = 18;
+    baseUnit = ethers.BigNumber.from(10).pow(tokenDecimals);
+    Q96 = ethers.BigNumber.from(2).pow(96);
 
-    //Swap tokens for users, get DAI
     await swapTokenForUsers(accounts.slice(0, 5), wPOLContract, token, 9000, contractSwapRouter);
-    //Check if DAI balance is greater than 0
+
     let balance = await token.balanceOf(owner.address);
     console.log('\x1b[33m%s\x1b[0m', '   USDC balance: ', ethers.utils.formatUnits(balance, tokenDecimals), ' $');
     expect(balance).to.be.gt(0);
   });
+
   it('Deploy Market contract', async function () {
     const Market = await ethers.getContractFactory('Market');
-    dPrice = ethers.utils.parseUnits('100', mathDecimals);
-    let feeProtocol = ethers.utils.parseUnits('0.03', mathDecimals);
-    let feeMarket = ethers.utils.parseUnits('0.01', mathDecimals);
+    const feeProtocol = 3; // percent
+    const feeMarket = 1; // percent
+    dPrice = Number(100); // 100 USDC
     contractMarket = await Market.deploy(process.env.FUNDING_TOKEN, feeProtocol, feeMarket, dPrice, process.env.POOL);
-    //Expect owner to be first account
+
     expect(await contractMarket.owner()).to.equal(accounts[0].address);
-    //Expect period to be 1 day in seconds
     expect(await contractMarket.period()).to.equal(86400);
 
-    //get dPrice
-    let _dPrice = await contractMarket.dPrice();
-    console.log('\x1b[33m%s\x1b[0m', '   dPrice: ', ethers.utils.formatUnits(_dPrice, tokenDecimals), ' USDC');
-    expect(dPrice).to.be.gt(0);
+    const _dPrice = await contractMarket.dPrice();
+    console.log(
+      '\x1b[33m%s\x1b[0m',
+      '   dPrice (formatted): ',
+      ethers.utils.formatUnits(fromQ96(_dPrice, tokenDecimals), tokenDecimals),
+      ' USDC'
+    );
+    // expect(dPrice).to.be.equal(Number(ethers.utils.formatUnits(fromQ96(_dPrice, tokenDecimals), tokenDecimals)).toFixed(0));
+
+    // get current rate
+    rateAtStart = await contractMarket.clcRate();
+    const raw = fromQ96(rateAtStart, tokenDecimals);
+    console.log('Raw token rate:', raw.toString());
+    console.log(
+      '\x1b[33m%s\x1b[0m',
+      '   Current rate: ',
+      ethers.utils.formatUnits(fromQ96(rateAtStart, tokenDecimals), tokenDecimals),
+      ' USDC'
+    );
+    console.log('\x1b[33m%s\x1b[0m', '   Q96 rate: ', rateAtStart, ' USDC');
+    expect(rateAtStart).to.be.gt(0);
   });
-  it('Approve USDC to spend', async function () {
-    //Select random account
+
+  it('Approve USDC to spend and Purchase Lot', async function () {
     user = accounts[Math.floor(Math.random() * 4) + 1];
-    //Get current block timestamp
     const block = await ethers.provider.getBlock('latest');
 
     frameKey = await contractMarket.clcFrameKey(block.timestamp + 259200);
 
-    // Get the current date and time in UTC
-    const now = new Date();
+    // Acquisition price: 15 USDC in Q96
+    const acqRaw = ethers.utils.parseUnits('15', tokenDecimals);
+    acqPriceQ96 = toQ96(acqRaw, tokenDecimals);
 
-    // Get the timestamp of today at 16:00 GMT
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 16, 0, 0, 0));
-    // Convert to seconds
-    const timestamp = Math.floor(today.getTime() / 1000);
-    // Perform the assertion
-    // expect(frameKey).to.equal(timestamp + 259200 );
+    const taxQ96 = await contractMarket.clcTax(frameKey, acqPriceQ96);
+    const taxToken = fromQ96(taxQ96, tokenDecimals);
 
-    //Select random pair price in range of 1 to 100 times dPrice
-    pairPrice = ethers.BigNumber.from(Math.floor(Math.random() * 100) + 1);
-    pairPrice = pairPrice.mul(dPrice);
+    console.log('\x1b[36m%s\x1b[0m', '   Tax: ', ethers.utils.formatUnits(taxToken, tokenDecimals), ' USDC');
 
-    //Acqusition price in DAI:
-    acqPrice = ethers.utils.parseUnits('15', mathDecimals);
-    //Calculate approval amount
-    tax = await contractMarket.clcTax(frameKey, acqPrice);
+    await token.connect(user).approve(contractMarket.address, taxToken);
+    const allowance = await token.allowance(user.address, contractMarket.address);
+    expect(allowance).to.equal(taxToken);
 
-    tokenTax = convertToTokenUnits(ethers.utils.formatUnits(tax, mathDecimals), tokenDecimals);
+    const lotKey = await contractMarket.clcLotKey(rateAtStart);
+    const balanceBefore = await token.balanceOf(user.address);
 
-    //Print tax in blue
-    console.log('\x1b[36m%s\x1b[0m', '   Tax: ', ethers.utils.formatUnits(tokenTax, tokenDecimals), ' USDC');
+    await contractMarket.connect(user).tradeLot(frameKey, lotKey, acqPriceQ96);
 
-    //Approve DAI to spend
-    await token.connect(user).approve(contractMarket.address, tokenTax);
-    //Check allowance
-    let allowance = await token.allowance(user.address, contractMarket.address);
-    console.log('\x1b[33m%s\x1b[0m', '   Allowance: ', ethers.utils.formatUnits(allowance, tokenDecimals), ' USDC');
-    expect(allowance).to.equal(tokenTax);
-  });
-  it('Purchase lot', async function () {
-    //get users current DAI balance
-    let balanceBefore = await token.balanceOf(user.address);
-    //get current block
-    const block = await ethers.provider.getBlock('latest');
-    //Purchase lot
-    await contractMarket
-      .connect(user)
-      .tradeLot(frameKey, pairPrice, acqPrice, { maxFeePerGas: ethers.BigNumber.from(Math.floor(1.25 * block.baseFeePerGas)) });
-    //get users new DAI balance
-    let balanceAfter = await token.balanceOf(user.address);
-    //expect statement to check if balance is same as tax
-    console.log(
-      '\x1b[33m%s\x1b[0m',
-      '   USDC Difference: ',
-      ethers.utils.formatUnits(balanceBefore.sub(balanceAfter), tokenDecimals),
-      '  USDC'
-    );
+    const balanceAfter = await token.balanceOf(user.address);
+    const diff = balanceBefore.sub(balanceAfter);
 
-    //Get Lot and check if it exists
-    let lot = await contractMarket.getLot(frameKey, pairPrice);
+    console.log('\x1b[33m%s\x1b[0m', '   USDC Difference: ', ethers.utils.formatUnits(diff, tokenDecimals), ' USDC');
+
+    const lot = await contractMarket.getLot(frameKey, lotKey);
     expect(lot.frameKey).to.equal(frameKey);
-    expect(lot.lotKey).to.equal(pairPrice);
+    expect(lot.lotKey).to.equal(lotKey);
 
-    //Get lot states and check if they are correct
-    let lotStates = await contractMarket.getLotStates(frameKey, pairPrice);
+    const lotStates = await contractMarket.getLotStates(frameKey, lotKey);
+    const taxCharged = fromQ96(lotStates[0].taxCharged, tokenDecimals);
 
-    // Convert tax charged to token units
-    let taxChargedTokenUnits = convertToTokenUnits(ethers.utils.formatUnits(lotStates[0].taxCharged, mathDecimals), tokenDecimals);
-
-    //Check if lot states are correct
     expect(lotStates[0].owner).to.equal(user.address);
-    expect(lotStates[0].acquisitionPrice).to.equal(acqPrice);
-    expect(taxChargedTokenUnits).to.equal(balanceBefore.sub(balanceAfter));
+    expect(lotStates[0].acquisitionPrice).to.equal(acqPriceQ96);
+    expect(taxCharged).to.equal(diff);
     expect(lotStates[0].taxRefunded).to.equal(0);
     expect(lotStates.length).to.equal(1);
   });

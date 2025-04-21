@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\lukal\\Dev\\unihedge\\core\\contracts\\Market.sol": {
-      "lastModificationDate": 1744743490096,
-      "contentHash": "a9f41cf1192dc68e62e7b3de4587d9db",
+      "lastModificationDate": 1745246327064,
+      "contentHash": "8ce4b614a9527d373810b79777293f05",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -32,6 +32,7 @@
       "imports": [
         "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol",
         "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
+        "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol",
         "hardhat/console.sol"
       ],
       "versionPragmas": [
@@ -448,6 +449,42 @@
       ],
       "artifacts": [
         "IERC20Metadata"
+      ]
+    },
+    "C:\\Users\\lukal\\Dev\\unihedge\\core\\node_modules\\@uniswap\\v3-core\\contracts\\libraries\\FixedPoint96.sol": {
+      "lastModificationDate": 1743785602958,
+      "contentHash": "f3ab03d6bbfd7c6834ecd3fc311cb0e7",
+      "sourceName": "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.0"
+      ],
+      "artifacts": [
+        "FixedPoint96"
       ]
     }
   }
