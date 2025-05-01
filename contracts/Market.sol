@@ -455,10 +455,7 @@ contract Market {
             priceQ96 = mulDiv(priceQ96, 1, 10 ** (decimals1 - decimals0));
         }
 
-        // Invert if needed (you want USDC per ETH)
-        if (address(accountingToken) == token0) {
-            priceQ96 = mulDiv(FixedPoint96.Q96, FixedPoint96.Q96, priceQ96);
-        }
+        priceQ96 = mulDiv(FixedPoint96.Q96, FixedPoint96.Q96, priceQ96);
 
         return priceQ96; // Final price, scaled for decimals, in Q96
     }
@@ -507,10 +504,8 @@ contract Market {
             priceQ96 = mulDiv(priceQ96, 1, 10 ** (decimals1 - decimals0));
         }
 
-        // Invert if needed (you want USDC per ETH)
-        if (address(accountingToken) == token0) {
-            priceQ96 = mulDiv(FixedPoint96.Q96, FixedPoint96.Q96, priceQ96);
-        }
+        // Divide by 1, because we want the rate in token0
+        priceQ96 = mulDiv(FixedPoint96.Q96, FixedPoint96.Q96, priceQ96);
 
         return priceQ96; // Final price, scaled for decimals, in Q96
     }
@@ -549,6 +544,8 @@ contract Market {
     }
 
     function setFrameRate(uint frameKey) public {
+        // Check if frameKey exists
+        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
         //Frame has to be in state CLOSED
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
@@ -563,7 +560,7 @@ contract Market {
         //Reject of frame don't exist
         require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
         //Reject if frame is not in state RATED
-        require(getStateFrame(frameKey) == SFrame.RATED, "Frame does not have a close rate set");
+        require(getStateFrame(frameKey) == SFrame.RATED, "Frame is not in RATED state");
         //Calculate the winning lot key based on the frame's close rate
         uint lotKeyWon = clcLotKey(frames[frameKey].rate);
         Lot storage lotWon = lots[frameKey][lotKeyWon];
