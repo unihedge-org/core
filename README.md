@@ -2,10 +2,10 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0x7B3D495744B0587f99Ef88E4A882Ab585324d43f](https://polygonscan.com/address/0x7B3D495744B0587f99Ef88E4A882Ab585324d43f)
+* Market address: [0x54887BB42411F5457A68eFb15F318ad5F54B74f2](https://polygonscan.com/address/0x54887BB42411F5457A68eFb15F318ad5F54B74f2)
     * Accounting Token - USDC: [0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359](https://polygonscan.com/address/0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359)
 
-* Market Getter address: [0x230366F6EE50FCe5F77eCa27FcA0Cc02Db683D7f](https://polygonscan.com/address/0x230366F6EE50FCe5F77eCa27FcA0Cc02Db683D7f)
+* Market Getter address: [0x2Fa4502d83347d578e3f4Bcfd61EB3de6922A6Eb](https://polygonscan.com/address/0x2Fa4502d83347d578e3f4Bcfd61EB3de6922A6Eb)
 
 
 ## Deploy on Sepolia testnet:

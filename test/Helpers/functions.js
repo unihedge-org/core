@@ -75,7 +75,7 @@ function toQ96(amountRaw, tokenDecimals) {
 function fromQ96(amountQ96, tokenDecimals) {
   const Q96 = ethers.BigNumber.from(2).pow(96);
   const baseUnit = ethers.BigNumber.from(10).pow(tokenDecimals);
-  return amountQ96.mul(baseUnit).div(Q96);
+  return amountQ96.mul(baseUnit).add(Q96.div(2)).div(Q96); // rounded to nearest
 }
 
 module.exports.toQ96 = toQ96;

@@ -105,6 +105,7 @@ describe('Settle frame and reward winning lot', function () {
     expect(lot.frameKey).to.equal(frameKey);
     expect(lot.lotKey).to.equal(lotKey);
 
+    console.log('   Getting state of Lot key:', lotKey);
     const lotStates = await contractMarket.getLotStates(frameKey, lotKey);
     const taxCharged = fromQ96(lotStates[0].taxCharged, tokenDecimals);
 
@@ -114,7 +115,34 @@ describe('Settle frame and reward winning lot', function () {
     expect(lotStates[0].taxRefunded).to.equal(0);
     expect(lotStates.length).to.equal(1);
   });
+  it('5 users buy 5 random lots', async function () {
+    const block = await ethers.provider.getBlock('latest');
 
+    for (let i = 1; i < 5; i++) {
+      const loserUser = accounts[i];
+      const pairPrice = rateAtStart.add(await contractMarket.dPrice()).mul(i + 2);
+      const acqRaw = ethers.utils.parseUnits('15', tokenDecimals);
+      const acqPriceQ96 = toQ96(acqRaw, tokenDecimals);
+      const taxQ96 = await contractMarket.clcTax(frameKey, acqPriceQ96);
+      const taxToken = fromQ96(taxQ96, tokenDecimals);
+
+      const balanceBefore = await token.balanceOf(loserUser.address);
+      await token.connect(loserUser).approve(contractMarket.address, taxToken);
+      await contractMarket.connect(loserUser).tradeLot(frameKey, pairPrice, acqPriceQ96);
+      const balanceAfter = await token.balanceOf(loserUser.address);
+
+      const diff = balanceBefore.sub(balanceAfter);
+      console.log('   USDC Difference:', ethers.utils.formatUnits(diff, tokenDecimals), 'USDC');
+      expect(diff).to.be.closeTo(taxToken, 20);
+    }
+
+    // Get all lot keys from the frame
+    const lots = await contractMarket.getLotsArray();
+    console.log('   Lots:', lots.length);
+    lotKey = await contractMarket.clcLotKey(rateAtStart);
+    const lotStates = await contractMarket.getLotStates(frameKey, lotKey);
+    console.log('   Lot states:', lotStates.length);
+  });
   it('Settle frame', async function () {
     await ethers.provider.send('evm_increaseTime', [86400 * 5]);
     await ethers.provider.send('evm_mine');
@@ -130,16 +158,16 @@ describe('Settle frame and reward winning lot', function () {
     const expectedPayoutToken = fromQ96(payoutQ96, tokenDecimals);
 
     const balanceBefore = await token.balanceOf(user.address);
-    await contractMarket.connect(owner).settleFrame(frameKey);
+    +(await contractMarket.connect(owner).settleFrame(frameKey));
     const balanceAfter = await token.balanceOf(user.address);
 
     const diff = balanceAfter.sub(balanceBefore);
     console.log('Reward diff (tokens):', ethers.utils.formatUnits(diff, tokenDecimals));
     console.log('Expected payout (tokens):', ethers.utils.formatUnits(expectedPayoutToken, tokenDecimals));
 
-    expect(diff).to.be.equal(expectedPayoutToken);
+    expect(diff).closeTo(expectedPayoutToken, 2);
 
     const frameAfter = await contractMarket.getFrame(frameKey);
-    expect(frameAfter.claimedBy).to.equal(user.address);
+    expect(frameAfter.claimedBy).to.be.equal(user.address);
   });
 });

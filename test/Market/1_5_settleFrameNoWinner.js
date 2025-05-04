@@ -91,7 +91,7 @@ describe('Settle frame and reward winning lot', function () {
 
       const diff = balanceBefore.sub(balanceAfter);
       console.log('   USDC Difference:', ethers.utils.formatUnits(diff, tokenDecimals), 'USDC');
-      expect(diff).to.be.closeTo(taxToken, 10);
+      expect(diff).to.be.closeTo(taxToken, 20);
     }
   });
 

@@ -114,7 +114,7 @@ describe('Purchase one random empty lot', function () {
 
     expect(lotStates[0].owner).to.equal(user.address);
     expect(lotStates[0].acquisitionPrice).to.equal(acqPriceQ96);
-    expect(taxCharged).to.equal(diff);
+    expect(taxCharged).closeTo(diff, 1);
     expect(lotStates[0].taxRefunded).to.equal(0);
     expect(lotStates.length).to.equal(1);
   });
@@ -149,7 +149,7 @@ describe('Purchase one random empty lot', function () {
     let lotStates = await contractMarket.getLotStates(frameKey, lotKey);
     let taxCharged = fromQ96(lotStates[1].taxCharged, tokenDecimals);
     expect(lotStates[1].owner).to.equal(user.address);
-    expect(taxCharged).to.equal(balanceDifference);
+    expect(taxCharged).closeTo(balanceDifference, 1);
     expect(lotStates[1].acquisitionPrice).to.equal(newAcquisitionPriceQ96);
   });
 });

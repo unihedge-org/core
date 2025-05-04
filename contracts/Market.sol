@@ -244,13 +244,8 @@ contract Market {
         require(frameKey + period > block.timestamp, "Frame has to be in the future");
 
         uint256 duration = (frameKey + period) - block.timestamp;
-
         uint256 taxPerSecondQ96 = taxMarket / period;
-        uint256 taxMultiplierQ96 = taxPerSecondQ96 * duration;
-
-        // Wwith mupliplication of two Q96 numbers, we get Q192 number, 
-        // so we need to divide by Q96 to get back to Q96 number
-        uint256 taxQ96 = mulDiv(taxMultiplierQ96, acquisitionPriceQ96, FixedPoint96.Q96);
+        uint256 taxQ96 = mulDiv(taxPerSecondQ96 * duration, acquisitionPriceQ96, FixedPoint96.Q96);
         
         return taxQ96;
     }
@@ -351,6 +346,7 @@ contract Market {
 
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), taxToken);
+        console.log("Tax amount transferred to the market contract", taxToken);
     }
 
     function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {

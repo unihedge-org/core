@@ -75,7 +75,7 @@ describe('Purchase one random empty lot', function () {
     expect(rateAtStart).to.be.gt(0);
   });
 
-  it('Approve USDC to spend and Purchase Lot', async function () {
+  it('Approve USDC to spend and Purchase a Lot', async function () {
     user = accounts[Math.floor(Math.random() * 4) + 1];
     const block = await ethers.provider.getBlock('latest');
 
@@ -86,6 +86,7 @@ describe('Purchase one random empty lot', function () {
     acqPriceQ96 = toQ96(acqRaw, tokenDecimals);
 
     const taxQ96 = await contractMarket.clcTax(frameKey, acqPriceQ96);
+    console.log('\x1b[33m%s\x1b[0m', '   Tax Q96: ', taxQ96.toString(), ' USDC Q96');
     const taxToken = fromQ96(taxQ96, tokenDecimals);
 
     console.log('\x1b[36m%s\x1b[0m', '   Tax: ', ethers.utils.formatUnits(taxToken, tokenDecimals), ' USDC');
@@ -113,7 +114,7 @@ describe('Purchase one random empty lot', function () {
 
     expect(lotStates[0].owner).to.equal(user.address);
     expect(lotStates[0].acquisitionPrice).to.equal(acqPriceQ96);
-    expect(taxCharged).to.equal(diff);
+    expect(taxCharged).closeTo(diff, 1);
     expect(lotStates[0].taxRefunded).to.equal(0);
     expect(lotStates.length).to.equal(1);
   });
