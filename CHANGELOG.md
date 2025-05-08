@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.33](https://github.com/unihedge-org/core/compare/v0.0.32...v0.0.33) (2025-05-04)
+
+### [0.0.32](https://github.com/unihedge-org/core/compare/v0.0.31...v0.0.32) (2025-05-01)
+
+### [0.0.31](https://github.com/unihedge-org/core/compare/v0.0.30...v0.0.31) (2025-04-21)
+
+### [0.0.30](https://github.com/unihedge-org/core/compare/v0.0.29...v0.0.30) (2025-04-15)
+
+### [0.0.29](https://github.com/unihedge-org/core/compare/v0.0.28...v0.0.29) (2025-04-11)
+
+### [0.0.28](https://github.com/unihedge-org/core/compare/v0.0.27...v0.0.28) (2025-04-08)
+
+### [0.0.27](https://github.com/unihedge-org/core/compare/v0.0.26...v0.0.27) (2025-04-08)
+
+### [0.0.26](https://github.com/unihedge-org/core/compare/v0.0.25...v0.0.26) (2025-04-08)
+
+### [0.0.25](https://github.com/unihedge-org/core/compare/v0.0.24...v0.0.25) (2025-04-08)
+
 ### [0.0.24](https://github.com/unihedge-org/core/compare/v0.0.23...v0.0.24) (2025-01-19)
 
 ### [0.0.23](https://github.com/unihedge-org/core/compare/v0.0.22...v0.0.23) (2024-11-07)
