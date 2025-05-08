@@ -10,7 +10,7 @@ async function main() {
 
   const accountingToken = '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9'; // WETH
   const pool = '0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50'; // USDC/WETH
-  const dPrice = Number(100);
+  const dPrice = Number(10);
   const feeProtocol = 3;
   const feeMarket = 1;
 

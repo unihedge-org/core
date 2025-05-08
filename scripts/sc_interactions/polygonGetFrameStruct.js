@@ -48,27 +48,14 @@ async function main() {
 
   // get the last frame
   let frameKey = 1746374400;
-  // Set frame rate - setFrameRate
-  let transaction = await market.connect(accounts[0]).setFrameRate(frameKey, {
-    gasPrice: ethers.utils.parseUnits('50', 'gwei'),
-    gasLimit: 5_000_000,
-  });
-  await transaction.wait();
-  console.log('Frame: ', frameKey.toString(), ' setFrameRate transaction hash: ', transaction.hash);
 
-  // Call getFrame from market contract
-  // let frame = await market.getFrame(frameKey);
-  // console.log('Frame: ', frameKey.toString(), ' frame: ', frame);
-
-  transaction = await market.connect(accounts[0]).settleFrame(frameKey, {
-    gasPrice: ethers.utils.parseUnits('50', 'gwei'),
-    gasLimit: 5_000_000,
-  });
-  await transaction.wait();
-  console.log('Frame: ', frameKey.toString(), ' settlement transaction hash: ', transaction.hash);
+  // Get frame struct
+  let frame = await market.getFrame(frameKey);
+  console.log('Frame: ', frame);
 }
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
+
 main()
   .then(() => process.exit(0))
   .catch(error => {
