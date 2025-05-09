@@ -164,10 +164,14 @@ describe('Settle frame and reward winning lot', function () {
     const diff = balanceAfter.sub(balanceBefore);
     console.log('Reward diff (tokens):', ethers.utils.formatUnits(diff, tokenDecimals));
     console.log('Expected payout (tokens):', ethers.utils.formatUnits(expectedPayoutToken, tokenDecimals));
-
-    expect(diff).closeTo(expectedPayoutToken, 2);
+    +expect(diff).closeTo(expectedPayoutToken, 2);
 
     const frameAfter = await contractMarket.getFrame(frameKey);
     expect(frameAfter.claimedBy).to.be.equal(user.address);
+
+    let winning_rate = fromQ96(frameAfter.rate, tokenDecimals);
+    console.log('Winning rate:', winning_rate.toString());
+    const lotWinner = await contractMarket.clcLotKey(frameAfter.rate);
+    expect(lotWinner).to.be.equal(lotKey);
   });
 });

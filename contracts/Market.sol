@@ -545,7 +545,7 @@ contract Market {
         //Frame has to be in state CLOSED
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
-        uint rate = clcRateAvg(frameKey);
+        uint rate = clcRateAvg(frameKey + period);
 
         //Update frame
         frames[frameKey].rate = rate;
