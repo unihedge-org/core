@@ -11,13 +11,13 @@ import "hardhat/console.sol";
 /// @author UniHedge
 contract Market {
     //Length of a frame in [seconds] (1 day)
-    uint public period = 3600; //64b
+    uint public period = 86400; //64b
     //Market begin timestamp 1.1.2024 [seconds]
     uint public initTimestamp = 1704124800; //64b
     //Protocol fee 3.00% per frame [wei] writen with 6 decimals = 0.03
     uint256 public feeProtocol = 0; //256b
     //Settle interval for average price calculation in [seconds] (10 minutes)
-    uint public tSettle = 60;
+    uint public tSettle = 600;
     //Uniswap pool
     IUniswapV3Pool public uniswapPool; // Sepolia: 0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50 // Polygon: 0x45dDa9cb7c25131DF268515131f647d726f50608
     //Range of a lot [wei ETH/USDC], 
@@ -545,7 +545,7 @@ contract Market {
         //Frame has to be in state CLOSED
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
-        uint rate = clcRateAvg(frameKey);
+        uint rate = clcRateAvg(frameKey + period);
 
         //Update frame
         frames[frameKey].rate = rate;
