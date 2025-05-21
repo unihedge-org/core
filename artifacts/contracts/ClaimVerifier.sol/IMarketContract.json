@@ -1,0 +1,67 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IMarketContract",
+  "sourceName": "contracts/ClaimVerifier.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "frameKey",
+          "type": "uint256"
+        }
+      ],
+      "name": "getFrame",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "frameKey",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "rate",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "lotKeys",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address",
+              "name": "claimedBy",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "rateSettle",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "feeSettle",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "rewardSettle",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IMarketContract.Frame",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

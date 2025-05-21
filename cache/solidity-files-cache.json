@@ -486,6 +486,43 @@
       "artifacts": [
         "FixedPoint96"
       ]
+    },
+    "C:\\Users\\lukal\\Dev\\unihedge\\core\\contracts\\ClaimVerifier.sol": {
+      "lastModificationDate": 1747845275952,
+      "contentHash": "ef0a9f4c4f5172ca4c6df57431b02861",
+      "sourceName": "contracts/ClaimVerifier.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ClaimVerifier",
+        "IMarketContract"
+      ]
     }
   }
 }

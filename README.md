@@ -6,3 +6,5 @@
     * Accounting Token - USDC: [0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359](https://polygonscan.com/address/0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359)
 
 * Market Getter address: [0x2f896ED0daada5136A41BbeAB6e2093C80D52928](https://polygonscan.com/address/0x2f896ED0daada5136A41BbeAB6e2093C80D52928)
+
+* Claim Verifier address: [0x6c542C2535e6d1ee0857B107ea3dBd370ACD180f](https://polygonscan.com/address/0x6c542C2535e6d1ee0857B107ea3dBd370ACD180f)
