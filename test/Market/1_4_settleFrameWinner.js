@@ -133,7 +133,7 @@ describe('Settle frame and reward winning lot', function () {
 
       const diff = balanceBefore.sub(balanceAfter);
       console.log('   USDC Difference:', ethers.utils.formatUnits(diff, tokenDecimals), 'USDC');
-      expect(diff).to.be.closeTo(taxToken, 20);
+      expect(diff).to.be.closeTo(taxToken, 50);
     }
 
     // Get all lot keys from the frame

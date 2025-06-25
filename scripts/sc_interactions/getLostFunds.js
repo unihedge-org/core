@@ -1,10 +1,10 @@
 // import { readFileSync } from "fs";
-const { readFileSync } = require("fs");
+const { readFileSync } = require('fs');
 
 //Load ERC20.json from @openzeppelin/contracts build folder
-const daiABI = JSON.parse(readFileSync("node_modules/@openzeppelin/contracts/build/contracts/ERC20.json", "utf8"));
+const daiABI = JSON.parse(readFileSync('node_modules/@openzeppelin/contracts/build/contracts/ERC20.json', 'utf8'));
 
-let addressDAIToken = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
+let addressDAIToken = '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063';
 
 async function main() {
   // Hardhat always runs the compile task when running scripts with its command
@@ -12,32 +12,27 @@ async function main() {
   //
   // If this script is run directly using `node` you may want to call compile
   // manually to make sure everything is compiled
-  await run("compile");
+  await run('compile');
 
   //Print the account address
-  console.log("Connecting to network...");
+  console.log('Connecting to network...');
   const accounts = await hre.ethers.getSigners();
 
   //Console.log the network
-  console.log("Network:", await ethers.provider.getNetwork());
+  console.log('Network:', await ethers.provider.getNetwork());
 
   const dai = await new ethers.Contract(addressDAIToken, daiABI.abi, accounts[0]);
 
-  const Market = await ethers.getContractFactory("Market");
-  const market = Market.attach("0x0B0ce68385a39907BcbAb7327EDCA4eFABA092d1");
+  const Market = await ethers.getContractFactory('Market');
+  const market = Market.attach('0x28824b535d1F4edaf89a36B558811CB1c0b9Aa47');
 
-  console.log("Market address: ", market.address);
-
-  const MarketGetter = await ethers.getContractFactory("MarketGetter");
-  const marketGetter = MarketGetter.attach("0x1c7FdF81E725c4AEae48E3C8a17E6c444f9E3856");
-
-  console.log("MarketGetter address: ", marketGetter.address);
+  console.log('Market address: ', market.address);
 
   // Get DAI balance of the contract
   let balance1 = await dai.connect(accounts[0]).balanceOf(market.address);
   // Convert to ETH from WEI
   balance1 = ethers.utils.formatUnits(balance1, 18);
-  console.log("DAI Balance: " + balance1.toString());
+  console.log('DAI Balance: ' + balance1.toString());
 
   const balanceInWei = ethers.utils.parseUnits(balance1, 18);
 
@@ -48,12 +43,12 @@ async function main() {
   let balance2 = await dai.connect(accounts[0]).balanceOf(market.address);
   // Convert to ETH from WEI
   balance2 = ethers.utils.formatUnits(balance2, 18);
-  console.log("DAI Balance: " + balance2.toString());
+  console.log('DAI Balance: ' + balance2.toString());
 }
 main()
   .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("\x1b[31mError encountered:", error.message, "\x1b[0m");
+  .catch(error => {
+    console.error('\x1b[31mError encountered:', error.message, '\x1b[0m');
     process.exit(1);
   });
 

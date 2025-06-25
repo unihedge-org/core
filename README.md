@@ -2,9 +2,9 @@
 ## Deployed contracts on Polygon mainnet:
 
 
-* Market address: [0xdD90A0504aA3215Dd0E7fb45471A0B133CC3f567](https://polygonscan.com/address/0xdD90A0504aA3215Dd0E7fb45471A0B133CC3f567)
+* Market address: [0x0107553Ec904dB553E3a779fCD3164EF2F44ed2f](https://polygonscan.com/address/0x0107553Ec904dB553E3a779fCD3164EF2F44ed2f)
     * Accounting Token - USDC: [0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359](https://polygonscan.com/address/0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359)
 
-* Market Getter address: [0x2f896ED0daada5136A41BbeAB6e2093C80D52928](https://polygonscan.com/address/0x2f896ED0daada5136A41BbeAB6e2093C80D52928)
+* Market Getter address: [0xd92679C8b6e09735ba519De82a67f55886b41363](https://polygonscan.com/address/0xd92679C8b6e09735ba519De82a67f55886b41363)
 
-* Claim Verifier address: [0x6c542C2535e6d1ee0857B107ea3dBd370ACD180f](https://polygonscan.com/address/0x6c542C2535e6d1ee0857B107ea3dBd370ACD180f)
+* Claim Verifier address: [0xEDdff728784312214d9d68fEdDEf4079b1968a63](https://polygonscan.com/address/0xEDdff728784312214d9d68fEdDEf4079b1968a63)

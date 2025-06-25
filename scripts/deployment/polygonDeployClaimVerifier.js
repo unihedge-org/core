@@ -6,7 +6,7 @@ async function main() {
   // manually to make sure everything is compiled
   // await hre.run('compile');
 
-  const marketAddress = '0xdD90A0504aA3215Dd0E7fb45471A0B133CC3f567';
+  const marketAddress = '0x0107553Ec904dB553E3a779fCD3164EF2F44ed2f';
 
   //Print the account address
   const accounts = await hre.ethers.getSigners();

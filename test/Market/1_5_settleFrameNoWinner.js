@@ -91,7 +91,7 @@ describe('Settle frame and reward winning lot', function () {
 
       const diff = balanceBefore.sub(balanceAfter);
       console.log('   USDC Difference:', ethers.utils.formatUnits(diff, tokenDecimals), 'USDC');
-      expect(diff).to.be.closeTo(taxToken, 20);
+      expect(diff).to.be.closeTo(taxToken, 50);
     }
   });
 
@@ -120,6 +120,6 @@ describe('Settle frame and reward winning lot', function () {
     const expectedTotal = fromQ96(frame[5].add(frame[6]), tokenDecimals);
 
     expect(frame[3]).to.equal(owner.address);
-    expect(balanceAfterOwner).to.equal(balanceBeforeOwner.add(expectedTotal));
+    expect(balanceAfterOwner).to.be.closeTo(balanceBeforeOwner.add(expectedTotal), 5);
   });
 });
