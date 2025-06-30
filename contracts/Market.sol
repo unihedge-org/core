@@ -250,20 +250,15 @@ contract Market {
 
         if (daysRemaining >= 10) {
             // 10 or more days remaining: 1% tax per period
-            console.log("10 or more days remaining, tax is static at 1%");
             dynamicTaxMarket = taxMarket;
         } else {
             // Less than 10 days: tax increases linearly from 1% to 10%
             // Formula: tax = 10 - daysRemaining
-            console.log("Less than 10 days remaining, tax is dynamic");
-            console.log("Days remaining:", daysRemaining);
             uint256 taxPercentage = 10 - daysRemaining;
-            console.log("Tax percentage is", taxPercentage, "%");
             dynamicTaxMarket = toQ96(baseUnit * taxPercentage / 100);
         }
 
-        uint256 taxPerSecondQ96 = dynamicTaxMarket / period;
-        uint256 taxQ96 = mulDiv(taxPerSecondQ96, acquisitionPriceQ96, FixedPoint96.Q96);
+        uint256 taxQ96 = mulDiv(dynamicTaxMarket, acquisitionPriceQ96, FixedPoint96.Q96);
         
         return taxQ96;
     }
