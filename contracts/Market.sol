@@ -263,7 +263,7 @@ contract Market {
         }
 
         uint256 taxPerSecondQ96 = dynamicTaxMarket / period;
-        uint256 taxQ96 = mulDiv(taxPerSecondQ96 * duration, acquisitionPriceQ96, FixedPoint96.Q96);
+        uint256 taxQ96 = mulDiv(taxPerSecondQ96, acquisitionPriceQ96, FixedPoint96.Q96);
         
         return taxQ96;
     }
