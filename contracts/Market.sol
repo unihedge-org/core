@@ -253,8 +253,10 @@ contract Market {
             dynamicTaxMarket = taxMarket;
         } else {
             // Less than 10 days: tax increases linearly from 1% to 10%
+            console.log("Days remaining for tax calculation:", daysRemaining);
             // Formula: tax = 10 - daysRemaining
             uint256 taxPercentage = 10 - daysRemaining;
+            console.log("Dynamic tax percentage:", taxPercentage);
             dynamicTaxMarket = toQ96(baseUnit * taxPercentage / 100);
         }
 
@@ -324,9 +326,11 @@ contract Market {
         uint taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
         // Convert tax to token decimals
         uint taxToken = fromQ96(taxQ96);
+        console.log("Tax amount in token decimals", taxToken);
         //Tax has to be greater than 0
         require(taxToken > 0, "Tax has to be greater than 0. Increase the acquisition price");
         //Approved amount has to be at least equal to tax
+        console.log("Allowance to spend", accountingToken.allowance(msg.sender, address(this)));
         require(accountingToken.allowance(msg.sender, address(this)) >= taxToken, "Allowance to spend set too low");
 
         //this check is because with the concat function, the lotKey is not limited to full uint256 range anymore

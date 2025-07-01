@@ -82,7 +82,7 @@ describe('Purchase one random empty lot', function () {
     frameKey = await contractMarket.clcFrameKey(block.timestamp + 259200);
 
     // Acquisition price: 15 USDC in Q96
-    const acqRaw = ethers.utils.parseUnits('15', tokenDecimals);
+    const acqRaw = ethers.utils.parseUnits('1', tokenDecimals);
     acqPriceQ96 = toQ96(acqRaw, tokenDecimals);
 
     const taxQ96 = await contractMarket.clcTax(frameKey, acqPriceQ96);
