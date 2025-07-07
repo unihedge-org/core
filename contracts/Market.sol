@@ -6,6 +6,7 @@ pragma abicoder v2;
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "hardhat/console.sol";
 
 /// @author UniHedge
@@ -26,6 +27,8 @@ contract Market {
     uint256 public taxMarket = 0; //256b
     //ERC20 token used for buying lots in this contract
     IERC20Metadata public accountingToken; //256b // USDC token address on Polygon
+    //Max tax denominator for dynamic tax calculation
+    uint256 constant MAX_TAX_DENOMINATOR = 4; // 25% = 1/4
     // ERC20 token decimals	
     uint8 public accountingTokenDecimals;
     // Base unit for calculations
@@ -241,27 +244,26 @@ contract Market {
 
     //Calculate amount of tax to be collected from the owner of the lot
     function clcTax(uint frameKey, uint256 acquisitionPriceQ96) public view returns (uint256) {
-        require(frameKey + period > block.timestamp, "Frame has to be in the future");
+        uint256 settlement = frameKey + period;
+        require(settlement > block.timestamp, "Frame has to be in the future");  
 
-        uint256 duration = (frameKey + period) - block.timestamp;
+        // 1) Compute daysRemaining
+        uint256 secondsLeft = settlement - block.timestamp;
+        uint256 daysRemaining = secondsLeft / 86400;
 
-        uint256 dynamicTaxMarket;
-        uint256 daysRemaining = duration / 86400;
+        // 2) Horizon = daysRemaining + 1
+        uint256 horizon = daysRemaining + 1;
 
-        if (daysRemaining >= 10) {
-            // 10 or more days remaining: 1% tax per period
-            dynamicTaxMarket = taxMarket;
-        } else {
-            // Less than 10 days: tax increases linearly from 1% to 10%
-            console.log("Days remaining for tax calculation:", daysRemaining);
-            // Formula: tax = 10 - daysRemaining
-            uint256 taxPercentage = 10 - daysRemaining;
-            console.log("Dynamic tax percentage:", taxPercentage);
-            dynamicTaxMarket = toQ96(baseUnit * taxPercentage / 100);
-        }
+        // 3) Compute sqrt(horizon)
+        uint256 root = Math.sqrt(horizon);
 
-        uint256 taxQ96 = mulDiv(dynamicTaxMarket, acquisitionPriceQ96, FixedPoint96.Q96);
-        
+        // 4) Tax rate in Q96 = (25% = 1/4) * Q96 / root
+        //    i.e. Q96 / (4 * root)
+        uint256 dynamicTaxRateQ96 = FixedPoint96.Q96 / (MAX_TAX_DENOMINATOR * root);
+
+        // 5) One-time tax = dynamicRate × price  / Q96
+        uint256 taxQ96 = mulDiv(dynamicTaxRateQ96, acquisitionPriceQ96, FixedPoint96.Q96);
+
         return taxQ96;
     }
 
