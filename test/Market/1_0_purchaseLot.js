@@ -81,7 +81,7 @@ describe('Purchase one random empty lot', function () {
 
     frameKey = await contractMarket.clcFrameKey(block.timestamp + 259200);
 
-    // Acquisition price: 15 USDC in Q96
+    // Acquisition price: 1 USDC in Q96
     const acqRaw = ethers.utils.parseUnits('1', tokenDecimals);
     acqPriceQ96 = toQ96(acqRaw, tokenDecimals);
 
@@ -115,7 +115,6 @@ describe('Purchase one random empty lot', function () {
     expect(lotStates[0].owner).to.equal(user.address);
     expect(lotStates[0].acquisitionPrice).to.equal(acqPriceQ96);
     expect(taxCharged).closeTo(diff, 1);
-    expect(lotStates[0].taxRefunded).to.equal(0);
     expect(lotStates.length).to.equal(1);
   });
 });

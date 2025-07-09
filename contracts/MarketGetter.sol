@@ -31,7 +31,7 @@ contract MarketGetter {
     function getFrameStruct(Market market, uint frameKey) public view returns (Market.Frame memory){
         Market.Frame memory frame;
         // uint tmp;
-        (frame.frameKey, frame.rate, frame.claimedBy, frame.rateSettle, frame.feeSettle, frame.rewardSettle) = market.frames(frameKey);
+        (frame.frameKey, frame.rate, frame.claimedBy, frame.rateSettle, frame.feeSettle, frame.rewardSettle, frame.rewardPool) = market.frames(frameKey);
         frame.lotKeys = market.getFrameLotKeys(frameKey);
         return frame;
     }
@@ -467,7 +467,6 @@ contract MarketGetter {
 
     /// @notice Get frame's award amount (accumulation of different lot taxes)
     /// @notice Remaining tax of a lot owner get's returned after a sale (change of ownership). So the award amount isn't for sure untill the frame get's closed.
-    /// @param frameKey MLib.Frame's timestamp
     /// @return award amount
     function getRewardAmount(Market market, uint frameKey) external view returns (uint) {     
         uint rewardPure = market.clcRewardFund(frameKey);  
@@ -483,21 +482,17 @@ contract MarketGetter {
     /// @return rewardFund amount 
     function getRewardAmountMin(Market market, uint frameKey) external view returns (uint rewardFund) {     
         Market.Frame memory frame = getFrameStruct(market, frameKey);
-        for(uint i = 0; i < frame.lotKeys.length; i++) {
-            Market.Lot memory lot = getLotStruct(market, frameKey, frame.lotKeys[i]);
-            for (uint j = 0; j < lot.states.length; j++) {
-                //-------> TAX CHARGED <---------
-                rewardFund += lot.states[j].taxCharged;
-                //-------> TAX REFUNDED <---------
-                rewardFund -= lot.states[j].taxRefunded;    
-                //-------> TAX CURRENT <---------
-                if (j == lot.states.length - 1) {
-                    uint taxCurrent = market.clcTax(frameKey, lot.states[j].acquisitionPrice);
-                    rewardFund -= taxCurrent;   
-                }
-            }
+        // Get the index of this frame in the framesKeys array
+        uint frameIndex = market.getFrameIndex(frameKey);
+        if (frameIndex > 0) {
+            // Get the previous frame's reward pool
+            Market.Frame memory prevFrame = getFrameStruct(market, market.framesKeys(frameIndex - 1));
+            // Calculate the reward fund as the sum of the previous frame's reward pool and the current frame's reward pool
+            rewardFund = (prevFrame.rewardPool / 2) + frame.rewardPool;
+        } else {
+            // If this is the first frame, the reward fund is just the current frame's reward pool
+            rewardFund = frame.rewardPool;
         }
-        rewardFund = rewardFund;
         return rewardFund;
     }
 

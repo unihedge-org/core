@@ -112,7 +112,6 @@ describe('Settle frame and reward winning lot', function () {
     expect(lotStates[0].owner).to.equal(user.address);
     expect(lotStates[0].acquisitionPrice).to.equal(acqPriceQ96);
     expect(lotStates[0].taxCharged).to.equal(toQ96(diff, tokenDecimals));
-    expect(lotStates[0].taxRefunded).to.equal(0);
     expect(lotStates.length).to.equal(1);
   });
   it('5 users buy 5 random lots', async function () {
@@ -158,7 +157,7 @@ describe('Settle frame and reward winning lot', function () {
     const expectedPayoutToken = fromQ96(payoutQ96, tokenDecimals);
 
     const balanceBefore = await token.balanceOf(user.address);
-    +(await contractMarket.connect(owner).settleFrame(frameKey));
+    +(await contractMarket.connect(owner).settleFrame());
     const balanceAfter = await token.balanceOf(user.address);
 
     const diff = balanceAfter.sub(balanceBefore);

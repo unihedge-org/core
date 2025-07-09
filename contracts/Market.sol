@@ -29,6 +29,10 @@ contract Market {
     IERC20Metadata public accountingToken; //256b // USDC token address on Polygon
     //Max tax denominator for dynamic tax calculation
     uint256 constant MAX_TAX_DENOMINATOR = 4; // 25% = 1/4
+    // Reward pool for the market
+    uint256 public rewardPool; //256b
+    // Last settled frame key
+    uint public lastSettledFrameIndex;
     // ERC20 token decimals	
     uint8 public accountingTokenDecimals;
     // Base unit for calculations
@@ -58,6 +62,8 @@ contract Market {
         uint feeSettle;
         //Reward fund for the frame sum of all taxes charged minus all taxes refunded minus protocol fee
         uint rewardSettle;
+        // reward pool for the frame
+        uint rewardPool;
     }
 
     //Frames
@@ -86,8 +92,6 @@ contract Market {
         uint acquisitionPrice;
         //Tax charged
         uint taxCharged;
-        //Tax refunded
-        uint taxRefunded;
     }
 
     struct Lot {
@@ -170,6 +174,18 @@ contract Market {
         return framesKeys.length;
     }
 
+    function getFrameIndex(uint frameKey) public view returns (uint){
+        //Reject if frame doesn't exist
+        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
+        //Find index of the frameKey in framesKeys array
+        for (uint i = 0; i < framesKeys.length; i++) {
+            if (framesKeys[i] == frameKey) {
+                return i;
+            }
+        }
+        revert("Frame key not found in framesKeys");
+    }
+
     function getLotsLength(uint frameKey) public view returns (uint){
         return frames[frameKey].lotKeys.length;
     }
@@ -246,6 +262,8 @@ contract Market {
     function clcTax(uint frameKey, uint256 acquisitionPriceQ96) public view returns (uint256) {
         uint256 settlement = frameKey + period;
         require(settlement > block.timestamp, "Frame has to be in the future");  
+        console.log("Settlement timestamp", settlement);
+        console.log("Settlmenet days remaining", (settlement - block.timestamp) / 86400);
 
         // 1) Compute daysRemaining
         uint256 secondsLeft = settlement - block.timestamp;
@@ -280,18 +298,8 @@ contract Market {
     }
 
     //Calculate reward fund for the frame from lots
-    function clcRewardFund(uint frameKey) public view returns (uint) {
-        uint rewardFund = 0;
-        for (uint i = 0; i < frames[frameKey].lotKeys.length; i++) {
-            Lot memory lot = lots[frames[frameKey].frameKey][frames[frameKey].lotKeys[i]];
-            for (uint j = 0; j < lot.states.length; j++) {
-                //Add tax charged to the reward fund
-                rewardFund += lot.states[j].taxCharged;
-                //Subtract tax refunded from the reward fund
-                rewardFund -= lot.states[j].taxRefunded;
-            }
-        }
-        return rewardFund;
+    function clcRewardFund(uint256 frameKey) public view returns (uint) {
+        return frames[frameKey].rewardPool / 2;
     }
 
     //Function for trading lots with referral
@@ -345,17 +353,12 @@ contract Market {
             block.timestamp, 
             msg.sender, 
             acquisitionPriceQ96, 
-            toQ96(taxToken), 
-            0); 
+            toQ96(taxToken)); 
 
         Lot storage lot = lots[frameKey][lotKey];
         lot.frameKey = frameKey;
         lot.lotKey = lotKey;
         lot.states.push(state);
-
-        // // Add lot to lots
-        // lots[frameKey][lotKey] = lot;
-
         // Add lot to lotsArray
         uint lotKeyConcat = concatenate(frameKey, lotKey);
         lotsArray.push(lotKeyConcat);
@@ -363,55 +366,34 @@ contract Market {
         // Add lot to frame
         frames[frameKey].lotKeys.push(lot.lotKey);
 
+        // Increase frame reward pool
+        frames[frameKey].rewardPool += toQ96(taxToken);
+
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), taxToken);
         console.log("Tax amount transferred to the market contract", taxToken);
     }
 
-    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {
-        //Calculate tax with old acquisitionPrice
-        uint taxQ96_1 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
-        //Calculate tax with new acquisitionPrice
-        uint taxQ96_2 = clcTax(frameKey, acquisitionPriceQ96);
-        //If tax1 is greater than tax2, refund the difference
-        if (taxQ96_1 > taxQ96_2) {
-            //Calculate tax difference
-            uint taxRefundQ96 = taxQ96_1 - taxQ96_2;
-            //Convert tax difference to token decimals
-            uint taxRefundToken = fromQ96(taxRefundQ96);
-            //Transfer tax difference to the lot owner
-            accountingToken.transfer(lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner, taxRefundToken);
-            //Add new lot state
-            lots[frameKey][lotKey].states.push(
-                LotState(
-                    block.number, 
-                    block.timestamp, 
-                    msg.sender, 
-                    acquisitionPriceQ96, 
-                    0, 
-                    toQ96(taxRefundToken))    
-                );
-        } else {
-            //If tax2 is greater than tax1, charge the difference
-            uint taxChargeQ96 = taxQ96_2 - taxQ96_1;
+    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {        //Calculate tax with new acquisitionPrice
+        uint taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
+        //Convert tax difference to token decimals
+        uint taxChargeToken = fromQ96(taxQ96);
 
-            //Convert tax difference to token decimals
-            uint taxChargeToken = fromQ96(taxChargeQ96);
+        require(accountingToken.allowance(msg.sender, address(this)) >= taxChargeToken, "Allowance to spend set too low");
+        //Transfer tax difference to the market contract
+        accountingToken.transferFrom(msg.sender, address(this), taxChargeToken);
+        //Add new lot state
+        lots[frameKey][lotKey].states.push(
+            LotState(
+                block.number, 
+                block.timestamp, 
+                msg.sender, 
+                acquisitionPriceQ96, 
+                toQ96(taxChargeToken))
+            );
 
-            require(accountingToken.allowance(msg.sender, address(this)) >= taxChargeToken, "Allowance to spend set too low");
-            //Transfer tax difference to the market contract
-            accountingToken.transferFrom(msg.sender, address(this), taxChargeToken);
-            //Add new lot state
-            lots[frameKey][lotKey].states.push(
-                LotState(
-                    block.number, 
-                    block.timestamp, 
-                    msg.sender, 
-                    acquisitionPriceQ96, 
-                    toQ96(taxChargeToken), 
-                    0)
-                );
-        }
+        // Update reward pool of the frame with tax amount
+        frames[frameKey].rewardPool += toQ96(taxChargeToken);
     }
 
     function resaleLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {
@@ -434,18 +416,12 @@ contract Market {
         accountingToken.transferFrom(msg.sender, address(this), taxToken);
         // Transfer from new owner lastAcquisitionPrice to the previous owner
         accountingToken.transferFrom(msg.sender, previousOwner, lastAcquisitionPriceToken);
-        // Transfer the remaining tax to previous owner
-        uint taxRefundQ96 = clcTax(frameKey, lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].acquisitionPrice);
-
-        // Convert tax refund to token decimals
-        uint taxRefundToken = fromQ96(taxRefundQ96);
-
-        accountingToken.transfer(previousOwner, taxRefundToken);
-
-        // Update previous lot state
-        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, previousOwner, lastAcquisitionPrice, 0, toQ96(taxRefundToken)));
         //Add new lot state
-        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPriceQ96, toQ96(taxToken), 0));
+
+        lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPriceQ96, toQ96(taxToken)));
+
+        // Update reward pool of the frame with the tax amount
+        frames[frameKey].rewardPool += toQ96(taxToken);
     }
 
     /* Calculate the current price of the pool
@@ -571,50 +547,89 @@ contract Market {
         emit FrameUpdate(frames[frameKey]);
     }
 
-    function settleFrame(uint frameKey) public returns (uint){
-        //Reject of frame don't exist
-        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
-        //Reject if frame is not in state RATED
-        require(getStateFrame(frameKey) == SFrame.RATED, "Frame is not in RATED state");
-        //Calculate the winning lot key based on the frame's close rate
-        uint lotKeyWon = clcLotKey(frames[frameKey].rate);
-        Lot storage lotWon = lots[frameKey][lotKeyWon];
-        //Reject if lot is in state LOST
+    function settleFrame() public returns (uint) {
+        // Enforce that the next frame to settle is exactly the next one
+        require(lastSettledFrameIndex < framesKeys.length, "No frame to settle");
+        console.log("Last settled frame index", lastSettledFrameIndex);
+        console.log("Total frames", framesKeys.length);
+        console.log("Next frame to settle index", lastSettledFrameIndex);
 
-        // require(getStateLot(frameKey, lotKeyWon) == SLot.WON, "No winning lot in this frame");
-        //Transfer winnings to last owner
-        //total reward fund
+        uint frameKey = framesKeys[lastSettledFrameIndex];
+        console.log("Frame key to settle", frameKey);
+
+        // Check frame exists
+        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
+
+        // Check state
+        require(getStateFrame(frameKey) == SFrame.RATED, "Frame is not in RATED state");
+
+        // Reward snapshot should already be stored when frame becomes RATED
+        console.log("Frame rate", frames[frameKey].rate);
         uint rewardFund = clcRewardFund(frameKey);
-        uint fee = mulDiv(rewardFund, feeProtocol, FixedPoint96.Q96); // Q96 result
+        console.log("Reward fund", rewardFund);
+
+        uint fee = mulDiv(rewardFund, feeProtocol, FixedPoint96.Q96);
         uint payout = rewardFund - fee;
+
         frames[frameKey].feeSettle = fee;
         frames[frameKey].rewardSettle = payout;
-    
-        
-        //Check if lot has an owner, at least one state has to exist
+
+        // Determine winner
+        uint lotKeyWon = clcLotKey(frames[frameKey].rate);
+        Lot storage lotWon = lots[frameKey][lotKeyWon];
+
+        address recipient;
         if (lotWon.states.length > 0) {
-            console.log("Lot has an owner", lotWon.states[lotWon.states.length - 1].owner);
-            // Covnert reward fund to token decimals
+            console.log("Lot won key", lotKeyWon);
+            recipient = lotWon.states[lotWon.states.length - 1].owner;
+            console.log("Transferring payout to winner", recipient);
+            console.log("Payout amount", fromQ96(payout));
+            accountingToken.transfer(recipient, fromQ96(payout));
+            frames[frameKey].claimedBy = recipient;
 
-            accountingToken.transfer(lotWon.states[lotWon.states.length - 1].owner, fromQ96(payout));
-            frames[frameKey].claimedBy = lotWon.states[lotWon.states.length - 1].owner;
-
-            //transfer protocol fee to owner
+            // protocol fee
             accountingToken.transfer(owner, fromQ96(fee));
 
+            // Add the reward amount the the next frame's reward pool if it exists
+            if (lastSettledFrameIndex + 1 < framesKeys.length) {
+                uint nextFrameKey = framesKeys[lastSettledFrameIndex + 1];
+                frames[nextFrameKey].rewardPool += rewardFund;
+                console.log("Next frame reward pool updated", nextFrameKey, frames[nextFrameKey].rewardPool);
+            } else {
+                // If no next frame, trasnfer the reward pool to the owner
+                console.log("No next frame, transferring reward pool to owner");
+                accountingToken.transfer(owner, fromQ96(rewardFund));
+            }
         } else {
-            //transfer protocol fee + reward fund to owner
-            accountingToken.transfer(owner, fromQ96(rewardFund));
+            // no winner: send everything to protocol
+            accountingToken.transfer(owner, fromQ96(fee));
             frames[frameKey].claimedBy = owner;
+            
+            // The whole reward pool is added to the next frame's reward pool
+            if (lastSettledFrameIndex + 1 < framesKeys.length) {
+                uint nextFrameKey = framesKeys[lastSettledFrameIndex + 1];
+                frames[nextFrameKey].rewardPool += rewardFund;
+                console.log("No winner, next frame reward pool updated", nextFrameKey, frames[nextFrameKey].rewardPool);
+            } else {
+                // If no next frame, trasnfer the reward pool to the owner
+                console.log("No next frame, transferring reward pool to owner");
+                accountingToken.transfer(owner, fromQ96(frames[frameKey].rewardPool - fee));
+            }
         }
 
+        console.log("Reward pool after settlement", rewardPool);
+
         frames[frameKey].rateSettle = frames[frameKey].rate;
-        
+
         emit LotUpdate(lotWon);
         emit FrameUpdate(frames[frameKey]);
 
+        // ✅ Update last settled frame
+        lastSettledFrameIndex += 1;
+
         return frames[frameKey].rewardSettle;
     }
+
 
    function withdrawAccountingToken(uint amount) external {
        require(msg.sender == owner, "Only owner can withdraw accounting token");

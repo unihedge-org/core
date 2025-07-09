@@ -115,21 +115,16 @@ describe('Purchase one random empty lot', function () {
     expect(lotStates[0].owner).to.equal(user.address);
     expect(lotStates[0].acquisitionPrice).to.equal(acqPriceQ96);
     expect(taxCharged).closeTo(diff, 1);
-    expect(lotStates[0].taxRefunded).to.equal(0);
     expect(lotStates.length).to.equal(1);
   });
   it('Update price of lot to a higher number', async function () {
     const newAcquisitionPrice = ethers.utils.parseUnits('20', tokenDecimals); // 20 USDC raw
     const newAcquisitionPriceQ96 = toQ96(newAcquisitionPrice, tokenDecimals);
-
-    const oldTaxQ96 = await contractMarket.clcTax(frameKey, acqPriceQ96);
     const newTaxQ96 = await contractMarket.clcTax(frameKey, newAcquisitionPriceQ96);
-
-    const taxDifferenceQ96 = newTaxQ96.sub(oldTaxQ96);
-    const taxDifferenceTokenUnits = fromQ96(taxDifferenceQ96, tokenDecimals);
+    const newTaxToken = fromQ96(newTaxQ96, tokenDecimals);
 
     // Set allowance for the new tax amount
-    await token.connect(user).approve(contractMarket.address, taxDifferenceTokenUnits);
+    await token.connect(user).approve(contractMarket.address, newTaxQ96);
 
     const balanceBefore = await token.balanceOf(user.address);
 
@@ -137,12 +132,9 @@ describe('Purchase one random empty lot', function () {
 
     const balanceAfter = await token.balanceOf(user.address);
     const balanceDifference = balanceBefore.sub(balanceAfter);
-
-    console.log('   Tax difference (Q96):', taxDifferenceQ96.toString());
-    console.log('   Tax difference (token):', ethers.utils.formatUnits(taxDifferenceTokenUnits, tokenDecimals));
     console.log('   Actual token diff:', ethers.utils.formatUnits(balanceDifference, tokenDecimals));
 
-    const delta = taxDifferenceTokenUnits.sub(balanceDifference).abs();
+    const delta = newTaxToken.sub(balanceDifference).abs();
     expect(delta).to.be.lte(15); // allow 1 unit difference, e.g., 0.000001 USDC
 
     // Get lot states after update

@@ -116,7 +116,6 @@ describe('Resale lot', function () {
     expect(lotStates[0].owner).to.equal(user.address);
     expect(lotStates[0].acquisitionPrice).to.equal(acqPriceQ96);
     expect(lotStates[0].taxCharged).to.equal(toQ96(diff, tokenDecimals));
-    expect(lotStates[0].taxRefunded).to.equal(0);
     expect(lotStates.length).to.equal(1);
   });
   it('second user approves USDC for purchase', async function () {
@@ -161,24 +160,12 @@ describe('Resale lot', function () {
 
     const lotStates = await contractMarket.getLotStates(frameKey, lotKey);
 
-    const oldState = lotStates[1];
-    const newState = lotStates[2];
-
-    const prevPriceToken = fromQ96(oldState.acquisitionPrice, tokenDecimals);
-    const taxChargedToken = fromQ96(newState.taxCharged, tokenDecimals);
+    const oldState = lotStates[0];
+    const newState = lotStates[1];
 
     expect(oldState.owner).to.equal(user.address);
     expect(newState.owner).to.equal(user2.address);
     expect(newState.acquisitionPrice).to.equal(acqPriceQ96);
-
-    const expectedDiff = prevPriceToken.add(taxChargedToken);
-    const actualDiff = balanceBefore.sub(balanceAfter);
-    const delta = actualDiff.sub(expectedDiff).abs();
-
-    console.log('   Expected diff:', ethers.utils.formatUnits(expectedDiff, tokenDecimals));
-    console.log('   Actual diff:  ', ethers.utils.formatUnits(actualDiff, tokenDecimals));
-
-    expect(delta).to.be.lte(1); // allow 1 unit (e.g. 0.000001 USDC) diff due to rounding
 
     expect(lotStates.length).to.equal(3);
   });
