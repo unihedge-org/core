@@ -297,9 +297,34 @@ contract Market {
         }
     }
 
-    //Calculate reward fund for the frame from lots
-    function clcRewardFund(uint256 frameKey) public view returns (uint) {
-        return frames[frameKey].rewardPool / 2;
+    // Get the current global reward pool
+    function getGlobalRewardPool() public view returns (uint256) {
+        uint256 totalPool = 0;
+        
+        // Sum up all unsettled frames' reward pools
+        for (uint i = lastSettledFrameIndex; i < framesKeys.length; i++) {
+            uint frameKey = framesKeys[i];
+            if (getStateFrame(frameKey) != SFrame.SETTLED) {
+                totalPool += frames[frameKey].rewardPool;
+            }
+        }
+        
+        return totalPool;
+    }
+
+    // Get pending rewards for the next settlement
+    function getPendingRewardForNextSettlement() public view returns (uint256) {
+        if (lastSettledFrameIndex >= framesKeys.length) {
+            return 0;
+        }
+        
+        uint frameKey = framesKeys[lastSettledFrameIndex];
+        if (getStateFrame(frameKey) == SFrame.RATED) {
+            // 50% of the pool goes to settlement
+            return frames[frameKey].rewardPool / 2;
+        }
+        
+        return 0;
     }
 
     //Function for trading lots with referral
@@ -366,7 +391,7 @@ contract Market {
         // Add lot to frame
         frames[frameKey].lotKeys.push(lot.lotKey);
 
-        // Increase frame reward pool
+        //Update frame reward pool
         frames[frameKey].rewardPool += toQ96(taxToken);
 
         //Transfer tax amount to the market contract
@@ -391,8 +416,7 @@ contract Market {
                 acquisitionPriceQ96, 
                 toQ96(taxChargeToken))
             );
-
-        // Update reward pool of the frame with tax amount
+        //Update frame reward pool
         frames[frameKey].rewardPool += toQ96(taxChargeToken);
     }
 
@@ -420,7 +444,7 @@ contract Market {
 
         lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPriceQ96, toQ96(taxToken)));
 
-        // Update reward pool of the frame with the tax amount
+        //Update frame reward pool
         frames[frameKey].rewardPool += toQ96(taxToken);
     }
 
@@ -565,8 +589,8 @@ contract Market {
 
         // Reward snapshot should already be stored when frame becomes RATED
         console.log("Frame rate", frames[frameKey].rate);
-        uint rewardFund = clcRewardFund(frameKey);
-        console.log("Reward fund", rewardFund);
+        uint rewardFund = frames[frameKey].rewardPool / 2; // 50% of the reward pool is used for settlement
+        console.log("Reward fund before settlement", rewardFund);
 
         uint fee = mulDiv(rewardFund, feeProtocol, FixedPoint96.Q96);
         uint payout = rewardFund - fee;
@@ -578,53 +602,50 @@ contract Market {
         uint lotKeyWon = clcLotKey(frames[frameKey].rate);
         Lot storage lotWon = lots[frameKey][lotKeyWon];
 
+        // Ensure next frame exists for rollover
+        uint nextFrameKey = frameKey + period;
+        if (frames[nextFrameKey].frameKey == 0) {
+            createFrame(nextFrameKey);
+        }
+
+        // The other 50% of the reward pool rolls over to the next frame
+        uint rolloverAmount = frames[frameKey].rewardPool - rewardFund;
+        frames[nextFrameKey].rewardPool += rolloverAmount;
+        console.log("Rollover amount to next frame", rolloverAmount);
+        console.log("Next frame reward pool after rollover", frames[nextFrameKey].rewardPool);
+
         address recipient;
         if (lotWon.states.length > 0) {
             console.log("Lot won key", lotKeyWon);
+
             recipient = lotWon.states[lotWon.states.length - 1].owner;
+
             console.log("Transferring payout to winner", recipient);
             console.log("Payout amount", fromQ96(payout));
+
+            // Transfer payout to winner
             accountingToken.transfer(recipient, fromQ96(payout));
             frames[frameKey].claimedBy = recipient;
-
-            // protocol fee
-            accountingToken.transfer(owner, fromQ96(fee));
-
-            // Add the reward amount the the next frame's reward pool if it exists
-            if (lastSettledFrameIndex + 1 < framesKeys.length) {
-                uint nextFrameKey = framesKeys[lastSettledFrameIndex + 1];
-                frames[nextFrameKey].rewardPool += rewardFund;
-                console.log("Next frame reward pool updated", nextFrameKey, frames[nextFrameKey].rewardPool);
-            } else {
-                // If no next frame, trasnfer the reward pool to the owner
-                console.log("No next frame, transferring reward pool to owner");
-                accountingToken.transfer(owner, fromQ96(rewardFund));
-            }
         } else {
-            // no winner: send everything to protocol
-            accountingToken.transfer(owner, fromQ96(fee));
-            frames[frameKey].claimedBy = owner;
-            
-            // The whole reward pool is added to the next frame's reward pool
-            if (lastSettledFrameIndex + 1 < framesKeys.length) {
-                uint nextFrameKey = framesKeys[lastSettledFrameIndex + 1];
-                frames[nextFrameKey].rewardPool += rewardFund;
-                console.log("No winner, next frame reward pool updated", nextFrameKey, frames[nextFrameKey].rewardPool);
-            } else {
-                // If no next frame, trasnfer the reward pool to the owner
-                console.log("No next frame, transferring reward pool to owner");
-                accountingToken.transfer(owner, fromQ96(frames[frameKey].rewardPool - fee));
-            }
+            console.log("No winner found for frame", frameKey);
+            frames[nextFrameKey].rewardPool += toQ96(fromQ96(payout));
+            console.log("No winner, adding payout to next frame's pool", fromQ96(payout));
+            frames[frameKey].claimedBy = address(0); // Reset claimedBy for current frame
         }
+
+        console.log("Transferring protocol fee to owner", fromQ96(fee));
+        accountingToken.transfer(owner, fromQ96(fee));
 
         console.log("Reward pool after settlement", rewardPool);
 
         frames[frameKey].rateSettle = frames[frameKey].rate;
 
-        emit LotUpdate(lotWon);
+        if (lotWon.states.length > 0) {
+            emit LotUpdate(lotWon);
+        }
         emit FrameUpdate(frames[frameKey]);
 
-        // ✅ Update last settled frame
+        // Update last settled frame
         lastSettledFrameIndex += 1;
 
         return frames[frameKey].rewardSettle;

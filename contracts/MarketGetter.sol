@@ -465,15 +465,61 @@ contract MarketGetter {
 
     }
 
-    /// @notice Get frame's award amount (accumulation of different lot taxes)
-    /// @notice Remaining tax of a lot owner get's returned after a sale (change of ownership). So the award amount isn't for sure untill the frame get's closed.
-    /// @return award amount
-    function getRewardAmount(Market market, uint frameKey) external view returns (uint) {     
-        uint rewardPure = market.clcRewardFund(frameKey);  
-        uint feeProtocol = market.feeProtocol();
-        //Subtract protocol fee and referral fee from the reward
-        uint reward = rewardPure - feeProtocol;                 
-        return reward; 
+    /// @notice Calculate the minimal guaranteed reward for a future frame
+    /// @dev This assumes all intermediate frames have winners (worst case for accumulation)
+    /// @param market Market contract address
+    /// @param targetFrameKey The frame timestamp to calculate reward for
+    /// @return Minimal guaranteed reward amount in Q96 format
+    function calculateMinimalReward(Market market, uint targetFrameKey) public view returns (uint256) {
+        // Target frame must be in the future or current
+        uint currentTimestamp = block.timestamp;
+        uint currentFrameKey = market.clcFrameKey(currentTimestamp);
+        require(targetFrameKey >= currentFrameKey, "Frame must be current or future");
+        
+        // Get the last settled frame index
+        uint lastSettledIndex = market.lastSettledFrameIndex();
+        uint framesLength = market.getFramesLength();
+        
+        // Start with finding the next frame to be settled
+        if (lastSettledIndex >= framesLength) {
+            return 0; // No frames to settle
+        }
+        
+        uint currentFrameToSettle = market.framesKeys(lastSettledIndex);
+        
+        uint256 accumulatedReward = 0;
+        uint256 currentFrameKeyIter = currentFrameToSettle;
+        uint period = market.period();
+        
+        // Simulate the rollover process from next settlement to target frame
+        while (currentFrameKeyIter <= targetFrameKey) {
+            // Get the reward pool for current frame
+            uint256 currentPool = 0;
+            
+            // Check if frame exists
+            Market.Frame memory frame = getFrameStruct(market, currentFrameKeyIter);
+            if (frame.frameKey != 0) {
+                currentPool = frame.rewardPool;
+            }
+            
+            // Add any accumulated reward from previous rollovers
+            currentPool += accumulatedReward;
+            
+            if (currentFrameKeyIter == targetFrameKey) {
+                // This is our target frame - return 50% of the total pool (what would be distributed)
+                return currentPool / 2;
+            } else {
+                // Not target frame yet - simulate settlement
+                // 50% would be distributed (if there's a winner), 50% rolls over
+                accumulatedReward = currentPool / 2;
+            }
+            
+            // Move to next frame
+            currentFrameKeyIter += period;
+        }
+        
+        // If we exit the loop without finding the target, return accumulated / 2
+        return accumulatedReward / 2;
     }
 
     /// @notice Get minimun guarantied frame's award amount (accumulation of different lot taxes)
