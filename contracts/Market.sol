@@ -39,6 +39,10 @@ contract Market {
     uint256 public immutable baseUnit;   // 10 ** accountingTokenDecimals
     //Owner of this market
     address public owner; //256b
+    // Track total taxes ever collected
+    uint256 public totalTaxesCollected;  
+    // Track total rewards distributed
+    uint256 public totalRewardsDistributed;  
     /*
     *   Frame enum
 
@@ -69,6 +73,7 @@ contract Market {
     //Frames
     mapping(uint => Frame) public frames;
     uint[] public framesKeys;
+    mapping(uint => uint) public frameKeyToIndex; 
 
     event FrameUpdate(Frame frame);
 
@@ -107,6 +112,13 @@ contract Market {
     uint256[] public lotsArray;
 
     event LotUpdate(Lot lot);
+
+    mapping(address => uint256) public userTotalTaxPaid;  // Track tax per user
+    mapping(address => uint256) public userTotalWinnings;  // Track winnings per user
+
+    event TaxCollected(address indexed user, uint256 amount, uint256 frameKey);
+    event RewardDistributed(address indexed winner, uint256 amount, uint256 frameKey);
+    event FrameRollover(uint256 fromFrame, uint256 toFrame, uint256 amount);
 
     constructor(address _acct, uint256 _feeProtocol, uint256 _taxMarket, uint256 _dPrice, address _uniswapPool) {
         owner = msg.sender;
@@ -174,18 +186,6 @@ contract Market {
         return framesKeys.length;
     }
 
-    function getFrameIndex(uint frameKey) public view returns (uint){
-        //Reject if frame doesn't exist
-        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
-        //Find index of the frameKey in framesKeys array
-        for (uint i = 0; i < framesKeys.length; i++) {
-            if (framesKeys[i] == frameKey) {
-                return i;
-            }
-        }
-        revert("Frame key not found in framesKeys");
-    }
-
     function getLotsLength(uint frameKey) public view returns (uint){
         return frames[frameKey].lotKeys.length;
     }
@@ -213,6 +213,17 @@ contract Market {
         return lots[frameKey][lotKey].states;
     }
 
+    function getUserStats(address user) external view returns (
+        uint256 totalTaxPaid,
+        uint256 totalWinnings,
+        uint256 netPosition
+    ) {
+        totalTaxPaid = userTotalTaxPaid[user];
+        totalWinnings = userTotalWinnings[user];
+        netPosition = totalWinnings > totalTaxPaid ? 
+            totalWinnings - totalTaxPaid : 0;
+    }
+
     function toQ96(uint256 amount) public view returns (uint256) {
         return mulDiv(amount, FixedPoint96.Q96, baseUnit);
     }
@@ -233,18 +244,24 @@ contract Market {
         uint frameKey = clcFrameKey(timestamp);
         //Reject if frame already exists
         require(frames[frameKey].frameKey == 0, "Frame already exists");
-        //Create frame
         //Check if frame is in the future for at leas 1 period
         require(frameKey + period >= block.timestamp, "Frame has to be in the future");
         //Add frame
         frames[frameKey].frameKey = frameKey;
+        uint index = framesKeys.length;
         framesKeys.push(frameKey);
+        frameKeyToIndex[frameKey] = index;  
         emit FrameUpdate(frames[frameKey]);
         return frameKey;
     }
 
     function getLotsKeysInFrame(uint frameKey) public view returns (uint[] memory){
         return frames[frameKey].lotKeys;
+    }
+
+    function getFrameIndex(uint frameKey) public view returns (uint){
+        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
+        return frameKeyToIndex[frameKey];
     }
 
     function overrideFrameRate(uint frameKey, uint avgPrice) external {
@@ -331,6 +348,8 @@ contract Market {
     function tradeLot(uint timestamp, uint rate, uint acquisitionPrice) external {
         //Calculate frame key
         uint frameKey = clcFrameKey(timestamp);
+        // Require that the frame is in OPENED state
+        require(block.timestamp < frameKey + period, "Frame is not open for trading");
         //Calculate lot key
         uint lotKey = clcLotKey(rate);
 
@@ -393,6 +412,10 @@ contract Market {
 
         //Update frame reward pool
         frames[frameKey].rewardPool += toQ96(taxToken);
+        //Update total taxes collected
+        totalTaxesCollected += taxToken;
+        //Update user total tax paid
+        userTotalTaxPaid[msg.sender] += taxToken;
 
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), taxToken);
@@ -418,6 +441,10 @@ contract Market {
             );
         //Update frame reward pool
         frames[frameKey].rewardPool += toQ96(taxChargeToken);
+        //Update total taxes collected
+        totalTaxesCollected += taxChargeToken;
+        //Update user total tax paid
+        userTotalTaxPaid[msg.sender] += taxChargeToken;
     }
 
     function resaleLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {
@@ -446,6 +473,10 @@ contract Market {
 
         //Update frame reward pool
         frames[frameKey].rewardPool += toQ96(taxToken);
+        //Update total taxes collected
+        totalTaxesCollected += taxToken;
+        //Update user total tax paid
+        userTotalTaxPaid[msg.sender] += taxToken;
     }
 
     /* Calculate the current price of the pool
@@ -574,12 +605,8 @@ contract Market {
     function settleFrame() public returns (uint) {
         // Enforce that the next frame to settle is exactly the next one
         require(lastSettledFrameIndex < framesKeys.length, "No frame to settle");
-        console.log("Last settled frame index", lastSettledFrameIndex);
-        console.log("Total frames", framesKeys.length);
-        console.log("Next frame to settle index", lastSettledFrameIndex);
 
         uint frameKey = framesKeys[lastSettledFrameIndex];
-        console.log("Frame key to settle", frameKey);
 
         // Check frame exists
         require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
@@ -588,9 +615,7 @@ contract Market {
         require(getStateFrame(frameKey) == SFrame.RATED, "Frame is not in RATED state");
 
         // Reward snapshot should already be stored when frame becomes RATED
-        console.log("Frame rate", frames[frameKey].rate);
         uint rewardFund = frames[frameKey].rewardPool / 2; // 50% of the reward pool is used for settlement
-        console.log("Reward fund before settlement", rewardFund);
 
         uint fee = mulDiv(rewardFund, feeProtocol, FixedPoint96.Q96);
         uint payout = rewardFund - fee;
@@ -611,32 +636,25 @@ contract Market {
         // The other 50% of the reward pool rolls over to the next frame
         uint rolloverAmount = frames[frameKey].rewardPool - rewardFund;
         frames[nextFrameKey].rewardPool += rolloverAmount;
-        console.log("Rollover amount to next frame", rolloverAmount);
-        console.log("Next frame reward pool after rollover", frames[nextFrameKey].rewardPool);
 
         address recipient;
         if (lotWon.states.length > 0) {
-            console.log("Lot won key", lotKeyWon);
 
             recipient = lotWon.states[lotWon.states.length - 1].owner;
-
-            console.log("Transferring payout to winner", recipient);
-            console.log("Payout amount", fromQ96(payout));
 
             // Transfer payout to winner
             accountingToken.transfer(recipient, fromQ96(payout));
             frames[frameKey].claimedBy = recipient;
+
+            totalRewardsDistributed += fromQ96(payout);
+            userTotalWinnings[recipient] += fromQ96(payout);
+            emit RewardDistributed(recipient, fromQ96(payout), frameKey);
         } else {
-            console.log("No winner found for frame", frameKey);
             frames[nextFrameKey].rewardPool += toQ96(fromQ96(payout));
-            console.log("No winner, adding payout to next frame's pool", fromQ96(payout));
-            frames[frameKey].claimedBy = address(0); // Reset claimedBy for current frame
+            frames[frameKey].claimedBy = address(1);
+            emit FrameRollover(frameKey, nextFrameKey, fromQ96(payout));
         }
-
-        console.log("Transferring protocol fee to owner", fromQ96(fee));
         accountingToken.transfer(owner, fromQ96(fee));
-
-        console.log("Reward pool after settlement", rewardPool);
 
         frames[frameKey].rateSettle = frames[frameKey].rate;
 

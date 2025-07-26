@@ -2,9 +2,9 @@ const { expect, ethers, IERC20, ISwapRouter, daiAddress, wMaticAddress, uniswapR
 const { swapTokenForUsers, toQ96, fromQ96 } = require('../Helpers/functions');
 
 /*
-Random user buys a random lot in the range of 1 to 100 times dPrice (Q96)
+User purchases a lot at a high price and then updates it to a lower price
 */
-describe('Purchase one random empty lot', function () {
+describe('Purchase lot and update to lower price', function () {
   let accounts,
     owner,
     user,
@@ -46,12 +46,16 @@ describe('Purchase one random empty lot', function () {
   it('Deploy Market contract', async function () {
     const Market = await ethers.getContractFactory('Market');
     const feeProtocol = 3; // percent
-    const feeMarket = 1; // percent
+    const feeMarket = 1; // percent (not used in current implementation)
     dPrice = Number(100); // 100 USDC
     contractMarket = await Market.deploy(process.env.FUNDING_TOKEN, feeProtocol, feeMarket, dPrice, process.env.POOL);
 
     expect(await contractMarket.owner()).to.equal(accounts[0].address);
     expect(await contractMarket.period()).to.equal(86400);
+
+    // Check initial state
+    expect(await contractMarket.lastSettledFrameIndex()).to.equal(0);
+    expect(await contractMarket.getGlobalRewardPool()).to.equal(0);
 
     const _dPrice = await contractMarket.dPrice();
     console.log(
@@ -60,86 +64,213 @@ describe('Purchase one random empty lot', function () {
       ethers.utils.formatUnits(fromQ96(_dPrice, tokenDecimals), tokenDecimals),
       ' USDC'
     );
-    // expect(dPrice).to.be.equal(Number(ethers.utils.formatUnits(fromQ96(_dPrice, tokenDecimals), tokenDecimals)).toFixed(0));
 
     // get current rate
     rateAtStart = await contractMarket.clcRate();
-    const raw = fromQ96(rateAtStart, tokenDecimals);
-    console.log('Raw token rate:', raw.toString());
     console.log(
       '\x1b[33m%s\x1b[0m',
       '   Current rate: ',
       ethers.utils.formatUnits(fromQ96(rateAtStart, tokenDecimals), tokenDecimals),
       ' USDC'
     );
-    console.log('\x1b[33m%s\x1b[0m', '   Q96 rate: ', rateAtStart, ' USDC');
     expect(rateAtStart).to.be.gt(0);
   });
 
-  it('Approve USDC to spend and Purchase Lot', async function () {
-    user = accounts[Math.floor(Math.random() * 4) + 1];
+  it('Purchase lot at high price (50 USDC)', async function () {
+    user = accounts[1];
     const block = await ethers.provider.getBlock('latest');
 
+    // Frame 3 days in the future
     frameKey = await contractMarket.clcFrameKey(block.timestamp + 259200);
+    console.log('\x1b[33m%s\x1b[0m', '   Frame key: ', frameKey);
 
-    // Acquisition price: 15 USDC in Q96
-    const acqRaw = ethers.utils.parseUnits('15', tokenDecimals);
+    // Initial high acquisition price: 50 USDC
+    const acqRaw = ethers.utils.parseUnits('50', tokenDecimals);
     acqPriceQ96 = toQ96(acqRaw, tokenDecimals);
 
+    // Calculate tax
     const taxQ96 = await contractMarket.clcTax(frameKey, acqPriceQ96);
     const taxToken = fromQ96(taxQ96, tokenDecimals);
 
-    console.log('\x1b[36m%s\x1b[0m', '   Tax: ', ethers.utils.formatUnits(taxToken, tokenDecimals), ' USDC');
+    console.log('\x1b[36m%s\x1b[0m', '   Initial acquisition price: ', ethers.utils.formatUnits(acqRaw, tokenDecimals), ' USDC');
+    console.log('\x1b[36m%s\x1b[0m', '   Tax for high price: ', ethers.utils.formatUnits(taxToken, tokenDecimals), ' USDC');
 
     await token.connect(user).approve(contractMarket.address, taxToken);
-    const allowance = await token.allowance(user.address, contractMarket.address);
-    expect(allowance).to.equal(taxToken);
 
     lotKey = await contractMarket.clcLotKey(rateAtStart);
+    console.log('\x1b[33m%s\x1b[0m', '   Lot key: ', fromQ96(lotKey, tokenDecimals).toString());
+
     const balanceBefore = await token.balanceOf(user.address);
+
+    // Get initial total taxes paid
+    const initialGlobalPool = await contractMarket.getGlobalRewardPool();
 
     await contractMarket.connect(user).tradeLot(frameKey, lotKey, acqPriceQ96);
 
     const balanceAfter = await token.balanceOf(user.address);
     const diff = balanceBefore.sub(balanceAfter);
 
-    console.log('\x1b[33m%s\x1b[0m', '   USDC Difference: ', ethers.utils.formatUnits(diff, tokenDecimals), ' USDC');
+    console.log('\x1b[33m%s\x1b[0m', '   USDC paid for initial purchase: ', ethers.utils.formatUnits(diff, tokenDecimals), ' USDC');
 
-    const lot = await contractMarket.getLot(frameKey, lotKey);
-    expect(lot.frameKey).to.equal(frameKey);
-    expect(lot.lotKey).to.equal(lotKey);
-
+    // Verify initial purchase
     const lotStates = await contractMarket.getLotStates(frameKey, lotKey);
-
+    expect(lotStates.length).to.equal(1);
     expect(lotStates[0].owner).to.equal(user.address);
     expect(lotStates[0].acquisitionPrice).to.equal(acqPriceQ96);
-    expect(lotStates[0].taxCharged).to.equal(toQ96(diff, tokenDecimals));
-    expect(lotStates.length).to.equal(1);
+
+    // Track total paid so far
+    const totalPaidInitial = diff;
+    console.log(
+      '\x1b[33m%s\x1b[0m',
+      '   Total paid after initial purchase: ',
+      ethers.utils.formatUnits(totalPaidInitial, tokenDecimals),
+      ' USDC'
+    );
+
+    console.log('\x1b[32m%s\x1b[0m', '   ✓ Lot successfully purchased at high price');
   });
-  it('Update price of lot to a lower number', async function () {
-    const newAcquisitionPrice = ethers.utils.parseUnits('10', tokenDecimals); // 20 USDC raw
+
+  it('Update lot to lower price (10 USDC)', async function () {
+    // New lower acquisition price: 10 USDC
+    const newAcquisitionPrice = ethers.utils.parseUnits('10', tokenDecimals);
     const newAcquisitionPriceQ96 = toQ96(newAcquisitionPrice, tokenDecimals);
 
-    const newTaxQ96 = await contractMarket.clcTax(frameKey, newAcquisitionPriceQ96);
-    console.log('\x1b[36m%s\x1b[0m', '   New Tax: ', ethers.utils.formatUnits(fromQ96(newTaxQ96, tokenDecimals), tokenDecimals), ' USDC');
+    console.log(
+      '\x1b[36m%s\x1b[0m',
+      '   New (lower) acquisition price: ',
+      ethers.utils.formatUnits(newAcquisitionPrice, tokenDecimals),
+      ' USDC'
+    );
 
-    // Set allowance for the new tax amount
-    await token.connect(user).approve(contractMarket.address, newTaxQ96);
+    // Calculate new tax for lower price
+    const newTaxQ96 = await contractMarket.clcTax(frameKey, newAcquisitionPriceQ96);
+    const newTaxToken = fromQ96(newTaxQ96, tokenDecimals);
+
+    console.log('\x1b[36m%s\x1b[0m', '   Tax for lower price: ', ethers.utils.formatUnits(newTaxToken, tokenDecimals), ' USDC');
+
+    // Get previous tax for comparison
+    const lotStatesBefore = await contractMarket.getLotStates(frameKey, lotKey);
+    const previousTaxCharged = fromQ96(lotStatesBefore[0].taxCharged, tokenDecimals);
+    console.log('\x1b[33m%s\x1b[0m', '   Previous tax paid: ', ethers.utils.formatUnits(previousTaxCharged, tokenDecimals), ' USDC');
+    console.log(
+      '\x1b[33m%s\x1b[0m',
+      '   Tax difference: ',
+      ethers.utils.formatUnits(previousTaxCharged.sub(newTaxToken), tokenDecimals),
+      ' USDC (no refund)'
+    );
+
+    // Set allowance for the new tax amount (user still pays full new tax, no refund)
+    await token.connect(user).approve(contractMarket.address, newTaxToken);
 
     const balanceBefore = await token.balanceOf(user.address);
 
+    // Get frame reward pool before update
+    const frameBeforeUpdate = await contractMarket.frames(frameKey);
+    const rewardPoolBeforeUpdate = frameBeforeUpdate.rewardPool;
+    console.log('\x1b[33m%s\x1b[0m', '   Frame reward pool before update: ', fromQ96(rewardPoolBeforeUpdate, tokenDecimals).toString());
+
+    // Execute the price update to lower value
     await contractMarket.connect(user).tradeLot(frameKey, lotKey, newAcquisitionPriceQ96);
 
     const balanceAfter = await token.balanceOf(user.address);
     const balanceDifference = balanceBefore.sub(balanceAfter);
-    console.log('   Balance diff:', ethers.utils.formatUnits(balanceDifference, tokenDecimals));
 
-    const delta = fromQ96(newTaxQ96, tokenDecimals).sub(balanceDifference).abs();
-    expect(delta).to.be.lte(5); // allow 1 unit difference, e.g., 0.000001 USDC
+    console.log(
+      '\x1b[33m%s\x1b[0m',
+      '   USDC paid for update to lower price: ',
+      ethers.utils.formatUnits(balanceDifference, tokenDecimals),
+      ' USDC'
+    );
+
+    // Check frame reward pool after update
+    const frameAfterUpdate = await contractMarket.frames(frameKey);
+    const rewardPoolAfterUpdate = frameAfterUpdate.rewardPool;
+
+    console.log('\x1b[33m%s\x1b[0m', '   Frame reward pool after update: ', fromQ96(rewardPoolAfterUpdate, tokenDecimals).toString());
+
+    // Verify reward pool increased by the new tax amount
+    const rewardPoolIncrease = rewardPoolAfterUpdate.sub(rewardPoolBeforeUpdate);
+    const expectedIncrease = toQ96(newTaxToken, tokenDecimals);
+    expect(rewardPoolIncrease).to.be.closeTo(expectedIncrease, 1000);
+
+    // Verify the user paid the full new tax amount (no refund for lower price)
+    expect(balanceDifference).to.be.closeTo(newTaxToken, 1);
 
     // Get lot states after update
-    let lotStates = await contractMarket.getLotStates(frameKey, lotKey);
-    expect(lotStates[1].owner).to.equal(user.address);
-    expect(lotStates[1].acquisitionPrice).to.equal(newAcquisitionPriceQ96);
+    const lotStatesAfter = await contractMarket.getLotStates(frameKey, lotKey);
+
+    // Should have 2 states now
+    expect(lotStatesAfter.length).to.equal(2);
+
+    // Check second state (the update to lower price)
+    const secondState = lotStatesAfter[1];
+    const taxChargedInUpdate = fromQ96(secondState.taxCharged, tokenDecimals);
+
+    expect(secondState.owner).to.equal(user.address);
+    expect(secondState.acquisitionPrice).to.equal(newAcquisitionPriceQ96);
+    expect(taxChargedInUpdate).to.be.closeTo(newTaxToken, 1);
+
+    // Calculate total paid by user
+    const totalTaxesPaid = previousTaxCharged.add(newTaxToken);
+    console.log('\x1b[33m%s\x1b[0m', '   Total taxes paid by user: ', ethers.utils.formatUnits(totalTaxesPaid, tokenDecimals), ' USDC');
+    console.log('\x1b[31m%s\x1b[0m', '   Note: No refund given for updating to lower price!');
+
+    console.log('\x1b[32m%s\x1b[0m', '   ✓ Lot price successfully updated to lower value');
+  });
+
+  it('Verify lot can be sold at the new lower price', async function () {
+    const buyer = accounts[2];
+
+    // Buyer needs to pay: new tax + last acquisition price (10 USDC)
+    const lotStates = await contractMarket.getLotStates(frameKey, lotKey);
+    const lastAcquisitionPrice = lotStates[lotStates.length - 1].acquisitionPrice;
+    const lastAcquisitionPriceToken = fromQ96(lastAcquisitionPrice, tokenDecimals);
+
+    // Buyer sets their own new acquisition price
+    const buyerAcqPrice = ethers.utils.parseUnits('15', tokenDecimals);
+    const buyerAcqPriceQ96 = toQ96(buyerAcqPrice, tokenDecimals);
+
+    const buyerTaxQ96 = await contractMarket.clcTax(frameKey, buyerAcqPriceQ96);
+    const buyerTaxToken = fromQ96(buyerTaxQ96, tokenDecimals);
+
+    const totalBuyerPayment = buyerTaxToken.add(lastAcquisitionPriceToken);
+
+    console.log('\x1b[36m%s\x1b[0m', '   Buyer acquisition price: ', ethers.utils.formatUnits(buyerAcqPrice, tokenDecimals), ' USDC');
+    console.log('\x1b[36m%s\x1b[0m', '   Buyer tax: ', ethers.utils.formatUnits(buyerTaxToken, tokenDecimals), ' USDC');
+    console.log('\x1b[36m%s\x1b[0m', '   Payment to seller: ', ethers.utils.formatUnits(lastAcquisitionPriceToken, tokenDecimals), ' USDC');
+    console.log('\x1b[36m%s\x1b[0m', '   Total buyer payment: ', ethers.utils.formatUnits(totalBuyerPayment, tokenDecimals), ' USDC');
+
+    await token.connect(buyer).approve(contractMarket.address, totalBuyerPayment);
+
+    const sellerBalanceBefore = await token.balanceOf(user.address);
+
+    // Execute the sale
+    await contractMarket.connect(buyer).tradeLot(frameKey, lotKey, buyerAcqPriceQ96);
+
+    const sellerBalanceAfter = await token.balanceOf(user.address);
+    const sellerReceived = sellerBalanceAfter.sub(sellerBalanceBefore);
+
+    console.log('\x1b[33m%s\x1b[0m', '   Seller received: ', ethers.utils.formatUnits(sellerReceived, tokenDecimals), ' USDC');
+
+    // Verify seller received their last acquisition price (10 USDC, not the original 50 USDC)
+    expect(sellerReceived).to.equal(lastAcquisitionPriceToken);
+
+    // Verify ownership changed
+    const finalLotStates = await contractMarket.getLotStates(frameKey, lotKey);
+    expect(finalLotStates.length).to.equal(3);
+    expect(finalLotStates[2].owner).to.equal(buyer.address);
+
+    console.log('\x1b[32m%s\x1b[0m', '   ✓ Lot successfully sold at the lower price point');
+  });
+
+  it('Display final statistics', async function () {
+    const globalPool = await contractMarket.getGlobalRewardPool();
+    const frame = await contractMarket.frames(frameKey);
+
+    console.log('\n\x1b[35m%s\x1b[0m', '   === Final Statistics ===');
+    console.log('\x1b[35m%s\x1b[0m', '   Global reward pool: ', fromQ96(globalPool, tokenDecimals).toString(), ' USDC');
+    console.log('\x1b[35m%s\x1b[0m', '   Frame reward pool: ', fromQ96(frame.rewardPool, tokenDecimals).toString(), ' USDC');
+    console.log('\x1b[35m%s\x1b[0m', '   Total lot states: ', (await contractMarket.getLotStates(frameKey, lotKey)).length);
+    console.log('\x1b[35m%s\x1b[0m', '   50% will be distributed on settlement, 50% rolls to next frame');
   });
 });

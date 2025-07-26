@@ -4,7 +4,7 @@ const { swapTokenForUsers, toQ96, fromQ96 } = require('../Helpers/functions');
 /*
 Random user buys a random lot in the range of 1 to 100 times dPrice (Q96)
 */
-describe('Purchase one random empty lot', function () {
+describe('Purchase one random empty lot with Liquidity Flywheel', function () {
   let accounts,
     owner,
     user,
@@ -52,6 +52,10 @@ describe('Purchase one random empty lot', function () {
     expect(await contractMarket.owner()).to.equal(accounts[0].address);
     expect(await contractMarket.period()).to.equal(86400);
 
+    // Check initial state
+    expect(await contractMarket.lastSettledFrameIndex()).to.equal(0);
+    expect(await contractMarket.getGlobalRewardPool()).to.equal(0);
+
     const _dPrice = await contractMarket.dPrice();
     console.log(
       '\x1b[33m%s\x1b[0m',
@@ -59,7 +63,6 @@ describe('Purchase one random empty lot', function () {
       ethers.utils.formatUnits(fromQ96(_dPrice, tokenDecimals), tokenDecimals),
       ' USDC'
     );
-    // expect(dPrice).to.be.equal(Number(ethers.utils.formatUnits(fromQ96(_dPrice, tokenDecimals), tokenDecimals)).toFixed(0));
 
     // get current rate
     rateAtStart = await contractMarket.clcRate();
@@ -79,12 +82,14 @@ describe('Purchase one random empty lot', function () {
     user = accounts[Math.floor(Math.random() * 4) + 1];
     const block = await ethers.provider.getBlock('latest');
 
+    // Frame 3 days in the future
     frameKey = await contractMarket.clcFrameKey(block.timestamp + 259200);
 
     // Acquisition price: 1 USDC in Q96
     const acqRaw = ethers.utils.parseUnits('1', tokenDecimals);
     acqPriceQ96 = toQ96(acqRaw, tokenDecimals);
 
+    // Calculate tax with dynamic inverse root formula
     const taxQ96 = await contractMarket.clcTax(frameKey, acqPriceQ96);
     console.log('\x1b[33m%s\x1b[0m', '   Tax Q96: ', taxQ96.toString(), ' USDC Q96');
     const taxToken = fromQ96(taxQ96, tokenDecimals);
@@ -98,12 +103,24 @@ describe('Purchase one random empty lot', function () {
     const lotKey = await contractMarket.clcLotKey(rateAtStart);
     const balanceBefore = await token.balanceOf(user.address);
 
+    // Get frame reward pool before purchase
+    const rewardPoolBefore = await contractMarket.frames(frameKey).then(f => f.rewardPool);
+    console.log('\x1b[33m%s\x1b[0m', '   Frame reward pool before: ', fromQ96(rewardPoolBefore, tokenDecimals).toString());
+
     await contractMarket.connect(user).tradeLot(frameKey, lotKey, acqPriceQ96);
 
     const balanceAfter = await token.balanceOf(user.address);
     const diff = balanceBefore.sub(balanceAfter);
 
     console.log('\x1b[33m%s\x1b[0m', '   USDC Difference: ', ethers.utils.formatUnits(diff, tokenDecimals), ' USDC');
+
+    // Check frame reward pool after purchase
+    const frame = await contractMarket.frames(frameKey);
+    const rewardPoolAfter = frame.rewardPool;
+    console.log('\x1b[33m%s\x1b[0m', '   Frame reward pool after: ', fromQ96(rewardPoolAfter, tokenDecimals).toString());
+
+    // Verify reward pool increased by tax amount
+    expect(rewardPoolAfter.sub(rewardPoolBefore)).to.equal(toQ96(taxToken, tokenDecimals));
 
     const lot = await contractMarket.getLot(frameKey, lotKey);
     expect(lot.frameKey).to.equal(frameKey);
@@ -116,5 +133,27 @@ describe('Purchase one random empty lot', function () {
     expect(lotStates[0].acquisitionPrice).to.equal(acqPriceQ96);
     expect(taxCharged).closeTo(diff, 1);
     expect(lotStates.length).to.equal(1);
+
+    // Check global reward pool
+    const globalPool = await contractMarket.getGlobalRewardPool();
+    console.log('\x1b[33m%s\x1b[0m', '   Global reward pool: ', fromQ96(globalPool, tokenDecimals).toString());
+    expect(globalPool).to.be.gt(0);
+  });
+
+  it('Check pending rewards for next settlement', async function () {
+    const pendingReward = await contractMarket.getPendingRewardForNextSettlement();
+    console.log('\x1b[33m%s\x1b[0m', '   Pending reward for next settlement: ', fromQ96(pendingReward, tokenDecimals).toString());
+
+    // Should be 0 since no frames are rated yet
+    expect(pendingReward).to.equal(0);
+  });
+
+  it('Verify frame state transitions', async function () {
+    // Check current frame state
+    const frameState = await contractMarket.getStateFrame(frameKey);
+    console.log('\x1b[33m%s\x1b[0m', '   Frame state: ', frameState);
+
+    // Should be OPENED (1) since it's in the future
+    expect(frameState).to.equal(1);
   });
 });
