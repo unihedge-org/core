@@ -480,30 +480,26 @@ contract MarketGetter {
         uint lastSettledIndex = market.lastSettledFrameIndex();
         uint framesLength = market.getFramesLength();
         
-        // Start with finding the next frame to be settled
-        if (lastSettledIndex >= framesLength) {
-            return 0; // No frames to settle
+        // Start with rollover from last settled frame if it exists
+        uint256 accumulatedReward = 0;
+        if (lastSettledIndex > 0 && lastSettledIndex <= framesLength) {
+            uint lastSettledFrameKey = market.framesKeys(lastSettledIndex - 1);
+            Market.Frame memory lastSettledFrame = getFrameStruct(market, lastSettledFrameKey);
+            if (lastSettledFrame.frameKey != 0) {
+                accumulatedReward = lastSettledFrame.rewardPool / 2; // 50% rolls over
+            }
         }
         
-        uint currentFrameToSettle = market.framesKeys(lastSettledIndex);
-        
-        uint256 accumulatedReward = 0;
-        uint256 currentFrameKeyIter = currentFrameToSettle;
+        uint256 currentFrameKeyIter = currentFrameKey;
         uint period = market.period();
         
-        // Simulate the rollover process from next settlement to target frame
+        // Simulate the rollover process from current frame to target frame
         while (currentFrameKeyIter <= targetFrameKey) {
-            // Get the reward pool for current frame
-            uint256 currentPool = 0;
+            // Get taxes collected in this frame using the new logic
+            uint256 taxesInFrame = market.taxesCollectedInFrame(currentFrameKeyIter);
             
-            // Check if frame exists
-            Market.Frame memory frame = getFrameStruct(market, currentFrameKeyIter);
-            if (frame.frameKey != 0) {
-                currentPool = frame.rewardPool;
-            }
-            
-            // Add any accumulated reward from previous rollovers
-            currentPool += accumulatedReward;
+            // Total pool for this frame = taxes collected + accumulated rollover
+            uint256 currentPool = taxesInFrame + accumulatedReward;
             
             if (currentFrameKeyIter == targetFrameKey) {
                 // This is our target frame - return 50% of the total pool (what would be distributed)

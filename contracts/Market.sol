@@ -43,6 +43,9 @@ contract Market {
     uint256 public totalTaxesCollected;  
     // Track total rewards distributed
     uint256 public totalRewardsDistributed;  
+    uint256 public lastActiveFrameKey;  // Track the current active frame
+
+    mapping(uint => uint256) public taxesCollectedInFrame; // Track taxes collected in each frame
     /*
     *   Frame enum
 
@@ -318,12 +321,16 @@ contract Market {
     function getGlobalRewardPool() public view returns (uint256) {
         uint256 totalPool = 0;
         
-        // Sum up all unsettled frames' reward pools
+        // Add rollover from last settled frame (50% that wasn't distributed)
+        if (lastSettledFrameIndex > 0 && lastSettledFrameIndex <= framesKeys.length) {
+            uint lastSettledFrameKey = framesKeys[lastSettledFrameIndex - 1];
+            totalPool += frames[lastSettledFrameKey].rewardPool / 2;
+        }
+        
+        // Add taxes collected in all active frames that haven't been settled yet
         for (uint i = lastSettledFrameIndex; i < framesKeys.length; i++) {
             uint frameKey = framesKeys[i];
-            if (getStateFrame(frameKey) != SFrame.SETTLED) {
-                totalPool += frames[frameKey].rewardPool;
-            }
+            totalPool += taxesCollectedInFrame[frameKey];
         }
         
         return totalPool;
@@ -337,8 +344,20 @@ contract Market {
         
         uint frameKey = framesKeys[lastSettledFrameIndex];
         if (getStateFrame(frameKey) == SFrame.RATED) {
-            // 50% of the pool goes to settlement
-            return frames[frameKey].rewardPool / 2;
+            // Calculate what the total reward pool would be for this frame
+            uint256 taxesThisFrame = taxesCollectedInFrame[frameKey];
+            uint256 totalFrameReward = taxesThisFrame;
+            
+            // Add rollover from previous frame if exists
+            if (lastSettledFrameIndex > 0) {
+                uint previousFrameKey = framesKeys[lastSettledFrameIndex - 1];
+                uint256 previousFrameTotal = frames[previousFrameKey].rewardPool;
+                uint256 rollover = previousFrameTotal / 2;
+                totalFrameReward += rollover;
+            }
+            
+            // 50% of the total pool goes to settlement
+            return totalFrameReward / 2;
         }
         
         return 0;
@@ -353,21 +372,32 @@ contract Market {
         //Calculate lot key
         uint lotKey = clcLotKey(rate);
 
+        // Calculate the CURRENT active frame (not the lot's frame)
+        uint currentActiveFrame = clcFrameKey(block.timestamp);
+        
+        // Ensure we're tracking the current active frame
+        if (currentActiveFrame != lastActiveFrameKey) {
+            lastActiveFrameKey = currentActiveFrame;
+            if (frames[currentActiveFrame].frameKey == 0) {
+                createFrame(block.timestamp);
+            }
+        }
+
         //If lot doesn't exist, create new lot
         if (lots[frameKey][lotKey].lotKey == 0) {
             //If Frame doesn't exist, create new frame
             if (frames[frameKey].frameKey == 0) {
                 createFrame(timestamp);
             }
-            purchaseLot(frameKey, lotKey, acquisitionPrice);
+            purchaseLot(frameKey, lotKey, acquisitionPrice, currentActiveFrame);
         } else { // Existing lot
 
             if (lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner == msg.sender) {
                 // If lot owner is same update price
-                revaluateLot(frameKey, lotKey, acquisitionPrice);
+                revaluateLot(frameKey, lotKey, acquisitionPrice, currentActiveFrame );
             } else {
                 // Lot is sold to a new owner
-                resaleLot(frameKey, lotKey, acquisitionPrice);
+                resaleLot(frameKey, lotKey, acquisitionPrice, currentActiveFrame );
             }
         }
         
@@ -375,7 +405,7 @@ contract Market {
         emit LotUpdate(lots[frameKey][lotKey]);
     }
 
-    function purchaseLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {
+    function purchaseLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96, uint activeFrameKey) internal {
         //Calculate tax amount
         uint taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
         // Convert tax to token decimals
@@ -410,19 +440,20 @@ contract Market {
         // Add lot to frame
         frames[frameKey].lotKeys.push(lot.lotKey);
 
-        //Update frame reward pool
-        frames[frameKey].rewardPool += toQ96(taxToken);
+        taxesCollectedInFrame[activeFrameKey] += toQ96(taxToken);
+
         //Update total taxes collected
-        totalTaxesCollected += taxToken;
+        totalTaxesCollected += toQ96(taxToken);
         //Update user total tax paid
-        userTotalTaxPaid[msg.sender] += taxToken;
+        userTotalTaxPaid[msg.sender] += toQ96(taxToken);
 
         //Transfer tax amount to the market contract
         accountingToken.transferFrom(msg.sender, address(this), taxToken);
-        console.log("Tax amount transferred to the market contract", taxToken);
+        
+        emit TaxCollected(msg.sender, taxToken, activeFrameKey);
     }
 
-    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {        //Calculate tax with new acquisitionPrice
+    function revaluateLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96, uint activeFrameKey) internal {        //Calculate tax with new acquisitionPrice
         uint taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
         //Convert tax difference to token decimals
         uint taxChargeToken = fromQ96(taxQ96);
@@ -439,15 +470,18 @@ contract Market {
                 acquisitionPriceQ96, 
                 toQ96(taxChargeToken))
             );
-        //Update frame reward pool
-        frames[frameKey].rewardPool += toQ96(taxChargeToken);
+
+        // Add to global pool and track for active frame
+        taxesCollectedInFrame[activeFrameKey] += toQ96(taxChargeToken);
         //Update total taxes collected
-        totalTaxesCollected += taxChargeToken;
+        totalTaxesCollected += toQ96(taxChargeToken);
         //Update user total tax paid
-        userTotalTaxPaid[msg.sender] += taxChargeToken;
+        userTotalTaxPaid[msg.sender] += toQ96(taxChargeToken);
+
+        emit TaxCollected(msg.sender, taxChargeToken, activeFrameKey);
     }
 
-    function resaleLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96) internal {
+    function resaleLot(uint frameKey, uint lotKey, uint acquisitionPriceQ96, uint activeFrameKey) internal {
         address previousOwner = lots[frameKey][lotKey].states[lots[frameKey][lotKey].states.length - 1].owner;
         //Calculate tax amount
         uint taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
@@ -471,12 +505,14 @@ contract Market {
 
         lots[frameKey][lotKey].states.push(LotState(block.number, block.timestamp, msg.sender, acquisitionPriceQ96, toQ96(taxToken)));
 
-        //Update frame reward pool
-        frames[frameKey].rewardPool += toQ96(taxToken);
+        // Add to global pool and track for active frame
+        taxesCollectedInFrame[activeFrameKey] += toQ96(taxToken);
         //Update total taxes collected
-        totalTaxesCollected += taxToken;
+        totalTaxesCollected += toQ96(taxToken);
         //Update user total tax paid
-        userTotalTaxPaid[msg.sender] += taxToken;
+        userTotalTaxPaid[msg.sender] += toQ96(taxToken);
+
+        emit TaxCollected(msg.sender, taxToken, activeFrameKey);
     }
 
     /* Calculate the current price of the pool
@@ -603,57 +639,63 @@ contract Market {
     }
 
     function settleFrame() public returns (uint) {
-        // Enforce that the next frame to settle is exactly the next one
         require(lastSettledFrameIndex < framesKeys.length, "No frame to settle");
 
         uint frameKey = framesKeys[lastSettledFrameIndex];
-
-        // Check frame exists
         require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
-
-        // Check state
         require(getStateFrame(frameKey) == SFrame.RATED, "Frame is not in RATED state");
 
-        // Reward snapshot should already be stored when frame becomes RATED
-        uint rewardFund = frames[frameKey].rewardPool / 2; // 50% of the reward pool is used for settlement
-
-        uint fee = mulDiv(rewardFund, feeProtocol, FixedPoint96.Q96);
-        uint payout = rewardFund - fee;
+        // Calculate this frame's total reward pool
+        uint256 taxesThisFrame = taxesCollectedInFrame[frameKey];
+        uint256 totalFrameReward = taxesThisFrame;
+        
+        // Add rollover from previous frame if exists
+        if (lastSettledFrameIndex > 0) {
+            uint previousFrameKey = framesKeys[lastSettledFrameIndex - 1];
+            // Previous frame keeps 50%, so we get the other 50%
+            uint256 previousFrameTotal = frames[previousFrameKey].rewardPool;
+            uint256 rollover = previousFrameTotal / 2;
+            totalFrameReward += rollover;
+        }
+        
+        // Store the total reward pool for this frame
+        frames[frameKey].rewardPool = totalFrameReward;
+        
+        // Calculate settlement (always 50% of total pool)
+        uint256 settlementAmount = totalFrameReward / 2;
+        uint256 fee = mulDiv(settlementAmount, feeProtocol, FixedPoint96.Q96);
+        uint256 payout = settlementAmount - fee;
 
         frames[frameKey].feeSettle = fee;
         frames[frameKey].rewardSettle = payout;
+
+        // The other 50% automatically stays in the frame's pool for next frame's rollover
+        // This is implicit - we don't need to move it anywhere!
 
         // Determine winner
         uint lotKeyWon = clcLotKey(frames[frameKey].rate);
         Lot storage lotWon = lots[frameKey][lotKeyWon];
 
-        // Ensure next frame exists for rollover
-        uint nextFrameKey = frameKey + period;
-        if (frames[nextFrameKey].frameKey == 0) {
-            createFrame(nextFrameKey);
-        }
-
-        // The other 50% of the reward pool rolls over to the next frame
-        uint rolloverAmount = frames[frameKey].rewardPool - rewardFund;
-        frames[nextFrameKey].rewardPool += rolloverAmount;
-
-        address recipient;
         if (lotWon.states.length > 0) {
-
-            recipient = lotWon.states[lotWon.states.length - 1].owner;
-
-            // Transfer payout to winner
+            // Has winner
+            address recipient = lotWon.states[lotWon.states.length - 1].owner;
+            
             accountingToken.transfer(recipient, fromQ96(payout));
             frames[frameKey].claimedBy = recipient;
-
+            
             totalRewardsDistributed += fromQ96(payout);
             userTotalWinnings[recipient] += fromQ96(payout);
             emit RewardDistributed(recipient, fromQ96(payout), frameKey);
         } else {
-            frames[nextFrameKey].rewardPool += toQ96(fromQ96(payout));
+            // No winner - the payout amount becomes additional rollover for next frame
             frames[frameKey].claimedBy = address(1);
-            emit FrameRollover(frameKey, nextFrameKey, fromQ96(payout));
+            
+            // Note: The entire unsettled amount (50% base + payout) will be available for next frame
+            uint256 totalRollover = totalFrameReward - fee; // Everything except protocol fee
+            emit FrameRollover(frameKey, frameKey + period, fromQ96(totalRollover));
         }
+        
+        // Always pay protocol fee
         accountingToken.transfer(owner, fromQ96(fee));
 
         frames[frameKey].rateSettle = frames[frameKey].rate;
@@ -663,7 +705,6 @@ contract Market {
         }
         emit FrameUpdate(frames[frameKey]);
 
-        // Update last settled frame
         lastSettledFrameIndex += 1;
 
         return frames[frameKey].rewardSettle;

@@ -164,6 +164,12 @@ describe('Purchase lot and update to lower price', function () {
 
     const balanceBefore = await token.balanceOf(user.address);
 
+    // Verify reward pool increased by the new tax amount
+    const currentActiveFrame = await contractMarket.clcFrameKey((await ethers.provider.getBlock('latest')).timestamp);
+
+    // Calculate the increase in taxes collected in the current frame
+    const taxesCollectedBefore = await contractMarket.taxesCollectedInFrame(currentActiveFrame);
+
     // Get frame reward pool before update
     const frameBeforeUpdate = await contractMarket.frames(frameKey);
     const rewardPoolBeforeUpdate = frameBeforeUpdate.rewardPool;
@@ -188,10 +194,11 @@ describe('Purchase lot and update to lower price', function () {
 
     console.log('\x1b[33m%s\x1b[0m', '   Frame reward pool after update: ', fromQ96(rewardPoolAfterUpdate, tokenDecimals).toString());
 
-    // Verify reward pool increased by the new tax amount
-    const rewardPoolIncrease = rewardPoolAfterUpdate.sub(rewardPoolBeforeUpdate);
+    // Execute the price update to lower value (already done above)
+    const taxesCollectedAfter = await contractMarket.taxesCollectedInFrame(currentActiveFrame);
+    const taxesCollected = taxesCollectedAfter.sub(taxesCollectedBefore);
     const expectedIncrease = toQ96(newTaxToken, tokenDecimals);
-    expect(rewardPoolIncrease).to.be.closeTo(expectedIncrease, 1000);
+    expect(taxesCollected).to.be.closeTo(expectedIncrease, 1000);
 
     // Verify the user paid the full new tax amount (no refund for lower price)
     expect(balanceDifference).to.be.closeTo(newTaxToken, 1);
@@ -269,7 +276,12 @@ describe('Purchase lot and update to lower price', function () {
 
     console.log('\n\x1b[35m%s\x1b[0m', '   === Final Statistics ===');
     console.log('\x1b[35m%s\x1b[0m', '   Global reward pool: ', fromQ96(globalPool, tokenDecimals).toString(), ' USDC');
-    console.log('\x1b[35m%s\x1b[0m', '   Frame reward pool: ', fromQ96(frame.rewardPool, tokenDecimals).toString(), ' USDC');
+
+    // Get active frame to check taxes collected
+    const blockFinal = await ethers.provider.getBlock('latest');
+    const currentActiveFrameFinal = await contractMarket.clcFrameKey(blockFinal.timestamp);
+    const taxesCollected = await contractMarket.taxesCollectedInFrame(currentActiveFrameFinal);
+    console.log('\x1b[35m%s\x1b[0m', '   Taxes collected in active frame: ', fromQ96(taxesCollected, tokenDecimals).toString(), ' USDC');
     console.log('\x1b[35m%s\x1b[0m', '   Total lot states: ', (await contractMarket.getLotStates(frameKey, lotKey)).length);
     console.log('\x1b[35m%s\x1b[0m', '   50% will be distributed on settlement, 50% rolls to next frame');
   });

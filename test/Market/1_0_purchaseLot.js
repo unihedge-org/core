@@ -103,9 +103,10 @@ describe('Purchase one random empty lot with Liquidity Flywheel', function () {
     const lotKey = await contractMarket.clcLotKey(rateAtStart);
     const balanceBefore = await token.balanceOf(user.address);
 
-    // Get frame reward pool before purchase
-    const rewardPoolBefore = await contractMarket.frames(frameKey).then(f => f.rewardPool);
-    console.log('\x1b[33m%s\x1b[0m', '   Frame reward pool before: ', fromQ96(rewardPoolBefore, tokenDecimals).toString());
+    // Get current active frame (where taxes are collected)
+    const currentActiveFrame = await contractMarket.clcFrameKey(block.timestamp);
+    const taxesCollectedBefore = await contractMarket.taxesCollectedInFrame(currentActiveFrame);
+    console.log('\x1b[33m%s\x1b[0m', '   Taxes collected in active frame before: ', fromQ96(taxesCollectedBefore, tokenDecimals).toString());
 
     await contractMarket.connect(user).tradeLot(frameKey, lotKey, acqPriceQ96);
 
@@ -114,13 +115,12 @@ describe('Purchase one random empty lot with Liquidity Flywheel', function () {
 
     console.log('\x1b[33m%s\x1b[0m', '   USDC Difference: ', ethers.utils.formatUnits(diff, tokenDecimals), ' USDC');
 
-    // Check frame reward pool after purchase
-    const frame = await contractMarket.frames(frameKey);
-    const rewardPoolAfter = frame.rewardPool;
-    console.log('\x1b[33m%s\x1b[0m', '   Frame reward pool after: ', fromQ96(rewardPoolAfter, tokenDecimals).toString());
+    // Check taxes collected in active frame after purchase
+    const taxesCollectedAfter = await contractMarket.taxesCollectedInFrame(currentActiveFrame);
+    console.log('\x1b[33m%s\x1b[0m', '   Taxes collected in active frame after: ', fromQ96(taxesCollectedAfter, tokenDecimals).toString());
 
-    // Verify reward pool increased by tax amount
-    expect(rewardPoolAfter.sub(rewardPoolBefore)).to.equal(toQ96(taxToken, tokenDecimals));
+    // Verify taxes were collected in the active frame
+    expect(taxesCollectedAfter.sub(taxesCollectedBefore)).to.equal(toQ96(taxToken, tokenDecimals));
 
     const lot = await contractMarket.getLot(frameKey, lotKey);
     expect(lot.frameKey).to.equal(frameKey);
