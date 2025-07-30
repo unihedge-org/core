@@ -41,8 +41,8 @@ module.exports = {
   },
   networks: {
     polygon: {
-      // url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
-      url: `https://lingering-winter-spree.matic.quiknode.pro/${process.env.QUICKNODE_POLYGON_API_KEY}/`,
+      url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_POLYGON_API_KEY}`,
+      // url: `https://lingering-winter-spree.matic.quiknode.pro/${process.env.QUICKNODE_POLYGON_API_KEY}/`,
       accounts: privateKeys,
       loggingEnabled: true,
     },
