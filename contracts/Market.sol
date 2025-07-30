@@ -44,6 +44,8 @@ contract Market {
     // Track total rewards distributed
     uint256 public totalRewardsDistributed;  
     uint256 public lastActiveFrameKey;  // Track the current active frame
+    // Rollover percentage (in basis points, where 1000 = 10%)
+    uint256 public rolloverPercentage = 9000; // Default 90%
 
     mapping(uint => uint256) public taxesCollectedInFrame; // Track taxes collected in each frame
     /*
@@ -321,10 +323,10 @@ contract Market {
     function getGlobalRewardPool() public view returns (uint256) {
         uint256 totalPool = 0;
         
-        // Add rollover from last settled frame (50% that wasn't distributed)
+        // Add rollover from last settled frame (configurable % that wasn't distributed)
         if (lastSettledFrameIndex > 0 && lastSettledFrameIndex <= framesKeys.length) {
             uint lastSettledFrameKey = framesKeys[lastSettledFrameIndex - 1];
-            totalPool += frames[lastSettledFrameKey].rewardPool / 2;
+            totalPool += mulDiv(frames[lastSettledFrameKey].rewardPool, rolloverPercentage, 10000);
         }
         
         // Add taxes collected in all active frames that haven't been settled yet
@@ -352,12 +354,12 @@ contract Market {
             if (lastSettledFrameIndex > 0) {
                 uint previousFrameKey = framesKeys[lastSettledFrameIndex - 1];
                 uint256 previousFrameTotal = frames[previousFrameKey].rewardPool;
-                uint256 rollover = previousFrameTotal / 2;
+                uint256 rollover = mulDiv(previousFrameTotal, rolloverPercentage, 10000);
                 totalFrameReward += rollover;
             }
             
-            // 50% of the total pool goes to settlement
-            return totalFrameReward / 2;
+            // Configurable % of the total pool goes to settlement (remaining goes to next frame)
+            return mulDiv(totalFrameReward, 10000 - rolloverPercentage, 10000);
         }
         
         return 0;
@@ -631,8 +633,7 @@ contract Market {
         //Frame has to be in state CLOSED
         require(frames[frameKey].frameKey + period <= block.timestamp, "Frame has to be in the past");
         //Calculate the average price of the frame
-        uint rate = clcRateAvg(frameKey + period);
-
+        uint rate = clcRateAvg(frameKey);
         //Update frame
         frames[frameKey].rate = rate;
         emit FrameUpdate(frames[frameKey]);
@@ -643,6 +644,7 @@ contract Market {
 
         uint frameKey = framesKeys[lastSettledFrameIndex];
         require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
+
         require(getStateFrame(frameKey) == SFrame.RATED, "Frame is not in RATED state");
 
         // Calculate this frame's total reward pool
@@ -652,24 +654,24 @@ contract Market {
         // Add rollover from previous frame if exists
         if (lastSettledFrameIndex > 0) {
             uint previousFrameKey = framesKeys[lastSettledFrameIndex - 1];
-            // Previous frame keeps 50%, so we get the other 50%
+            // Previous frame keeps rolloverPercentage%, so we get the rest
             uint256 previousFrameTotal = frames[previousFrameKey].rewardPool;
-            uint256 rollover = previousFrameTotal / 2;
+            uint256 rollover = mulDiv(previousFrameTotal, rolloverPercentage, 10000);
             totalFrameReward += rollover;
         }
         
         // Store the total reward pool for this frame
         frames[frameKey].rewardPool = totalFrameReward;
         
-        // Calculate settlement (always 50% of total pool)
-        uint256 settlementAmount = totalFrameReward / 2;
+        // Calculate settlement (configurable % goes to rollover, rest goes to settlement)
+        uint256 settlementAmount = mulDiv(totalFrameReward, 10000 - rolloverPercentage, 10000);
         uint256 fee = mulDiv(settlementAmount, feeProtocol, FixedPoint96.Q96);
         uint256 payout = settlementAmount - fee;
 
         frames[frameKey].feeSettle = fee;
         frames[frameKey].rewardSettle = payout;
 
-        // The other 50% automatically stays in the frame's pool for next frame's rollover
+        // The rolloverPercentage automatically stays in the frame's pool for next frame's rollover
         // This is implicit - we don't need to move it anywhere!
 
         // Determine winner
@@ -724,6 +726,30 @@ contract Market {
    function changeProtocolFee(uint256 newFee) external {
        require(msg.sender == owner, "Only owner can change protocol fee");
        feeProtocol = newFee;
+   }
+
+   function setRolloverPercentage(uint256 newRolloverPercentage) external {
+       require(msg.sender == owner, "Only owner can change rollover percentage");
+       require(newRolloverPercentage <= 9000, "Rollover percentage cannot exceed 90%");
+       rolloverPercentage = newRolloverPercentage;
+   }
+
+   function seedRewardPool(uint256 amount) external {
+       require(msg.sender == owner, "Only owner can seed reward pool");
+       require(amount > 0, "Amount must be greater than 0");
+       
+       // Transfer tokens from owner to contract
+       accountingToken.transferFrom(msg.sender, address(this), amount);
+       
+       // Add to the current active frame's tax collection or global pool
+       uint currentFrameKey = clcFrameKey(block.timestamp);
+       if (frames[currentFrameKey].frameKey == 0) {
+           createFrame(block.timestamp);
+       }
+       
+       // Add the seeded amount to the current frame's tax collection
+       taxesCollectedInFrame[currentFrameKey] += toQ96(amount);
+       totalTaxesCollected += toQ96(amount);
    }
 
     // Uniswap V3 mulDiv function

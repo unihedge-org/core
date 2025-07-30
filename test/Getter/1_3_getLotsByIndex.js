@@ -1,5 +1,5 @@
-const { expect, ethers, IERC20, ISwapRouter, time } = require("../Helpers/imports.js");
-const { swapTokenForUsers } = require("../Helpers/functions.js");
+const { expect, ethers, IERC20, ISwapRouter, time } = require('../Helpers/imports');
+const { swapTokenForUsers, convertToTokenUnits } = require('../Helpers/functions.js');
 
 /*
 Random user buys a random lot in the range of 1 to 100 times dPrice
@@ -11,15 +11,19 @@ describe("Get lots by index", function () {
     user2,
     user3,
     token,
-    wMaticContract,
+    wPOLContract,
     contractMarket,
     contractMarketGetter,
+    contractSwapRouter,
     frameKeyStart,
     frameKey,
     dPrice,
     acqPrice,
     acqPrice2,
-    tax;
+    tax,
+    tokenDecimals,
+    mathDecimals,
+    rateAtStart;
 
   let pairPrice = ethers.BigNumber.from("0");
 
@@ -32,23 +36,27 @@ describe("Get lots by index", function () {
     console.log("\x1b[33m%s\x1b[0m", "   Current block: ", block.number);
 
     //Contracts are loaded from addresses
-    token = await ethers.getContractAt("IERC20Metadata", process.env.FUNDING_TOKEN, owner);
+    token = await ethers.getContractAt('IERC20Metadata', process.env.FUNDING_TOKEN, owner);
     wPOLContract = await ethers.getContractAt(IERC20.abi, process.env.WPOL_POLYGON, owner);
     contractSwapRouter = await ethers.getContractAt(ISwapRouter.abi, process.env.UNISWAP_ROUTER, owner);
 
     // Get token decimals
     tokenDecimals = await token.decimals();
+    mathDecimals = 18; //Math decimals are set to 18
 
     //Swap tokens for users, get USDC
-    await swapTokenForUsers(accounts.slice(0,5), wPOLContract, token, 9000, contractSwapRouter);
+    await swapTokenForUsers(accounts.slice(0, 5), wPOLContract, token, 9000, contractSwapRouter);
     //Check if USDC balance is greater than 0
     let balance = await token.balanceOf(owner.address);
     console.log("\x1b[33m%s\x1b[0m", "   USDC balance: ", ethers.utils.formatUnits(balance, tokenDecimals), " $");
     expect(balance).to.be.gt(0);
   });
-  it("Deploy Market and Getter contract", async function () {
-    const Market = await ethers.getContractFactory("Market");
-    contractMarket = await Market.deploy(process.env.FUNDING_TOKEN);
+  it('Deploy Market and Getter contract', async function () {
+    const Market = await ethers.getContractFactory('Market');
+    dPrice = ethers.utils.parseUnits('100', mathDecimals);
+    let feeProtocol = ethers.utils.parseUnits('0.03', mathDecimals);
+    let feeMarket = ethers.utils.parseUnits('0.01', mathDecimals);
+    contractMarket = await Market.deploy(process.env.FUNDING_TOKEN, feeProtocol, feeMarket, dPrice, process.env.POOL);
     //Expect owner to be first account
     expect(await contractMarket.owner()).to.equal(accounts[0].address);
     //Expect period to be 1 day in seconds
@@ -56,52 +64,52 @@ describe("Get lots by index", function () {
 
     //get dPrice
     dPrice = await contractMarket.dPrice();
-    console.log("\x1b[33m%s\x1b[0m", "   dPrice: ", ethers.utils.formatUnits(dPrice, tokenDecimals), " USDC");
+    dPrice_in_token_units = convertToTokenUnits(ethers.utils.formatUnits(dPrice, mathDecimals), tokenDecimals);
+
+    console.log('\x1b[33m%s\x1b[0m', '   dPrice: ', ethers.utils.formatUnits(dPrice_in_token_units, tokenDecimals), ' USDC');
     expect(dPrice).to.be.gt(0);
 
-    const MarketGetter = await ethers.getContractFactory("MarketGetter");
+    const MarketGetter = await ethers.getContractFactory('MarketGetter');
     contractMarketGetter = await MarketGetter.deploy();
 
     //Confirm that contractMarketGetter is deployed
     expect(contractMarketGetter.address).to.not.equal(ethers.constants.AddressZero);
+
+    // Get current rate
+    rateAtStart = await contractMarket.clcRate();
   });
-  it("Approve USDC to spend", async function () {
+  it('Approve USDC to spend', async function () {
     //Select random account
     user = accounts[Math.floor(Math.random() * 4) + 1];
+    //Get current block timestamp
+    const block = await ethers.provider.getBlock('latest');
 
-    const block = await ethers.provider.getBlock("latest");
-    frameKeyStart = await contractMarket.clcFrameKey(block.timestamp);
-    frameKey = await contractMarket.clcFrameKey(block.timestamp + 270000);
+    frameKey = await contractMarket.clcFrameKey(block.timestamp + 259200);
 
     // Get the current date and time in UTC
     const now = new Date();
 
-    // Get the timestamp of today at 16:00 GMT (neki je narobe z mojim časom na kompu....)
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 13, 0, 0, 0));
-
+    // Get the timestamp of today at 16:00 GMT
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 16, 0, 0, 0));
     // Convert to seconds
     const timestamp = Math.floor(today.getTime() / 1000);
 
-    // Perform the assertion
-    // // expect(frameKey).to.equal(timestamp + 270000);
-
-    //Select random pair price in range of 1 to 100 times dPrice
-    pairPrice = ethers.BigNumber.from(Math.floor(Math.random() * 100) + 1);
-    pairPrice = pairPrice.mul(dPrice);
-
     //Acqusition price in USDC:
-    acqPrice = ethers.utils.parseUnits("15", tokenDecimals);
+    acqPrice = ethers.utils.parseUnits('15', mathDecimals);
     //Calculate approval amount
     tax = await contractMarket.clcTax(frameKey, acqPrice);
+
+    tokenTax = convertToTokenUnits(ethers.utils.formatUnits(tax, mathDecimals), tokenDecimals);
+
     //Print tax in blue
-    console.log("\x1b[36m%s\x1b[0m", "   Tax: ", ethers.utils.formatUnits(tax, tokenDecimals), " USDC");
+    console.log('\x1b[36m%s\x1b[0m', '   Tax: ', ethers.utils.formatUnits(tokenTax, tokenDecimals), ' USDC');
 
     //Approve USDC to spend
-    await token.connect(user).approve(contractMarket.address, tax);
+    await token.connect(user).approve(contractMarket.address, tokenTax);
     //Check allowance
     let allowance = await token.allowance(user.address, contractMarket.address);
-    console.log("\x1b[33m%s\x1b[0m", "   Allowance: ", ethers.utils.formatUnits(allowance, tokenDecimals), " USDC");
-    expect(allowance).to.equal(tax);
+    console.log('\x1b[33m%s\x1b[0m', '   Allowance: ', ethers.utils.formatUnits(allowance, tokenDecimals), ' USDC');
+    expect(allowance).to.equal(tokenTax);
   });
   it("Purchase lot", async function () {
     //get users current USDC balance
