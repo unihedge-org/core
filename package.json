@@ -1,6 +1,6 @@
 {
   "name": "@unihedge-org/core",
-  "version": "0.0.50",
+  "version": "0.0.51",
   "type": "commonjs",
   "engines": {
     "node": ">=18.17.0"
