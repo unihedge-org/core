@@ -285,23 +285,38 @@ contract Market {
         uint256 settlement = frameKey + period;
         require(settlement > block.timestamp, "Frame has to be in the future");  
         console.log("Settlement timestamp", settlement);
-        console.log("Settlmenet days remaining", (settlement - block.timestamp) / 86400);
+        console.log("Settlement days remaining", (settlement - block.timestamp) / 86400);
 
         // 1) Compute daysRemaining
         uint256 secondsLeft = settlement - block.timestamp;
         uint256 daysRemaining = secondsLeft / 86400;
 
-        // 2) Horizon = daysRemaining + 1
-        uint256 horizon = daysRemaining + 1;
+        // 2) Horizon should just be daysRemaining (not +1)
+        // If we're 1 day from settlement, horizon should be 1
+        uint256 horizon = daysRemaining;
+        
+        // Ensure horizon is at least 1 to avoid division by zero
+        if (horizon == 0) horizon = 1;
 
-        // 3) Compute sqrt(horizon)
-        uint256 root = Math.sqrt(horizon);
+        // 3) Calculate sqrt(horizon) with fixed-point precision
+        // We'll use a simple but effective approach:
+        // Scale horizon by a large factor, take sqrt, then adjust the result
+        uint256 SCALE_FACTOR = 1e12; // Use 1e12 for good precision without overflow
+        uint256 horizonScaled = horizon * SCALE_FACTOR;
+        uint256 sqrtHorizonScaled = Math.sqrt(horizonScaled);
+        
+        // Now sqrtHorizonScaled = sqrt(horizon * 1e12) = sqrt(horizon) * 1e6
+        // So sqrt(horizon) = sqrtHorizonScaled / 1e6
+        
+        // 4) Tax rate = 25% / sqrt(horizon) in Q96 format
+        // We want: (FixedPoint96.Q96 / 4) / sqrt(horizon)
+        // = (FixedPoint96.Q96 / 4) * 1e6 / sqrtHorizonScaled
+        uint256 quarterQ96 = FixedPoint96.Q96 / MAX_TAX_DENOMINATOR; // 25% in Q96
+        uint256 SQRT_SCALE_FACTOR = 1e6; // sqrt(1e12) = 1e6
+        
+        uint256 dynamicTaxRateQ96 = mulDiv(quarterQ96, SQRT_SCALE_FACTOR, sqrtHorizonScaled);
 
-        // 4) Tax rate in Q96 = (25% = 1/4) * Q96 / root
-        //    i.e. Q96 / (4 * root)
-        uint256 dynamicTaxRateQ96 = FixedPoint96.Q96 / (MAX_TAX_DENOMINATOR * root);
-
-        // 5) One-time tax = dynamicRate × price  / Q96
+        // 5) One-time tax = dynamicRate × price
         uint256 taxQ96 = mulDiv(dynamicTaxRateQ96, acquisitionPriceQ96, FixedPoint96.Q96);
 
         return taxQ96;
@@ -848,6 +863,4 @@ contract Market {
         result = prod0 * inv;
         return result;
     }
-
-
 }
