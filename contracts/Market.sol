@@ -284,23 +284,27 @@ contract Market {
     function clcTax(uint frameKey, uint256 acquisitionPriceQ96) public view returns (uint256) {
         uint256 settlement = frameKey + period;
         require(settlement > block.timestamp, "Frame has to be in the future");  
-        console.log("Settlement timestamp", settlement);
-        console.log("Settlement days remaining", (settlement - block.timestamp) / 86400);
+        
+        console.log("=== TAX CALCULATION DEBUG ===");
+        console.log("Frame key:", frameKey);
+        console.log("Period:", period);
+        console.log("Settlement timestamp:", settlement);
+        console.log("Current timestamp:", block.timestamp);
+        console.log("Raw seconds left:", settlement - block.timestamp);
+        console.log("Settlement days remaining:", (settlement - block.timestamp) / 86400);
 
         // 1) Compute daysRemaining
         uint256 secondsLeft = settlement - block.timestamp;
         uint256 daysRemaining = secondsLeft / 86400;
 
-        // 2) Horizon should just be daysRemaining (not +1)
-        // If we're 1 day from settlement, horizon should be 1
-        uint256 horizon = daysRemaining;
-        
-        // Ensure horizon is at least 1 to avoid division by zero
-        if (horizon == 0) horizon = 1;
+        // 2) Horizon calculation
+        uint256 horizon = daysRemaining + 1;
+
+        console.log("Days remaining:", daysRemaining);
+        console.log("Horizon:", horizon);
+        console.log("=== END DEBUG ===");
 
         // 3) Calculate sqrt(horizon) with fixed-point precision
-        // We'll use a simple but effective approach:
-        // Scale horizon by a large factor, take sqrt, then adjust the result
         uint256 SCALE_FACTOR = 1e12; // Use 1e12 for good precision without overflow
         uint256 horizonScaled = horizon * SCALE_FACTOR;
         uint256 sqrtHorizonScaled = Math.sqrt(horizonScaled);
