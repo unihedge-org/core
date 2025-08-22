@@ -661,7 +661,20 @@ contract Market {
     function settleFrame() public returns (uint) {
         require(lastSettledFrameIndex < framesKeys.length, "No frame to settle");
 
-        uint frameKey = framesKeys[lastSettledFrameIndex];
+        uint oldestFrameKey = type(uint256).max;
+        uint oldestFrameIndex = type(uint256).max;
+
+        for (uint i = lastSettledFrameIndex; i < framesKeys.length; i++) {
+            uint _frameKey = framesKeys[i];
+            if (getStateFrame(_frameKey) == SFrame.RATED && _frameKey < oldestFrameKey) {
+                oldestFrameKey = _frameKey;
+                oldestFrameIndex = i;
+            }
+        }
+
+        require(oldestFrameIndex != type(uint256).max, "No frame ready for settlement");
+
+        uint frameKey = framesKeys[oldestFrameIndex];
         require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
 
         require(getStateFrame(frameKey) == SFrame.RATED, "Frame is not in RATED state");
