@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/// @author UniHedge
+
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {FixedPoint96} from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 
-/// @author UniHedge
+
 contract Market {
     // -------------------- Defaults --------------------
     uint256 private constant DEFAULT_PERIOD = 86_400;   // 1 day
@@ -32,13 +34,16 @@ contract Market {
     uint public tSettle;
 
     // Uniswap pool
-    IUniswapV3Pool public uniswapPool;
+
 
     // Rate range step of a lot (resolution) in Q96
     uint256 public lotRateStepQ96;
 
     // ERC20 token used for buying lots in this contract
     IERC20Metadata public accountingToken;
+
+    // Uniswap V3 pool for price reference
+    IUniswapV3Pool public uniswapPool;
 
     // Base unit for calculations (10^decimals(accountingToken))
     uint public immutable baseUnit;
@@ -59,14 +64,25 @@ contract Market {
     // Enums & structs unchanged...
     enum SFrame {NULL, OPENED, CLOSED, RATED, SETTLED}
     struct Settlement {
-        uint timestamp;
-        uint blockNumber;
-        address winner;
-        uint256 rateQ96;
-        uint256 rewardFundQ96;
-        uint256 rewardFeeQ96;
-        uint256 rewardClaimed;
+        uint timestamp;                // settlement time
+        uint blockNumber;              // settlement block
+        address winner;                // winning position
+        uint256 rateQ96;               // settlement rate (Q96 fixed-point)
+
+        // --- Intermediate accounting ---
+        uint256 taxCollectedT;         // raw tax collected during this frame
+        uint256 taxFeeT;               // fee taken from tax inflows (once per tx)
+        uint256 taxPotT;               // distributable tax (TaxCollected - TaxFee)
+
+        // --- Pool balance before discharge ---
+        uint256 poolBalanceT;          // total before discharge (undischargedBalancePrevT + taxPotT)
+
+        // --- Discharge ---
+        uint256 dischargedRewardT;     // portion leaving the pool (payout to the winner)
+        uint256 undischargedBalanceT;  // portion that stays, carried to the next frame
     }
+
+
     enum STrade {PURCHASE, REVALUATE, RESALE}
     struct Trade {
         uint64 timestamp;
@@ -448,7 +464,7 @@ contract Market {
     /* Calculate the current price of the pool
      *  @return price - the current price of the pool
      */
-    function clcRate() public view returns (uint256) {
+    function clcRateQ96() public view returns (uint256) {
         (uint160 sqrtPriceX96, , , , , ,) = uniswapPool.slot0();
 
         uint256 priceX192 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
@@ -476,7 +492,7 @@ contract Market {
      *  @param timestamp - the timestamp of the frame
      *  @return price - the average price of the pool over the given time interval
      */
-    function clcRateAvg(uint timestamp) public view returns (uint){
+    function clcRateAvgQ96(uint timestamp) public view returns (uint){
         uint32 t1 = uint32(block.timestamp - timestamp + tSettle);
         uint32 t2 = uint32(block.timestamp - timestamp);
 
@@ -551,46 +567,61 @@ contract Market {
         require(frames[frameKey].settlement.timestamp == 0, "Already settled");
         require(frames[frameKey].settlement.rateQ96 == 0, "Rate already set");
 
-        uint256 rateQ96 = clcRateAvg(frameKey);
+        uint256 rateQ96 = clcRateAvgQ96(frameKey);
         require(rateQ96 <= type(uint256).max, "rateQ96 overflow");
         frames[frameKey].settlement.rateQ96 = uint256(rateQ96);
 
         emit FrameUpdate(frames[frameKey]);
     }
 
-    function settleFrame(uint256 frameKey) public returns (uint256 netPayoutQ96) {
+    function settleFrame(uint256 frameKey) public returns (uint256 dischargedRewardT) {
         require(frameKey >= initTimestamp, "Before init");
         require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
         require(block.timestamp >= frameKey + period, "Frame not closed");
         require(frames[frameKey].settlement.timestamp == 0, "Already settled");
         require(frames[frameKey].settlement.rateQ96 > 0, "Rate not set");
 
-        uint256 prevRemainQ96 = 0;
-        if (frameKey > initTimestamp) {
-            uint256 prevKey = frameKey - period;
-            if (prevKey >= initTimestamp) {
-                if (frames[prevKey].frameKey != 0 && frames[prevKey].settlement.timestamp == 0) {
-                    require(false, string(abi.encodePacked("Previous frame not settled: ", _toString(prevKey))));
-                }
-                if (frames[prevKey].frameKey != 0 && frames[prevKey].settlement.timestamp != 0) {
-                    prevRemainQ96 = _remainingOfSettled(prevKey);
-                }
+        // ---------- 1) Pull undischarged balance from the previous frame (tokens) ----------
+        uint256 undischargedPrevT = 0;
+        uint256 prevKey = frameKey - period;
+        if (prevKey >= initTimestamp) {
+            if (frames[prevKey].frameKey != 0 && frames[prevKey].settlement.timestamp == 0) {
+                require(false, string(abi.encodePacked("Previous frame not settled.")));
             }
+            undischargedPrevT = frames[prevKey].settlement.undischargedBalanceT;
         }
 
-        uint256 taxesThisFrameQ96 = _sumTaxesInFrame(frameKey);
-        uint256 poolQ96 = taxesThisFrameQ96 + prevRemainQ96;
+        // ---------- 2) Frame inflows: tax collected and fee (only on this frame's inflows) ----------
+        // Both must be TOKEN amounts (not Q96). Replace helpers with your actual implementations.
+        uint256 taxCollectedT = _sumTaxCollectedInFrameT(frameKey);  // raw HTAX inflows (tokens)
+        uint256 taxFeeT = _calculateFeeT(taxCollectedT);          // fee on HTAX inflows (tokens)
 
-        // 🔁 settlement (discharged this frame) & fee
-        uint256 settlementGrossQ96 = Math.mulDiv(
-            poolQ96,
+        // Ensure fee <= collected (defensive)
+        if (taxFeeT > taxCollectedT) taxFeeT = taxCollectedT;
+
+        // Send fee to protocol owner (since fee does NOT go into the pot)
+        if (taxFeeT > 0) {
+            accountingToken.transfer(owner, taxFeeT);
+        }
+
+        // Distributable tax this frame (tokens)
+        uint256 taxPotT = taxCollectedT - taxFeeT;
+
+        // ---------- 3) Pool balance BEFORE discharge (tokens) ----------
+        // poolBalanceT = undischargedPrevT + taxPotT
+        uint256 poolBalanceT = undischargedPrevT + taxPotT;
+
+        // ---------- 4) Discharge split (tokens) ----------
+        // dischargedRewardT = α * poolBalanceT ; α == dischargeRateQ96 / Q96
+        // undischargedBalanceT = (1-α) * poolBalanceT
+        uint256 dischargedRewardCalcT = Math.mulDiv(
+            poolBalanceT,
             dischargeRateQ96,
             FixedPoint96.Q96
         );
-        uint256 feeQ96 = Math.mulDiv(settlementGrossQ96, feeProtocolQ96, FixedPoint96.Q96);
-        uint256 payoutQ96 = settlementGrossQ96 - feeQ96;
+        uint256 undischargedBalanceT = poolBalanceT - dischargedRewardCalcT;
 
-        // Winner bucket by snapped rate
+        // ---------- 5) Resolve winner by snapped rate ----------
         uint256 rateQ96 = frames[frameKey].settlement.rateQ96;
         uint256 lotKeyWinnerTokens = clcLotKey(rateQ96);
         uint256 lotIdWinner = packLotId(frameKey, lotKeyWinnerTokens);
@@ -603,133 +634,59 @@ contract Market {
             }
         }
 
-        if (feeQ96 > 0) {
-            accountingToken.transfer(owner, fromQ96(feeQ96));
-        }
-        if (winnerAddr != address(0) && payoutQ96 > 0) {
-            accountingToken.transfer(winnerAddr, fromQ96(payoutQ96));
+        // ---------- 6) Payout (discharged reward leaves the pool) ----------
+        if (winnerAddr != address(0) && dischargedRewardCalcT > 0) {
+            accountingToken.transfer(winnerAddr, dischargedRewardCalcT);
             frames[frameKey].settlement.winner = winnerAddr;
-            frames[frameKey].settlement.rewardClaimed = uint256(payoutQ96);
-            netPayoutQ96 = payoutQ96;
+            dischargedRewardT = dischargedRewardCalcT;
         } else {
-            frames[frameKey].settlement.winner = address(1); // sentinel
-            frames[frameKey].settlement.rewardClaimed = 0;
-            netPayoutQ96 = 0;
+            // Sentinel address to indicate no winner
+            frames[frameKey].settlement.winner = address(1);
+            dischargedRewardT = 0;
+            // If nothing discharged, everything stays undischarged (already reflected in undischargedBalanceT)
         }
 
-        frames[frameKey].settlement.rewardFundQ96 = uint256(poolQ96);
-        frames[frameKey].settlement.rewardFeeQ96 = uint256(feeQ96);
+        // ---------- 7) Persist settlement outputs (tokens) ----------
+        // Intermediate accounting
+        frames[frameKey].settlement.taxCollectedT = taxCollectedT;
+        frames[frameKey].settlement.taxFeeT = taxFeeT;
+        frames[frameKey].settlement.taxPotT = taxPotT;
+
+        // Pool before discharge
+        frames[frameKey].settlement.poolBalanceT = poolBalanceT;
+
+        // Discharge outputs
+        frames[frameKey].settlement.dischargedRewardT = dischargedRewardT;
+        frames[frameKey].settlement.undischargedBalanceT = undischargedBalanceT;
+
+        // Metadata
         frames[frameKey].settlement.timestamp = block.timestamp;
         frames[frameKey].settlement.blockNumber = block.number;
 
         emit FrameUpdate(frames[frameKey]);
-        return netPayoutQ96;
+        return dischargedRewardT;
     }
 
-    /// @notice Preview the reward payout for a given frame without modifying state.
-    /// @dev Mirrors settleFrame() math and checks, but does NOT transfer or write.
-    ///      Reverts under the same preconditions as settleFrame:
-    ///        - frame exists
-    ///        - frame is closed (now >= frameKey + period)
-    ///        - previous frame (if any) is settled
-    ///        - this frame's rate is set
-    /// @return poolQ96            Taxes this frame + remaining from previous settled frame (Q96)
-    /// @return settlementGrossQ96 Portion discharged this frame before fee (Q96)
-    /// @return feeQ96             Protocol fee on this frame’s discharge (Q96)
-    /// @return netPayoutQ96       Winner’s payout for this frame (Q96)
-    /// @return winner             Address that would receive the payout, or address(0) if no winner
-    function previewFrameReward(
-        uint256 frameKey
-    )
-    external
-    view
-    returns (
-        uint256 poolQ96,
-        uint256 settlementGrossQ96,
-        uint256 feeQ96,
-        uint256 netPayoutQ96,
-        address winner
-    )
-    {
-        require(frameKey >= initTimestamp, "Before init");
-        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
-        require(block.timestamp >= frameKey + period, "Frame not closed");
-        require(frames[frameKey].settlement.timestamp == 0, "Already settled");
-        require(frames[frameKey].settlement.rateQ96 > 0, "Rate not set");
-
-        // Carry over remaining funds from the previous (already settled) frame, if any
-        uint256 prevRemainQ96 = 0;
-        if (frameKey > initTimestamp) {
-            uint256 prevKey = frameKey - period;
-            if (prevKey >= initTimestamp) {
-                // If previous frame exists but is not settled yet, mirror settleFrame() revert
-                if (frames[prevKey].frameKey != 0 && frames[prevKey].settlement.timestamp == 0) {
-                    revert(string(abi.encodePacked("Previous frame not settled: ", _toString(prevKey))));
-                }
-                if (frames[prevKey].frameKey != 0 && frames[prevKey].settlement.timestamp != 0) {
-                    prevRemainQ96 = _remainingOfSettled(prevKey);
-                }
-            }
-        }
-
-        // Pool this frame = new taxes + remaining from previous
-        uint256 taxesThisFrameQ96 = _sumTaxesInFrame(frameKey);
-        poolQ96 = taxesThisFrameQ96 + prevRemainQ96;
-
-        // Discharge & fee math (same as in settleFrame)
-        settlementGrossQ96 = Math.mulDiv(poolQ96, dischargeRateQ96, FixedPoint96.Q96);
-        feeQ96 = Math.mulDiv(settlementGrossQ96, feeProtocolQ96, FixedPoint96.Q96);
-        netPayoutQ96 = settlementGrossQ96 - feeQ96;
-
-        // Who would win?
-        uint256 rateQ96 = frames[frameKey].settlement.rateQ96;
-        uint256 lotKeyWinnerTokens = clcLotKey(rateQ96);
-        uint256 lotIdWinner = packLotId(frameKey, lotKeyWinnerTokens);
-
-        winner = address(0);
-        Lot storage L = lots[lotIdWinner];
-        if (L.lotId != 0 && L.trades.length > 0) {
-            winner = trades[L.trades[L.trades.length - 1]].owner;
-        }
-    }
-
-
-    function _toString(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0";
-        }
-        uint256 temp = value;
-        uint256 digits;
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
-        }
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            digits -= 1;
-            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
-            value /= 10;
-        }
-        return string(buffer);
-    }
-
-    /// Sum all taxes (Q96) of trades attributed to this frame.
-    function _sumTaxesInFrame(uint256 frameKey) internal view returns (uint256 totalQ96) {
+    /// @notice Returns total HTAX collected in this frame, in TOKEN units (T).
+    /// Internally sums Q96, converts once to reduce rounding loss.
+    function _sumTaxCollectedInFrameT(uint256 frameKey) internal view returns (uint256) {
         uint[] storage idxs = frames[frameKey].trades;
+        uint256 totalTaxQ96 = 0;
         for (uint i = 0; i < idxs.length; i++) {
-            totalQ96 += trades[idxs[i]].taxQ96;
+            totalTaxQ96 += trades[idxs[i]].taxQ96; // Q96
         }
-        return totalQ96;
-    }
-
-    /// Remaining funds from a settled frame: pool - (claimed + fee).
-    function _remainingOfSettled(uint256 frameKey) internal view returns (uint256) {
-        Settlement storage S = frames[frameKey].settlement;
-        return uint256(S.rewardFundQ96) - (uint256(S.rewardClaimed) + uint256(S.rewardFeeQ96));
+        // Convert once from Q96 -> tokens (T)
+        return fromQ96(totalTaxQ96);
     }
 
     function withdrawAccountingToken(uint amount) external {
         require(msg.sender == owner, "Only owner can withdraw accounting token");
         accountingToken.transfer(owner, amount);
+    }
+
+    /// @notice Calculate protocol fee on a TOKEN amount using a Q96 fraction; returns TOKEN units (T).
+    function _calculateFeeT(uint256 amountT) public view returns (uint256) {
+        // fee = amountT * (feeProtocolQ96 / Q96)
+        return Math.mulDiv(amountT, feeProtocolQ96, FixedPoint96.Q96);
     }
 }
