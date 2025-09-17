@@ -58,7 +58,7 @@ describe("Market — deploy (defaults) then clcRate()", async function () {
     });
 
     it("calls clcRate() and logs Q96 + decoded value", async () => {
-        rate1 = await market.read.clcRate([]);
+        rate1 = await market.read.clcRateQ96([]);
         const decoded = q96ToDecimalString(rate1, 8);
 
         console.log("Market.clcRate() raw Q96:", rate1.toString());

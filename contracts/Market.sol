@@ -1,25 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/// @author UniHedge
-
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {FixedPoint96} from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 
+/// @author UniHedge
+
 
 contract Market {
-    // -------------------- Defaults --------------------
-    uint256 private constant DEFAULT_PERIOD = 86_400;   // 1 day
-    uint256 private constant DEFAULT_INIT_TIMESTAMP = 1_756_742_400; // your original (example)
-    uint256 private constant DEFAULT_T_SETTLE = 600;      // 10 minutes
-    uint256 private constant DEFAULT_FEE_PROTOCOL_PCT_1E6 = 30_000;   // 3.0000%
-    uint256 private constant DEFAULT_DISCHARGE_PCT_1E6 = 100_000;  // 10.0000% discharged each frame
-    uint256 private constant DEFAULT_TAX_ANCHOR_SECONDS = 5_760;    // ~1.6h
-    uint256 private constant DEFAULT_LOT_STEP_TOKENS = 100;      // 100 units of accounting token
-    address public constant DEFAULT_ACCOUNTING_TOKEN = 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359; // your Accounting USDC
-    address public constant DEFAULT_UNISWAP_POOL = 0x45dDa9cb7c25131DF268515131f647d726f50608; // WETH/USDC.e
+    // [seconds] 1 day
+    uint256 private constant DEFAULT_PERIOD = 86_400;
+    // [unix timestamp] example start time
+    uint256 private constant DEFAULT_INIT_TIMESTAMP = 1_756_742_400;
+    // [seconds] 10 minutes
+    uint256 private constant DEFAULT_T_SETTLE = 600;
+    // [Q96] 3.0000%
+    uint256 private constant DEFAULT_FEE_PROTOCOL_Q96 = 236118324143482260684;
+    // [Q96] 10.0000% discharged each frame
+    uint256 private constant DEFAULT_DISCHARGE_PCT_Q96 = 79228162514264337593;
+    // [seconds] ~1.6 hours
+    uint256 private constant DEFAULT_TAX_ANCHOR_SECONDS = 5_760;
+    // [token units, not decimals-adjusted] 100 units of accounting token
+    uint256 private constant DEFAULT_LOT_STEP_T = 100;
+    // [address] Accounting USDC
+    address public constant DEFAULT_ACCOUNTING_TOKEN = 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359;
+    // [address] WETH/USDC.e Uniswap V3 pool
+    address public constant DEFAULT_UNISWAP_POOL = 0x45dDa9cb7c25131DF268515131f647d726f50608;
 
     // Length of a frame in [seconds]
     uint public period;
@@ -33,8 +41,8 @@ contract Market {
     // Settle interval for average price calculation in [seconds]
     uint public tSettle;
 
-    // Uniswap pool
-
+    // Uniswap V3 pool for price reference
+    IUniswapV3Pool public uniswapPool;
 
     // Rate range step of a lot (resolution) in Q96
     uint256 public lotRateStepQ96;
@@ -42,11 +50,8 @@ contract Market {
     // ERC20 token used for buying lots in this contract
     IERC20Metadata public accountingToken;
 
-    // Uniswap V3 pool for price reference
-    IUniswapV3Pool public uniswapPool;
-
-    // Base unit for calculations (10^decimals(accountingToken))
-    uint public immutable baseUnit;
+    // Base unit for calculations (10^decimals(accountingToken)), in token units (T)
+    uint public immutable baseUnitT;
 
     // Owner of this market
     address public owner;
@@ -90,7 +95,8 @@ contract Market {
         uint256 lotID;
         address owner;
         uint256 acquisitionPriceQ96;
-        uint256 taxQ96;
+        // Tax paid for this trade, in token units (T)
+        uint256 taxT;
         uint256 horizon;
         STrade mode;
     }
@@ -119,64 +125,81 @@ contract Market {
     event LotUpdate(Lot lot);
 
     constructor(
-        address _acct,                    // accounting token
-        address _uniswapPool,             // Uniswap V3 pool
-        uint256 _lotStepInTokenUnits,     // e.g., 100 * 10^decimals (0 => default)
-        uint256 _feeProtocolPct1e6,       // 0 => default 3.0000%
-        uint256 _dischargePct1e6,         // 0 => default 10.0000%
-        uint _period,                     // 0 => default 86400
-        uint _initTimestamp,              // 0 => default DEFAULT_INIT_TIMESTAMP
-        uint _tSettle,                    // 0 => default 600
-        uint256 _taxAnchorSeconds        // 0 => default 5760
+        address _acct,                    // accounting token (0 => DEFAULT_ACCOUNTING_TOKEN)
+        address _uniswapPool,             // Uniswap V3 pool (0 => DEFAULT_UNISWAP_POOL)
+        uint256 _lotStepInTokenUnits,     // pass "100 * 10^decimals" or 0 => DEFAULT_LOT_STEP_T * baseUnitT
+        uint256 _feeProtocolQ96,          // protocol fee as Q96 fraction; 0 => DEFAULT_FEE_PROTOCOL_Q96
+        uint256 _dischargeRateQ96,        // discharge as Q96 fraction; 0 => DEFAULT_DISCHARGE_PCT_Q96
+        uint256 _period,                  // seconds; 0 => DEFAULT_PERIOD
+        uint256 _initTimestamp,           // unix start; 0 => DEFAULT_INIT_TIMESTAMP
+        uint256 _tSettle,                 // seconds; 0 => DEFAULT_T_SETTLE
+        uint256 _taxAnchorSeconds         // seconds; 0 => DEFAULT_TAX_ANCHOR_SECONDS
     ) {
         owner = msg.sender;
 
+        // ---- External deps ----
         address acctAddr = _acct != address(0) ? _acct : DEFAULT_ACCOUNTING_TOKEN;
         address poolAddr = _uniswapPool != address(0) ? _uniswapPool : DEFAULT_UNISWAP_POOL;
 
         accountingToken = IERC20Metadata(acctAddr);
         uniswapPool = IUniswapV3Pool(poolAddr);
 
-        // base unit from token decimals
-        baseUnit = 10 ** uint256(accountingToken.decimals());
+        // ---- Token base unit (T) ----
+        uint8 dec = accountingToken.decimals();
+        require(dec <= 77, "decimals too large"); // guard 10**dec
+        baseUnitT = 10 ** uint256(dec);
 
-        // ---- Lot step → Q96 (default to 100 * baseUnit if not provided) ----
+        // ---- Time params ----
+        period = _period != 0 ? _period : DEFAULT_PERIOD;
+        require(period > 0, "period=0");
+
+        initTimestamp = _initTimestamp != 0 ? _initTimestamp : DEFAULT_INIT_TIMESTAMP;
+
+        tSettle = _tSettle != 0 ? _tSettle : DEFAULT_T_SETTLE;
+        require(tSettle > 0, "tSettle=0");
+
+        taxAnchorSeconds = _taxAnchorSeconds != 0 ? _taxAnchorSeconds : DEFAULT_TAX_ANCHOR_SECONDS;
+        require(taxAnchorSeconds > 0, "taxAnchor=0");
+
+        // ---- Lot step (T -> Q96) ----
         uint256 lotStepTokens = _lotStepInTokenUnits != 0
             ? _lotStepInTokenUnits
-            : DEFAULT_LOT_STEP_TOKENS * baseUnit;
-        lotRateStepQ96 = Math.mulDiv(lotStepTokens, FixedPoint96.Q96, baseUnit);
+            : DEFAULT_LOT_STEP_T * baseUnitT;
+        require(lotStepTokens > 0, "lotStep=0");
 
-        // ---- Fee protocol (ppm → Q96) with default ----
-        uint256 feePct = _feeProtocolPct1e6 != 0 ? _feeProtocolPct1e6 : DEFAULT_FEE_PROTOCOL_PCT_1E6;
-        require(feePct <= 1e6, "fee>100%");
-        feeProtocolQ96 = Math.mulDiv(feePct, FixedPoint96.Q96, 1e6);
+        lotRateStepQ96 = Math.mulDiv(lotStepTokens, FixedPoint96.Q96, baseUnitT);
+        require(lotRateStepQ96 > 0, "lotStepQ96=0");
 
-        // ---- Discharge rate (ppm → Q96) with default ----
-        uint256 dischargePct = _dischargePct1e6 != 0 ? _dischargePct1e6 : DEFAULT_DISCHARGE_PCT_1E6;
-        require(dischargePct <= 1e6, "discharge>100%");
-        dischargeRateQ96 = Math.mulDiv(dischargePct, FixedPoint96.Q96, 1e6);
+        // ---- Q96-native fee/discharge ----
+        feeProtocolQ96 = _feeProtocolQ96 != 0 ? _feeProtocolQ96 : DEFAULT_FEE_PROTOCOL_Q96;
+        dischargeRateQ96 = _dischargeRateQ96 != 0 ? _dischargeRateQ96 : DEFAULT_DISCHARGE_PCT_Q96;
 
-        // ---- Time-related params with defaults ----
-        period = _period != 0 ? _period : DEFAULT_PERIOD;
-        initTimestamp = _initTimestamp != 0 ? _initTimestamp : DEFAULT_INIT_TIMESTAMP;
-        tSettle = _tSettle != 0 ? _tSettle : DEFAULT_T_SETTLE;
-
-        // ---- Tax anchor seconds with default ----
-        taxAnchorSeconds = _taxAnchorSeconds != 0 ? _taxAnchorSeconds : DEFAULT_TAX_ANCHOR_SECONDS;
+        // Bounds: 0 <= value <= 1.0 (Q96)
+        require(feeProtocolQ96 <= FixedPoint96.Q96, "fee>100%");
+        require(dischargeRateQ96 <= FixedPoint96.Q96, "discharge>100%");
     }
 
-    /// @notice Pack (frameKey, lotKey) into a single uint256 lotId
+    /// @notice Packs a frame key and lot key into a single lot ID.
+    /// @param frameKey The frame key.
+    /// @param lotKey The lot key.
+    /// @return The packed lot ID.
     function packLotId(uint256 frameKey, uint256 lotKey) internal pure returns (uint256) {
         require((frameKey & ~FRAMEKEY_MASK) == 0, "frameKey too large");
         return (lotKey << FRAMEKEY_BITS) | frameKey;
     }
 
-    /// @notice Unpack lotId into (frameKey, lotKey)
+    /// @notice Unpacks a lot ID into its frame key and lot key.
+    /// @param lotId The packed lot ID.
+    /// @return frameKey The frame key.
+    /// @return lotKey The lot key.
     function unpackLotId(uint256 lotId) internal pure returns (uint256 frameKey, uint256 lotKey) {
         frameKey = lotId & FRAMEKEY_MASK;
         lotKey = lotId >> FRAMEKEY_BITS;
     }
 
+    /// @notice Returns the state of a frame.
+    /// @param frameKey The frame key.
+    /// @return The state of the frame.
     function getFrameState(uint frameKey) public view returns (SFrame){
         if (frames[frameKey].frameKey == 0) return SFrame.NULL;
         if (frames[frameKey].settlement.winner != address(0)) return SFrame.SETTLED;
@@ -185,35 +208,38 @@ contract Market {
         return SFrame.CLOSED;
     }
 
+    /// @notice Returns the state of a lot.
+    /// @param lotId The lot ID.
+    /// @return The state of the lot.
     function getLotState(uint256 lotId) public view returns (SLot) {
         Lot storage L = lots[lotId];
         if (L.lotId == 0) return SLot.NULL;
 
-        (uint256 frameKey, uint256 lotKey) = unpackLotId(lotId);
+        (uint256 frameKey, uint256 lotKeyTokens) = unpackLotId(lotId);
 
         SFrame fs = getFrameState(frameKey);
         if (fs == SFrame.NULL) return SLot.NULL;
         if (fs == SFrame.OPENED || fs == SFrame.CLOSED) return SLot.TAKEN;
 
-        uint256 settleRateQ96 = frames[frameKey].settlement.rateQ96;
-
-        // If your packed lotKey is already Q96-aligned, use it directly
-        uint256 lowerQ96 = lotKey;
+        // Convert snapped token key to Q96 range for comparison
+        uint256 lowerQ96 = toQ96(lotKeyTokens);
         uint256 upperQ96 = lowerQ96 + lotRateStepQ96;
 
-        if (settleRateQ96 >= lowerQ96 && settleRateQ96 < upperQ96) {
-            return SLot.WON;
-        }
+        uint256 settleRateQ96 = frames[frameKey].settlement.rateQ96;
+        if (settleRateQ96 >= lowerQ96 && settleRateQ96 < upperQ96) return SLot.WON;
         return SLot.LOST;
     }
 
+    /// @notice Calculates the frame key for a given timestamp.
+    /// @param timestamp The timestamp.
+    /// @return The calculated frame key.
     function clcFrameKey(uint timestamp) public view returns (uint){
         if (timestamp <= initTimestamp) return initTimestamp;
         return timestamp - ((timestamp - initTimestamp) % (period));
     }
 
     /// @notice Snap a Q96 value to the nearest lot boundary and return in token units
-    function clcLotKey(uint256 valueQ96) public view returns (uint256) {
+    function clcLotKeyT(uint256 valueQ96) public view returns (uint256) {
         uint256 valueTokens = fromQ96(valueQ96);
         uint256 stepTokens = fromQ96(lotRateStepQ96);
 
@@ -250,12 +276,12 @@ contract Market {
         return trades.length;
     }
 
-    function toQ96(uint256 amount) public view returns (uint256) {
-        return Math.mulDiv(amount, FixedPoint96.Q96, baseUnit);
+    function toQ96(uint256 amountT) public view returns (uint256) {
+        return Math.mulDiv(amountT, FixedPoint96.Q96, baseUnitT);
     }
 
     function fromQ96(uint256 x96) public view returns (uint256) {
-        return Math.mulDiv(x96, baseUnit, FixedPoint96.Q96);
+        return Math.mulDiv(x96, baseUnitT, FixedPoint96.Q96);
     }
 
     function createFrame(uint timestamp) internal returns (uint){
@@ -306,10 +332,11 @@ contract Market {
         return tauQ96;
     }
 
-    /// @notice Calculate one-time tax in Q96 for an acquisition at this frame.
-    function clcTax(uint256 frameKey, uint256 acquisitionPriceQ96) public view returns (uint256) {
+    /// @notice Calculate one-time tax in token units (T) for an acquisition at this frame.
+    function clcTaxT(uint256 frameKey, uint256 acquisitionPriceQ96) public view returns (uint256) {
         uint256 rateQ96 = getTaxRateQ96(frameKey);
-        return Math.mulDiv(rateQ96, acquisitionPriceQ96, FixedPoint96.Q96);
+        uint256 taxQ96 = Math.mulDiv(rateQ96, acquisitionPriceQ96, FixedPoint96.Q96);
+        return fromQ96(taxQ96); // convert Q96 fraction → tokens
     }
 
     function tradeLot(
@@ -320,7 +347,7 @@ contract Market {
         uint256 frameKey = clcFrameKey(timestamp);
         require(block.timestamp < frameKey + period, "Frame not open");
 
-        uint256 lotKey = clcLotKey(rateQ96);
+        uint256 lotKey = clcLotKeyT(rateQ96);
         uint256 lotId = packLotId(frameKey, lotKey);
 
         if (frames[frameKey].frameKey == 0) createFrame(timestamp);
@@ -351,11 +378,10 @@ contract Market {
         (uint256 frameKey, /*lotKey*/) = unpackLotId(lotId);
 
         uint256 horizon = getHorizon(frameKey);
-        uint256 taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
-        uint256 taxToken = fromQ96(taxQ96);
-        require(taxToken > 0, "Tax must be > 0");
-        require(accountingToken.allowance(msg.sender, address(this)) >= taxToken, "Allowance");
-        accountingToken.transferFrom(msg.sender, address(this), taxToken);
+        uint256 taxT = clcTaxT(frameKey, acquisitionPriceQ96);
+        require(taxT > 0, "Tax must be > 0");
+        require(accountingToken.allowance(msg.sender, address(this)) >= taxT, "Allowance");
+        accountingToken.transferFrom(msg.sender, address(this), taxT);
 
         require(lots[lotId].lotId == 0, "Lot exists");
         Lot storage L = lots[lotId];
@@ -368,7 +394,7 @@ contract Market {
             lotID: lotId,
             owner: msg.sender,
             acquisitionPriceQ96: acquisitionPriceQ96,
-            taxQ96: taxQ96,
+            taxT: taxT,
             horizon: horizon,
             mode: STrade.PURCHASE
         }));
@@ -393,11 +419,10 @@ contract Market {
         }
 
         uint256 horizon = getHorizon(frameKey);
-        uint256 taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
-        uint256 taxToken = fromQ96(taxQ96);
-        require(taxToken > 0, "Tax must be > 0");
-        require(accountingToken.allowance(msg.sender, address(this)) >= taxToken, "Allowance");
-        accountingToken.transferFrom(msg.sender, address(this), taxToken);
+        uint256 taxT = clcTaxT(frameKey, acquisitionPriceQ96);
+        require(taxT > 0, "Tax must be > 0");
+        require(accountingToken.allowance(msg.sender, address(this)) >= taxT, "Allowance");
+        accountingToken.transferFrom(msg.sender, address(this), taxT);
 
         trades.push(Trade({
             timestamp: uint64(block.timestamp),
@@ -405,7 +430,7 @@ contract Market {
             lotID: lotId,
             owner: msg.sender,
             acquisitionPriceQ96: acquisitionPriceQ96,
-            taxQ96: taxQ96,
+            taxT: taxT,
             horizon: horizon,
             mode: STrade.REVALUATE
         }));
@@ -432,17 +457,16 @@ contract Market {
         }
 
         uint256 horizon = getHorizon(frameKey);
-        uint256 taxQ96 = clcTax(frameKey, acquisitionPriceQ96);
-        require(taxQ96 > 0, "Tax must be > 0");
-        uint256 taxToken = fromQ96(taxQ96);
+        uint256 taxT = clcTaxT(frameKey, acquisitionPriceQ96);
+        require(taxT > 0, "Tax must be > 0");
 
         uint lastIdx2 = L.trades[L.trades.length - 1];
         uint256 lastAcqQ96 = trades[lastIdx2].acquisitionPriceQ96;
         uint256 priceToken = fromQ96(lastAcqQ96);
 
-        uint256 need = taxToken + priceToken;
+        uint256 need = taxT + priceToken;
         require(accountingToken.allowance(msg.sender, address(this)) >= need, "Allowance");
-        accountingToken.transferFrom(msg.sender, address(this), taxToken);
+        accountingToken.transferFrom(msg.sender, address(this), taxT);
         accountingToken.transferFrom(msg.sender, previousOwner, priceToken);
 
         trades.push(Trade({
@@ -451,7 +475,7 @@ contract Market {
             lotID: lotId,
             owner: msg.sender,
             acquisitionPriceQ96: acquisitionPriceQ96,
-            taxQ96: taxQ96,
+            taxT: taxT,
             horizon: horizon,
             mode : STrade.RESALE
         }));
@@ -576,107 +600,81 @@ contract Market {
 
     function settleFrame(uint256 frameKey) public returns (uint256 dischargedRewardT) {
         require(frameKey >= initTimestamp, "Before init");
-        require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
-        require(block.timestamp >= frameKey + period, "Frame not closed");
-        require(frames[frameKey].settlement.timestamp == 0, "Already settled");
-        require(frames[frameKey].settlement.rateQ96 > 0, "Rate not set");
 
-        // ---------- 1) Pull undischarged balance from the previous frame (tokens) ----------
+        Frame storage f = frames[frameKey];
+        require(f.frameKey != 0, "Frame doesn't exist");
+        require(block.timestamp >= frameKey + period, "Frame not closed");
+
+        Settlement storage s = f.settlement;
+        require(s.timestamp == 0, "Already settled");
+        require(s.rateQ96 > 0, "Rate not set");
+
+        // ---- 1) Carry from previous frame (tokens) ----
         uint256 undischargedPrevT = 0;
         uint256 prevKey = frameKey - period;
         if (prevKey >= initTimestamp) {
-            if (frames[prevKey].frameKey != 0 && frames[prevKey].settlement.timestamp == 0) {
-                require(false, string(abi.encodePacked("Previous frame not settled.")));
+            Frame storage pf = frames[prevKey];
+            if (pf.frameKey != 0 && pf.settlement.timestamp == 0) {
+                revert(string(abi.encodePacked("Previous frame not settled.")));
             }
-            undischargedPrevT = frames[prevKey].settlement.undischargedBalanceT;
+            undischargedPrevT = pf.settlement.undischargedBalanceT;
         }
 
-        // ---------- 2) Frame inflows: tax collected and fee (only on this frame's inflows) ----------
-        // Both must be TOKEN amounts (not Q96). Replace helpers with your actual implementations.
-        uint256 taxCollectedT = _sumTaxCollectedInFrameT(frameKey);  // raw HTAX inflows (tokens)
-        uint256 taxFeeT = _calculateFeeT(taxCollectedT);          // fee on HTAX inflows (tokens)
-
-        // Ensure fee <= collected (defensive)
-        if (taxFeeT > taxCollectedT) taxFeeT = taxCollectedT;
-
-        // Send fee to protocol owner (since fee does NOT go into the pot)
-        if (taxFeeT > 0) {
-            accountingToken.transfer(owner, taxFeeT);
+        // ---- 2) Inflows & fee (tokens) ----
+        s.taxCollectedT = _sumTaxCollectedInFrameT(frameKey);
+        s.taxFeeT = _calculateFeeT(s.taxCollectedT);
+        if (s.taxFeeT > s.taxCollectedT) s.taxFeeT = s.taxCollectedT; // defensive clamp
+        if (s.taxFeeT != 0) {
+            accountingToken.transfer(owner, s.taxFeeT);
         }
+        s.taxPotT = s.taxCollectedT - s.taxFeeT;
 
-        // Distributable tax this frame (tokens)
-        uint256 taxPotT = taxCollectedT - taxFeeT;
+        // ---- 3) Pool before discharge (tokens) ----
+        s.poolBalanceT = undischargedPrevT + s.taxPotT;
 
-        // ---------- 3) Pool balance BEFORE discharge (tokens) ----------
-        // poolBalanceT = undischargedPrevT + taxPotT
-        uint256 poolBalanceT = undischargedPrevT + taxPotT;
+        // ---- 4) Discharge split (tokens) ----
+        uint256 discharged = Math.mulDiv(s.poolBalanceT, dischargeRateQ96, FixedPoint96.Q96);
+        s.undischargedBalanceT = s.poolBalanceT - discharged;
 
-        // ---------- 4) Discharge split (tokens) ----------
-        // dischargedRewardT = α * poolBalanceT ; α == dischargeRateQ96 / Q96
-        // undischargedBalanceT = (1-α) * poolBalanceT
-        uint256 dischargedRewardCalcT = Math.mulDiv(
-            poolBalanceT,
-            dischargeRateQ96,
-            FixedPoint96.Q96
-        );
-        uint256 undischargedBalanceT = poolBalanceT - dischargedRewardCalcT;
-
-        // ---------- 5) Resolve winner by snapped rate ----------
-        uint256 rateQ96 = frames[frameKey].settlement.rateQ96;
-        uint256 lotKeyWinnerTokens = clcLotKey(rateQ96);
-        uint256 lotIdWinner = packLotId(frameKey, lotKeyWinnerTokens);
-
+        // ---- 5) Winner by snapped rate ----
+        uint256 lotIdWinner = packLotId(frameKey, clcLotKeyT(s.rateQ96));
         address winnerAddr = address(0);
         {
             Lot storage L = lots[lotIdWinner];
-            if (L.lotId != 0 && L.trades.length > 0) {
+            if (L.lotId != 0 && L.trades.length != 0) {
                 winnerAddr = trades[L.trades[L.trades.length - 1]].owner;
             }
         }
 
-        // ---------- 6) Payout (discharged reward leaves the pool) ----------
-        if (winnerAddr != address(0) && dischargedRewardCalcT > 0) {
-            accountingToken.transfer(winnerAddr, dischargedRewardCalcT);
-            frames[frameKey].settlement.winner = winnerAddr;
-            dischargedRewardT = dischargedRewardCalcT;
+        // ---- 6) Payout ----
+        if (winnerAddr != address(0) && discharged != 0) {
+            accountingToken.transfer(winnerAddr, discharged);
+            s.winner = winnerAddr;
+            s.dischargedRewardT = discharged;
+            dischargedRewardT = discharged;
         } else {
-            // Sentinel address to indicate no winner
-            frames[frameKey].settlement.winner = address(1);
+            s.winner = address(1); // sentinel: no winner
+            s.dischargedRewardT = 0;
             dischargedRewardT = 0;
-            // If nothing discharged, everything stays undischarged (already reflected in undischargedBalanceT)
         }
 
-        // ---------- 7) Persist settlement outputs (tokens) ----------
-        // Intermediate accounting
-        frames[frameKey].settlement.taxCollectedT = taxCollectedT;
-        frames[frameKey].settlement.taxFeeT = taxFeeT;
-        frames[frameKey].settlement.taxPotT = taxPotT;
+        // ---- 7) Metadata ----
+        s.timestamp = block.timestamp;
+        s.blockNumber = block.number;
 
-        // Pool before discharge
-        frames[frameKey].settlement.poolBalanceT = poolBalanceT;
-
-        // Discharge outputs
-        frames[frameKey].settlement.dischargedRewardT = dischargedRewardT;
-        frames[frameKey].settlement.undischargedBalanceT = undischargedBalanceT;
-
-        // Metadata
-        frames[frameKey].settlement.timestamp = block.timestamp;
-        frames[frameKey].settlement.blockNumber = block.number;
-
-        emit FrameUpdate(frames[frameKey]);
+        emit FrameUpdate(f);
         return dischargedRewardT;
     }
 
+
     /// @notice Returns total HTAX collected in this frame, in TOKEN units (T).
-    /// Internally sums Q96, converts once to reduce rounding loss.
     function _sumTaxCollectedInFrameT(uint256 frameKey) internal view returns (uint256) {
         uint[] storage idxs = frames[frameKey].trades;
-        uint256 totalTaxQ96 = 0;
+        uint256 totalTaxT = 0;
         for (uint i = 0; i < idxs.length; i++) {
-            totalTaxQ96 += trades[idxs[i]].taxQ96; // Q96
+            totalTaxT += trades[idxs[i]].taxT; // Q96
         }
-        // Convert once from Q96 -> tokens (T)
-        return fromQ96(totalTaxQ96);
+        return totalTaxT;
     }
 
     function withdrawAccountingToken(uint amount) external {
