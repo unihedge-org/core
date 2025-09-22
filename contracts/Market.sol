@@ -294,6 +294,16 @@ contract Market {
         return frameKey;
     }
 
+    function createFrameProtected(uint timestamp) internal returns (uint){
+        uint frameKey = clcFrameKey(timestamp);
+        require(frames[frameKey].frameKey == 0, "Frame already exists");
+        require(msg.sender == owner, "Only owner");
+        frames[frameKey].frameKey = frameKey;
+        framesKeys.push(frameKey);
+        emit FrameUpdate(frames[frameKey]);
+        return frameKey;
+    }
+
     function overrideFrameRate(uint256 frameKey, uint256 rateQ96) external {
         require(msg.sender == owner, "Only owner");
         require(frames[frameKey].frameKey != 0, "Frame doesn't exist");
@@ -615,7 +625,7 @@ contract Market {
         if (prevKey >= initTimestamp) {
             Frame storage pf = frames[prevKey];
             if (pf.frameKey != 0 && pf.settlement.timestamp == 0) {
-                revert(string(abi.encodePacked("Previous frame not settled.")));
+                revert("Previous frame not settled.");
             }
             undischargedPrevT = pf.settlement.undischargedBalanceT;
         }
