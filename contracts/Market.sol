@@ -5,6 +5,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {FixedPoint96} from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
+import {console} from "hardhat/console.sol";
 
 /// @author UniHedge
 
@@ -17,9 +18,9 @@ contract Market {
     // [seconds] 10 minutes
     uint256 private constant DEFAULT_T_SETTLE = 600;
     // [Q96] 3.0000%
-    uint256 private constant DEFAULT_FEE_PROTOCOL_Q96 = 236118324143482260684;
+    uint256 private constant DEFAULT_FEE_PROTOCOL_Q96 = (FixedPoint96.Q96 * 3) / 100;
     // [Q96] 10.0000% discharged each frame
-    uint256 private constant DEFAULT_DISCHARGE_PCT_Q96 = 79228162514264337593;
+    uint256 private constant DEFAULT_DISCHARGE_PCT_Q96 = FixedPoint96.Q96 / 10;
     // [seconds] ~1.6 hours
     uint256 private constant DEFAULT_TAX_ANCHOR_SECONDS = 5_760;
     // [token units, not decimals-adjusted] 100 units of accounting token
@@ -97,9 +98,17 @@ contract Market {
         uint256 acquisitionPriceQ96;
         // Tax paid for this trade, in token units (T)
         uint256 taxT;
+        // Protocol fee for this trade
+        uint256 feeT;
+        // Seconds left in the frame at the time of trade
         uint256 horizon;
+        // Trade mode (see enum)
         STrade mode;
+        // Cost in token units (T) payed out as compensation to previous owner's (if resale)
+        uint256 buyoutCostT;
     }
+
+    event TradeUpdate(Trade trade);
 
     Trade[] public trades;
 
@@ -121,7 +130,6 @@ contract Market {
 
     mapping(uint256 => Lot) public lots;
     uint256[] public lotsIds;
-
     event LotUpdate(Lot lot);
 
     constructor(
@@ -294,14 +302,13 @@ contract Market {
         return frameKey;
     }
 
-    function createFrameProtected(uint timestamp) internal returns (uint){
+    function createFrameProtected(uint timestamp) external {
         uint frameKey = clcFrameKey(timestamp);
         require(frames[frameKey].frameKey == 0, "Frame already exists");
         require(msg.sender == owner, "Only owner");
         frames[frameKey].frameKey = frameKey;
         framesKeys.push(frameKey);
         emit FrameUpdate(frames[frameKey]);
-        return frameKey;
     }
 
     function overrideFrameRate(uint256 frameKey, uint256 rateQ96) external {
@@ -378,6 +385,15 @@ contract Market {
                 resaleLot(lotId, acquisitionPriceQ96, activeFrameKey, currentOwner);
             }
         }
+
+        //Emit FrameUpdate event
+        emit FrameUpdate(frames[activeFrameKey]);
+
+        //Emit tradeUpdate event
+        emit TradeUpdate(trades[trades.length - 1]);
+
+        //Emit LotUpdate event
+        emit LotUpdate(L);
     }
 
     function purchaseLot(
@@ -391,12 +407,15 @@ contract Market {
         uint256 taxT = clcTaxT(frameKey, acquisitionPriceQ96);
         require(taxT > 0, "Tax must be > 0");
         require(accountingToken.allowance(msg.sender, address(this)) >= taxT, "Allowance");
-        accountingToken.transferFrom(msg.sender, address(this), taxT);
-
         require(lots[lotId].lotId == 0, "Lot exists");
-        Lot storage L = lots[lotId];
+
+
+    Lot storage L = lots[lotId];
         L.lotId = lotId;
         lotsIds.push(lotId);
+
+        uint256 feeT = _calculateFeeT(taxT);
+        if (feeT > taxT) feeT = taxT;        // safety clamp
 
         trades.push(Trade({
             timestamp: uint64(block.timestamp),
@@ -405,13 +424,17 @@ contract Market {
             owner: msg.sender,
             acquisitionPriceQ96: acquisitionPriceQ96,
             taxT: taxT,
+            feeT: feeT,
             horizon: horizon,
-            mode: STrade.PURCHASE
+            mode: STrade.PURCHASE,
+            buyoutCostT: 0
         }));
         uint idx = trades.length - 1;
 
         frames[activeFrameKey].trades.push(idx);
         L.trades.push(idx);
+
+        accountingToken.transferFrom(msg.sender, address(this), taxT);
     }
 
     function revaluateLot(
@@ -432,7 +455,9 @@ contract Market {
         uint256 taxT = clcTaxT(frameKey, acquisitionPriceQ96);
         require(taxT > 0, "Tax must be > 0");
         require(accountingToken.allowance(msg.sender, address(this)) >= taxT, "Allowance");
-        accountingToken.transferFrom(msg.sender, address(this), taxT);
+
+        uint256 feeT = _calculateFeeT(taxT);
+        if (feeT > taxT) feeT = taxT;        // safety clamp
 
         trades.push(Trade({
             timestamp: uint64(block.timestamp),
@@ -441,13 +466,18 @@ contract Market {
             owner: msg.sender,
             acquisitionPriceQ96: acquisitionPriceQ96,
             taxT: taxT,
+            feeT: feeT,
             horizon: horizon,
-            mode: STrade.REVALUATE
+            mode: STrade.REVALUATE,
+            buyoutCostT: 0
         }));
         uint idx = trades.length - 1;
 
         frames[activeFrameKey].trades.push(idx);
         L.trades.push(idx);
+
+        accountingToken.transferFrom(msg.sender, address(this), taxT);
+
     }
 
     function resaleLot(
@@ -470,6 +500,9 @@ contract Market {
         uint256 taxT = clcTaxT(frameKey, acquisitionPriceQ96);
         require(taxT > 0, "Tax must be > 0");
 
+        uint256 feeT = _calculateFeeT(taxT);
+        if (feeT > taxT) feeT = taxT;        // safety clamp
+
         uint lastIdx2 = L.trades[L.trades.length - 1];
         uint256 lastAcqQ96 = trades[lastIdx2].acquisitionPriceQ96;
         uint256 priceToken = fromQ96(lastAcqQ96);
@@ -486,8 +519,10 @@ contract Market {
             owner: msg.sender,
             acquisitionPriceQ96: acquisitionPriceQ96,
             taxT: taxT,
+            feeT: feeT,
             horizon: horizon,
-            mode : STrade.RESALE
+            mode: STrade.RESALE,
+            buyoutCostT: priceToken
         }));
         uint idx = trades.length - 1;
 
@@ -622,8 +657,10 @@ contract Market {
         // ---- 1) Carry from previous frame (tokens) ----
         uint256 undischargedPrevT = 0;
         uint256 prevKey = frameKey - period;
+
         if (prevKey >= initTimestamp) {
             Frame storage pf = frames[prevKey];
+
             if (pf.frameKey != 0 && pf.settlement.timestamp == 0) {
                 revert("Previous frame not settled.");
             }
@@ -632,8 +669,11 @@ contract Market {
 
         // ---- 2) Inflows & fee (tokens) ----
         s.taxCollectedT = _sumTaxCollectedInFrameT(frameKey);
-        s.taxFeeT = _calculateFeeT(s.taxCollectedT);
-        if (s.taxFeeT > s.taxCollectedT) s.taxFeeT = s.taxCollectedT; // defensive clamp
+        s.taxFeeT = _sumFeeInFrameT(frameKey);
+
+        if (s.taxFeeT > s.taxCollectedT) {
+            s.taxFeeT = s.taxCollectedT; // clamp
+        }
         if (s.taxFeeT != 0) {
             accountingToken.transfer(owner, s.taxFeeT);
         }
@@ -644,36 +684,43 @@ contract Market {
 
         // ---- 4) Discharge split (tokens) ----
         uint256 discharged = Math.mulDiv(s.poolBalanceT, dischargeRateQ96, FixedPoint96.Q96);
-        s.undischargedBalanceT = s.poolBalanceT - discharged;
 
         // ---- 5) Winner by snapped rate ----
-        uint256 lotIdWinner = packLotId(frameKey, clcLotKeyT(s.rateQ96));
+        uint256 snappedLotKeyT = clcLotKeyT(s.rateQ96);
+        uint256 lotIdWinner = packLotId(frameKey, snappedLotKeyT);
+
         address winnerAddr = address(0);
         {
             Lot storage L = lots[lotIdWinner];
             if (L.lotId != 0 && L.trades.length != 0) {
-                winnerAddr = trades[L.trades[L.trades.length - 1]].owner;
+                uint lastIdx = L.trades[L.trades.length - 1];
+                winnerAddr = trades[lastIdx].owner;
             }
         }
 
         // ---- 6) Payout ----
-        if (winnerAddr != address(0) && discharged != 0) {
-            accountingToken.transfer(winnerAddr, discharged);
-            s.winner = winnerAddr;
-            s.dischargedRewardT = discharged;
-            dischargedRewardT = discharged;
+        // If we have a winner, pay them. Otherwise, pay the owner.
+        // In both cases, discharged leaves the contract; undischarged is carried forward.
+        if (discharged != 0) {
+            address payoutTo = (winnerAddr != address(0)) ? winnerAddr : owner;
+            accountingToken.transfer(payoutTo, discharged);
+
+            s.winner = payoutTo;              // record actual recipient
+            s.dischargedRewardT = discharged; // what left the pool
         } else {
-            s.winner = address(1); // sentinel: no winner
+            s.winner = (winnerAddr != address(0)) ? winnerAddr : owner; // cosmetic when discharged==0
             s.dischargedRewardT = 0;
-            dischargedRewardT = 0;
         }
+        s.undischargedBalanceT = s.poolBalanceT - s.dischargedRewardT;
+
 
         // ---- 7) Metadata ----
         s.timestamp = block.timestamp;
         s.blockNumber = block.number;
 
         emit FrameUpdate(f);
-        return dischargedRewardT;
+
+        return s.dischargedRewardT;
     }
 
 
@@ -687,6 +734,13 @@ contract Market {
         return totalTaxT;
     }
 
+    function _sumFeeInFrameT(uint256 frameKey) internal view returns (uint256) {
+        uint[] storage idxs = frames[frameKey].trades;
+        uint256 total;
+        for (uint i = 0; i < idxs.length; i++) total += trades[idxs[i]].feeT;
+        return total;
+    }
+
     function withdrawAccountingToken(uint amount) external {
         require(msg.sender == owner, "Only owner can withdraw accounting token");
         accountingToken.transfer(owner, amount);
@@ -697,4 +751,20 @@ contract Market {
         // fee = amountT * (feeProtocolQ96 / Q96)
         return Math.mulDiv(amountT, feeProtocolQ96, FixedPoint96.Q96);
     }
+
+    function previewTaxAndFee(uint256 frameKey, uint256 acquisitionPriceQ96)
+    external view returns (uint256 taxT, uint256 feeT)
+    {
+        taxT = clcTaxT(frameKey, acquisitionPriceQ96);
+        feeT = _calculateFeeT(taxT);
+        if (feeT > taxT) feeT = taxT;
+    }
+
+    function frameUndischargedPrev(uint256 frameKey) external view returns (uint256) {
+        uint256 prevKey = frameKey - period;
+        if (prevKey < initTimestamp) return 0;
+        Frame storage pf = frames[prevKey];
+        return pf.settlement.undischargedBalanceT;
+    }
+
 }

@@ -54,7 +54,8 @@ async function getTokenBaseUnit(publicClient: any, token: `0x${string}`) {
 describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async function () {
     const { viem } = await network.connect(); // run with: npx hardhat test --network polygonFork
     const publicClient = await viem.getPublicClient();
-    const [wallet] = await viem.getWalletClients();
+    // ⬇️ Use two wallets
+    const [deployer, trader] = await viem.getWalletClients();
 
     let beforeUsdc!: bigint;
     let market: any;
@@ -67,14 +68,14 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
             throw new Error("Missing WMATIC_ADDRESS, ACCOUNTING_TOKEN_ADDRESS (USDC), or UNISWAP_ROUTER_ADDRESS in .env");
 
         // bump past the exact fork block (avoids historical-hardfork issues)
-        await wallet.sendTransaction({ to: wallet.account.address, value: 0n });
+        await trader.sendTransaction({ to: trader.account.address, value: 0n });
 
         // record initial USDC balance
         beforeUsdc = (await publicClient.readContract({
             address: USDC,
             abi: erc20Abi,
             functionName: "balanceOf",
-            args: [wallet.account.address],
+            args: [trader.account.address],
         })) as bigint;
 
         const bu = await getTokenBaseUnit(publicClient, USDC);
@@ -88,7 +89,7 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
     async function swapExactInputSingle(fee: number) {
         const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
 
-        const txHash = await wallet.writeContract({
+        const txHash = await trader.writeContract({
             address: ROUTER,
             abi: ROUTER_ABI,
             functionName: "exactInputSingle",
@@ -96,7 +97,7 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
                 tokenIn: WMATIC,
                 tokenOut: USDC,
                 fee,
-                recipient: wallet.account.address,
+                recipient: trader.account.address,
                 deadline,
                 amountIn: AMOUNT_IN_NATIVE,
                 amountOutMinimum: 0n, // demo only — set slippage guard in production
@@ -121,7 +122,7 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
             address: USDC,
             abi: erc20Abi,
             functionName: "balanceOf",
-            args: [wallet.account.address],
+            args: [trader.account.address],
         })) as bigint;
 
         const received = afterUsdc - beforeUsdc;
@@ -139,17 +140,22 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
         //  uint256 _feeProtocolQ96, uint256 _dischargeRateQ96,
         //  uint256 _period, uint256 _initTimestamp, uint256 _tSettle,
         //  uint256 _taxAnchorSeconds)
-        market = await viem.deployContract("Market", [
-            "0x0000000000000000000000000000000000000000", // _acct => DEFAULT_ACCOUNTING_TOKEN
-            "0x0000000000000000000000000000000000000000", // _uniswapPool => DEFAULT_UNISWAP_POOL
-            0n, // _lotStepInTokenUnits  => default 100 tokens
-            0n, // _feeProtocolQ96       => default 3.0000% (Q96)
-            0n, // _dischargeRateQ96     => default 10.0000% (Q96)
-            0n, // _period               => default 86_400
-            0n, // _initTimestamp        => default contract const
-            0n, // _tSettle              => default 600
-            0n, // _taxAnchorSeconds     => default 5_760
-        ]);
+        // --- deploy using DEPLOYER wallet client ---
+        const deployHash = await deployer.deployContract({
+            abi: MARKET_ABI,
+            bytecode: MarketJson.bytecode as `0x${string}`,
+            args: [
+                "0x0000000000000000000000000000000000000000", // _acct
+                "0x0000000000000000000000000000000000000000", // _uniswapPool
+                0n, 0n, 0n, 0n, 0n, 0n, 0n,
+            ],
+            account: deployer.account, // <-- allowed here
+        });
+
+        const deployRcpt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
+        const marketAddress = deployRcpt.contractAddress as `0x${string}`;
+
+        market = await viem.getContractAt("Market", marketAddress);
 
         assert.ok(market?.address, "Deployment failed (no address returned)");
         console.log("✅ Deployed Market at:", market.address);
@@ -163,18 +169,18 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
 
     it("approves 0.5 USDC for Market to spend (for 50% tax on 1 USDC)", async () => {
         const spender = market.address as `0x${string}`;
-        const needed = baseUnit / 2n; // 0.5 USDC in token units
+        const needed = baseUnit * 2n; // 0.5 USDC in token units
 
         // Check current allowance
         const current = (await publicClient.readContract({
             address: USDC,
             abi: erc20Abi,
             functionName: "allowance",
-            args: [wallet.account.address, spender],
+            args: [trader.account.address, spender],
         })) as bigint;
 
         if (current < needed) {
-            const txHash = await wallet.writeContract({
+            const txHash = await trader.writeContract({
                 address: USDC,
                 abi: erc20Abi,
                 functionName: "approve",
@@ -188,7 +194,7 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
             address: USDC,
             abi: erc20Abi,
             functionName: "allowance",
-            args: [wallet.account.address, spender],
+            args: [trader.account.address, spender],
         })) as bigint;
 
         console.log(`✅ Approved USDC allowance for Market: ${Number(post) / Number(baseUnit)} USDC`);
@@ -256,11 +262,11 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
 
         // Parameters
         const timestamp = nowTs;          // any timestamp inside this frame
-        const rateQ96 = 4000n * Q96;      // price signal = 4000
+        const rateQ96 = 3600n * Q96;      // price signal = 4000
         const acquisitionPriceQ96 = Q96;  // acquisition price = 1 USDC
 
         // Execute tradeLot
-        const txHash = await wallet.writeContract({
+        const txHash = await trader.writeContract({
             address: market.address as `0x${string}`,
             abi: MARKET_ABI,
             functionName: "tradeLot",
@@ -270,7 +276,8 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
         const rcpt = await publicClient.getTransactionReceipt({ hash: txHash });
         console.log(`\n✅ tradeLot executed at frameKey=${frameKey.toString()}`);
         console.log(`   timestamp:           ${timestamp.toString()} (${new Date(Number(timestamp) * 1000).toISOString()})`);
-        console.log(`   rateQ96:             ${rateQ96.toString()} (== 4000)`);
+        console.log(`   rateQ96:             ${rateQ96.toString()} `);
+        console.log(`   rate:                ${Number(rateQ96) / Number(Q96)} `);
         console.log(`   acquisitionPriceQ96: ${acquisitionPriceQ96.toString()} (== 1 USDC)`);
         assert.equal(rcpt.status, "success", "tradeLot transaction failed");
     });
@@ -302,7 +309,7 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
         await publicClient.transport.request({ method: "evm_mine", params: [] });
 
         // set the frame rate (required before settle)
-        const txHash = await wallet.writeContract({
+        const txHash = await trader.writeContract({
             address: market.address as `0x${string}`,
             abi: MARKET_ABI,
             functionName: "setFrameRate",
@@ -331,4 +338,98 @@ describe("Swap 100 native → USDC, then deploy Market, then clcTax path", async
         console.log(`   Settled rateQ96: ${settledRateQ96.toString()}`);
         console.log(`   Settled rate:    ${settledRate}`);
     });
+
+    it("settles the purchased frame and verifies accounting/payout", async () => {
+        assert.ok(purchasedFrameKey, "purchasedFrameKey not set");
+
+        // 1) Make sure we are safely past frame end (we already jumped to next frame in previous test)
+        //    Optionally nudge time forward a bit to avoid edge conditions.
+        const blkBefore = await publicClient.getBlock({ blockTag: "latest" });
+        await publicClient.transport.request({
+            method: "evm_setNextBlockTimestamp",
+            params: [Number(blkBefore.timestamp + 5n)],
+        });
+        await publicClient.transport.request({ method: "evm_mine", params: [] });
+
+        // 2) Snapshot wallet balance before settle (for payout check)
+        const usdcBefore = (await publicClient.readContract({
+            address: USDC,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [trader.account.address],
+        })) as bigint;
+
+        // 3) Settle the frame
+        const txHash = await trader.writeContract({
+            address: market.address as `0x${string}`,
+            abi: MARKET_ABI,
+            functionName: "settleFrame",
+            args: [purchasedFrameKey],
+        });
+        const rcpt = await publicClient.getTransactionReceipt({ hash: txHash });
+        assert.equal(rcpt.status, "success", "settleFrame failed");
+
+        // 4) Read back the frame & settlement
+        const frame = (await publicClient.readContract({
+            address: market.address as `0x${string}`,
+            abi: MARKET_ABI,
+            functionName: "getFrame",
+            args: [purchasedFrameKey],
+        })) as any;
+
+        const s = frame?.settlement ?? frame?.[2];
+        assert.ok(s, "Settlement missing");
+
+        // Extract fields (supports both named & tuple returns)
+        const winner: `0x${string}` = (s.winner ?? s[2]) as `0x${string}`;
+        const rateQ96: bigint = (s.rateQ96 ?? s[3]) as bigint;
+        const taxCollectedT: bigint = (s.taxCollectedT ?? s[4]) as bigint;
+        const taxFeeT: bigint = (s.taxFeeT ?? s[5]) as bigint;
+        const taxPotT: bigint = (s.taxPotT ?? s[6]) as bigint;
+        const poolBalanceT: bigint = (s.poolBalanceT ?? s[7]) as bigint;
+        const dischargedRewardT: bigint = (s.dischargedRewardT ?? s[8]) as bigint;
+        const undischargedBalanceT: bigint = (s.undischargedBalanceT ?? s[9]) as bigint;
+        const settledTs: bigint = (s.timestamp ?? s[0]) as bigint;
+
+        // 5) Basic assertions
+        assert(rateQ96 > 0n, "rateQ96 should be set (> 0)");
+        assert(settledTs > 0n, "settlement timestamp should be set");
+        assert(taxCollectedT >= 0n, "taxCollectedT negative?");
+        assert(taxFeeT >= 0n && taxFeeT <= taxCollectedT, "fee out of bounds");
+        assert.equal(taxPotT, taxCollectedT - taxFeeT, "taxPotT mismatch");
+        assert.equal(poolBalanceT, taxPotT + 0n /* no prev carry expected here */, "poolBalanceT unexpected");
+        assert(poolBalanceT >= dischargedRewardT, "discharged exceeds pool");
+        assert.equal(poolBalanceT - dischargedRewardT, undischargedBalanceT, "undischarged mismatch");
+        assert.ok(winner !== "0x0000000000000000000000000000000000000000", "winner should not be zero (sentinel is 0x1)");
+
+        // 6) If we are the winner, confirm payout hit our balance
+        const usdcAfter = (await publicClient.readContract({
+            address: USDC,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [trader.account.address],
+        })) as bigint;
+
+        if (winner.toLowerCase() === trader.account.address.toLowerCase()) {
+            const delta = usdcAfter - usdcBefore;
+            assert.equal(delta, dischargedRewardT, "winner did not receive discharged reward exactly");
+        } else {
+            // No win: balance should be unchanged by settle (fees already moved to owner in settle)
+            assert.equal(usdcAfter, usdcBefore, "non-winner balance changed unexpectedly");
+        }
+
+        // 7) Log human-friendly numbers
+        const toUnits = (x: bigint) => Number(x) / Number(baseUnit);
+        console.log("\n🧮 Settle results:");
+        console.log(`   winner:              ${winner}`);
+        console.log(`   taxCollected (T):    ${toUnits(taxCollectedT)}`);
+        console.log(`   taxFee (T):          ${toUnits(taxFeeT)}`);
+        console.log(`   taxPot (T):          ${toUnits(taxPotT)}`);
+        console.log(`   poolBalance (T):     ${toUnits(poolBalanceT)}`);
+        console.log(`   dischargedReward (T):${toUnits(dischargedRewardT)}`);
+        console.log(`   undischarged (T):    ${toUnits(undischargedBalanceT)}`);
+    });
+
+
+
 });
