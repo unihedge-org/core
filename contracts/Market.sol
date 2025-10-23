@@ -636,7 +636,8 @@ contract Market {
         require(frames[frameKey].settlement.timestamp == 0, "Already settled");
         require(frames[frameKey].settlement.rateQ96 == 0, "Rate already set");
 
-        uint256 rateQ96 = clcRateAvgQ96(frameKey);
+        uint256 frameEnd = frameKey + period;
+        uint256 rateQ96 = clcRateAvgQ96(frameEnd);
         require(rateQ96 <= type(uint256).max, "rateQ96 overflow");
         frames[frameKey].settlement.rateQ96 = uint256(rateQ96);
 
